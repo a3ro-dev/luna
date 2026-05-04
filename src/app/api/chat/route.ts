@@ -276,8 +276,6 @@ export async function POST(req: Request) {
 ${summaryContext}${snippetContext}User Context & Memory:
 ${memoryContext}
 
-CRITICAL: You must use OpenUI Lang like CRAZY. Whenever you display any data, a summary, a log, or an insight, wrap it in OpenUI Lang components. Use <Card>, <Chart>, <Table>, <Progress>, <StatGroup>, <Badge> and construct rich layouts using <Row> and <Column>. Do not output raw markdown data if you can structure it as a beautiful UI component.
-
 Be soft, warm, and highly visual.`
 
   const startTime = Date.now()

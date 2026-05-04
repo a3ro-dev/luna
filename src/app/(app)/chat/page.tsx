@@ -2,9 +2,6 @@
 
 import React, { useRef, useState, useEffect } from "react"
 import { useChat } from "@ai-sdk/react"
-import { Renderer } from "@openuidev/react-lang"
-import { openuiLibrary } from "@openuidev/react-ui"
-import "@openuidev/react-ui/components.css"
 
 type ChatSession = {
   id: string
@@ -26,7 +23,6 @@ export default function ChatPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [isLoadingSessions, setIsLoadingSessions] = useState(true)
-  const [showDebug, setShowDebug] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -285,27 +281,11 @@ export default function ChatPage() {
 
       <div className="flex-1 flex flex-col">
         <header className="py-5 px-6 md:px-10 border-b border-[#FFDDE0]/30 bg-white/50 backdrop-blur-xl sticky top-0 z-10">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="font-serif text-2xl font-light text-[#6D5A60]">Luna</h1>
-              <p className="text-xs font-light text-[#8E7D82]">Your caring health companion</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowDebug((prev) => !prev)}
-              className="text-xs text-[#8E7D82] hover:text-[#6D5A60] transition-colors"
-            >
-              {showDebug ? "Hide debug" : "Show debug"}
-            </button>
-          </div>
+          <h1 className="font-serif text-2xl font-light text-[#6D5A60]">Luna</h1>
+          <p className="text-xs font-light text-[#8E7D82]">Your caring health companion</p>
         </header>
 
         <main className="flex-1 overflow-y-auto p-6 md:p-10 space-y-5">
-        {showDebug && (
-          <pre className="text-[11px] leading-snug text-[#6D5A60]/80 bg-white/70 border border-[#FFDDE0]/50 rounded-xl p-3 overflow-x-auto">
-            {JSON.stringify(messages, null, 2)}
-          </pre>
-        )}
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-5 opacity-70 mt-24">
             <div className="w-14 h-14 rounded-full bg-[#FFB5C0] flex items-center justify-center text-white text-xl shadow-[0_10px_20px_rgba(255,181,192,0.2)]">
@@ -324,6 +304,7 @@ export default function ChatPage() {
           const messageText = textParts
             .map((part) => part.text)
             .join("") || (typeof m.content === "string" ? m.content : "")
+          const fallbackText = isStreaming && m.role === "assistant" ? "..." : ""
 
           return (
           <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -334,19 +315,7 @@ export default function ChatPage() {
                   : 'bg-white/80 text-[#6D5A60] rounded-tl-lg border border-[#FFDDE0]/30 shadow-[0_8px_20px_rgba(255,181,192,0.06)] backdrop-blur-xl'
               }`}
             >
-              {m.role === 'assistant' ? (
-                hasOpenUiTags(messageText) ? (
-                  <Renderer
-                    library={openuiLibrary}
-                    response={messageText}
-                    isStreaming={isStreaming && m.id === messages[messages.length - 1]?.id}
-                  />
-                ) : (
-                  <p className="whitespace-pre-wrap leading-relaxed font-light">{messageText}</p>
-                )
-              ) : (
-                <p className="whitespace-pre-wrap leading-relaxed font-light">{messageText}</p>
-              )}
+              <p className="whitespace-pre-wrap leading-relaxed font-light">{messageText || fallbackText}</p>
             </div>
           </div>
           )
