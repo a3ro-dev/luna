@@ -6,8 +6,15 @@ import { Renderer } from "@openuidev/react-lang"
 import { openuiLibrary } from "@openuidev/react-ui"
 import "@openuidev/react-ui/components.css"
 
+type ChatSession = {
+  id: string
+  title: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export default function ChatPage() {
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, status, setMessages } = useChat({
     api: "/api/chat"
   })
 
@@ -16,12 +23,54 @@ export default function ChatPage() {
   const [input, setInput] = useState("")
   const [images, setImages] = useState<File[]>([])
   const [totalImagesInContext, setTotalImagesInContext] = useState(0)
+  const [sessions, setSessions] = useState<ChatSession[]>([])
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  const loadSessions = async () => {
+    const res = await fetch("/api/chat/sessions")
+    if (!res.ok) return []
+    return (await res.json()) as ChatSession[]
+  }
+
+  const loadSessionMessages = async (sessionId: string) => {
+    const res = await fetch(`/api/chat/sessions/${sessionId}/messages`)
+    if (!res.ok) return []
+    return await res.json()
+  }
+
+  const createSession = async () => {
+    const res = await fetch("/api/chat/sessions", { method: "POST" })
+    if (!res.ok) return null
+    return (await res.json()) as ChatSession
+  }
+
+  useEffect(() => {
+    const bootstrap = async () => {
+      setIsLoadingSessions(true)
+      const loadedSessions = await loadSessions()
+      let nextSessions = loadedSessions
+      if (loadedSessions.length === 0) {
+        const created = await createSession()
+        nextSessions = created ? [created] : []
+      }
+      setSessions(nextSessions)
+      if (nextSessions.length > 0) {
+        setActiveSessionId(nextSessions[0].id)
+        const initialMessages = await loadSessionMessages(nextSessions[0].id)
+        setMessages(initialMessages)
+      }
+      setIsLoadingSessions(false)
+    }
+
+    bootstrap()
+  }, [setMessages])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -58,6 +107,15 @@ export default function ChatPage() {
     if (trimmedInput.length === 0 && images.length === 0) {
       return
     }
+    let sessionId = activeSessionId
+    if (!sessionId) {
+      const created = await createSession()
+      if (!created) return
+      setSessions((prev) => [created, ...prev])
+      setActiveSessionId(created.id)
+      setMessages([])
+      sessionId = created.id
+    }
     if (totalImagesInContext + images.length > 10) {
       alert("Maximum 10 images allowed per conversation context.")
       return
@@ -80,24 +138,86 @@ export default function ChatPage() {
         : [])
     ]
 
-    sendMessage({
-      role: "user",
-      parts,
-    })
+    sendMessage(
+      {
+        role: "user",
+        parts,
+      },
+      {
+        body: {
+          sessionId,
+        }
+      }
+    )
     setInput("")
     setImages([])
+  }
+
+  const handleSelectSession = async (sessionId: string) => {
+    if (sessionId === activeSessionId) return
+    setActiveSessionId(sessionId)
+    setMessages([])
+    const sessionMessages = await loadSessionMessages(sessionId)
+    setMessages(sessionMessages)
+  }
+
+  const handleNewSession = async () => {
+    const created = await createSession()
+    if (!created) return
+    setSessions((prev) => [created, ...prev])
+    setActiveSessionId(created.id)
+    setMessages([])
   }
 
   const isStreaming = status === "streaming"
 
   return (
-    <div className="min-h-screen bg-[#FFF9F9] flex flex-col font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
-      <header className="py-5 px-6 md:px-10 border-b border-[#FFDDE0]/30 bg-white/50 backdrop-blur-xl sticky top-0 z-10">
-        <h1 className="font-serif text-2xl font-light text-[#6D5A60]">Luna</h1>
-        <p className="text-xs font-light text-[#8E7D82]">Your caring health companion</p>
-      </header>
+    <div className="min-h-screen bg-[#FFF9F9] flex font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
+      <aside className="w-[240px] shrink-0 border-r border-[#FFDDE0]/40 bg-white/60 backdrop-blur-xl px-4 py-6 hidden md:flex md:flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-serif text-base text-[#6D5A60]">Chats</h2>
+          <button
+            type="button"
+            onClick={handleNewSession}
+            className="text-xs text-[#8E7D82] hover:text-[#6D5A60] transition-colors"
+          >
+            New
+          </button>
+        </div>
+        <div className="space-y-2 overflow-y-auto">
+          {isLoadingSessions && (
+            <div className="text-xs text-[#8E7D82]/60">Loading...</div>
+          )}
+          {!isLoadingSessions && sessions.length === 0 && (
+            <div className="text-xs text-[#8E7D82]/60">No chats yet</div>
+          )}
+          {sessions.map((session) => {
+            const isActive = session.id === activeSessionId
+            return (
+              <button
+                key={session.id}
+                type="button"
+                onClick={() => handleSelectSession(session.id)}
+                className={`w-full text-left rounded-xl px-3 py-2 text-sm transition-colors ${
+                  isActive
+                    ? "bg-[#FFEEF1] text-[#6D5A60]"
+                    : "text-[#8E7D82] hover:bg-[#FFF5F7]"
+                }`}
+              >
+                {session.title || "Untitled chat"}
+              </button>
+            )
+          })}
+        </div>
+      </aside>
 
-      <main className="flex-1 overflow-y-auto p-6 md:p-10 space-y-5">
+      <div className="flex-1 flex flex-col">
+        <header className="py-5 px-6 md:px-10 border-b border-[#FFDDE0]/30 bg-white/50 backdrop-blur-xl sticky top-0 z-10">
+          <h1 className="font-serif text-2xl font-light text-[#6D5A60]">Luna</h1>
+          <p className="text-xs font-light text-[#8E7D82]">Your caring health companion</p>
+        </header>
+
+        <main className="flex-1 overflow-y-auto p-6 md:p-10 space-y-5">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-5 opacity-70 mt-24">
             <div className="w-14 h-14 rounded-full bg-[#FFB5C0] flex items-center justify-center text-white text-xl shadow-[0_10px_20px_rgba(255,181,192,0.2)]">
@@ -149,10 +269,10 @@ export default function ChatPage() {
           </div>
         )}
         <div ref={messagesEndRef} />
-      </main>
+        </main>
 
-      <div className="p-5 bg-white/60 border-t border-[#FFDDE0]/20 backdrop-blur-xl">
-        <form onSubmit={onSubmit} className="max-w-3xl mx-auto">
+        <div className="p-5 bg-white/60 border-t border-[#FFDDE0]/20 backdrop-blur-xl">
+          <form onSubmit={onSubmit} className="max-w-3xl mx-auto">
           {images.length > 0 && (
             <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
               {images.map((file, i) => (
@@ -183,7 +303,8 @@ export default function ChatPage() {
             <span className="text-[10px] text-[#8E7D82]/50">{totalImagesInContext}/10 images this session</span>
             <span className="text-[10px] text-[#8E7D82]/30">Luna can make mistakes. Verify important info.</span>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   )
