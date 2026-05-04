@@ -284,7 +284,7 @@ Be soft, warm, and highly visual.`
   const modelName = "x-ai/grok-4.3"
 
   const result = await streamText({
-    model: hackClubAI(modelName),
+    model: hackClubAI.chat(modelName),
     system: systemPrompt,
     messages: await convertToModelMessages(recentMessages),
     // Note: passing web_search plugin conceptually (may require provider-specific config in real environment)

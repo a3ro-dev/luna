@@ -26,6 +26,7 @@ export default function ChatPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [isLoadingSessions, setIsLoadingSessions] = useState(true)
+  const [showDebug, setShowDebug] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -49,6 +50,21 @@ export default function ChatPage() {
     const res = await fetch("/api/chat/sessions", { method: "POST" })
     if (!res.ok) return null
     return (await res.json()) as ChatSession
+  }
+
+  const renameSession = async (sessionId: string) => {
+    const res = await fetch(`/api/chat/sessions/${sessionId}/rename`, {
+      method: "POST",
+    })
+    if (!res.ok) return null
+    return (await res.json()) as ChatSession
+  }
+
+  const deleteSession = async (sessionId: string) => {
+    const res = await fetch(`/api/chat/sessions/${sessionId}`, {
+      method: "DELETE",
+    })
+    return res.ok
   }
 
   useEffect(() => {
@@ -169,7 +185,43 @@ export default function ChatPage() {
     setMessages([])
   }
 
+  const handleRenameSession = async (sessionId: string) => {
+    const updated = await renameSession(sessionId)
+    if (!updated) return
+    setSessions((prev) =>
+      prev.map((session) => (session.id === updated.id ? updated : session))
+    )
+  }
+
+  const handleDeleteSession = async (sessionId: string) => {
+    const confirmed = window.confirm("Delete this chat? This cannot be undone.")
+    if (!confirmed) return
+    const ok = await deleteSession(sessionId)
+    if (!ok) return
+
+    let nextActiveId: string | null = null
+    setSessions((prev) => {
+      const remaining = prev.filter((session) => session.id !== sessionId)
+      if (activeSessionId === sessionId) {
+        nextActiveId = remaining[0]?.id ?? null
+      }
+      return remaining
+    })
+
+    if (activeSessionId === sessionId) {
+      if (nextActiveId) {
+        setActiveSessionId(nextActiveId)
+        const nextMessages = await loadSessionMessages(nextActiveId)
+        setMessages(nextMessages)
+      } else {
+        setActiveSessionId(null)
+        setMessages([])
+      }
+    }
+  }
+
   const isStreaming = status === "streaming"
+  const hasOpenUiTags = (value: string) => /<\/?(Card|Chart|Table|Progress|StatGroup|Badge|Row|Column)\b/.test(value)
 
   return (
     <div className="min-h-screen bg-[#FFF9F9] flex font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
@@ -194,18 +246,38 @@ export default function ChatPage() {
           {sessions.map((session) => {
             const isActive = session.id === activeSessionId
             return (
-              <button
+              <div
                 key={session.id}
-                type="button"
-                onClick={() => handleSelectSession(session.id)}
-                className={`w-full text-left rounded-xl px-3 py-2 text-sm transition-colors ${
+                className={`w-full rounded-xl px-3 py-2 text-sm transition-colors ${
                   isActive
                     ? "bg-[#FFEEF1] text-[#6D5A60]"
                     : "text-[#8E7D82] hover:bg-[#FFF5F7]"
                 }`}
               >
-                {session.title || "Untitled chat"}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectSession(session.id)}
+                  className="w-full text-left"
+                >
+                  {session.title || "Untitled chat"}
+                </button>
+                <div className="flex items-center justify-end gap-2 mt-2 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => handleRenameSession(session.id)}
+                    className="text-[#8E7D82] hover:text-[#6D5A60]"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSession(session.id)}
+                    className="text-[#B08C92] hover:text-[#6D5A60]"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
             )
           })}
         </div>
@@ -213,11 +285,27 @@ export default function ChatPage() {
 
       <div className="flex-1 flex flex-col">
         <header className="py-5 px-6 md:px-10 border-b border-[#FFDDE0]/30 bg-white/50 backdrop-blur-xl sticky top-0 z-10">
-          <h1 className="font-serif text-2xl font-light text-[#6D5A60]">Luna</h1>
-          <p className="text-xs font-light text-[#8E7D82]">Your caring health companion</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="font-serif text-2xl font-light text-[#6D5A60]">Luna</h1>
+              <p className="text-xs font-light text-[#8E7D82]">Your caring health companion</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDebug((prev) => !prev)}
+              className="text-xs text-[#8E7D82] hover:text-[#6D5A60] transition-colors"
+            >
+              {showDebug ? "Hide debug" : "Show debug"}
+            </button>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-6 md:p-10 space-y-5">
+        {showDebug && (
+          <pre className="text-[11px] leading-snug text-[#6D5A60]/80 bg-white/70 border border-[#FFDDE0]/50 rounded-xl p-3 overflow-x-auto">
+            {JSON.stringify(messages, null, 2)}
+          </pre>
+        )}
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-5 opacity-70 mt-24">
             <div className="w-14 h-14 rounded-full bg-[#FFB5C0] flex items-center justify-center text-white text-xl shadow-[0_10px_20px_rgba(255,181,192,0.2)]">
@@ -230,12 +318,12 @@ export default function ChatPage() {
         )}
 
         {messages.map(m => {
-          const messageText = Array.isArray(m.parts)
-            ? m.parts
-                .filter((part) => part.type === "text")
-                .map((part) => part.text)
-                .join("")
-            : (m.content ?? "")
+          const textParts = Array.isArray(m.parts)
+            ? m.parts.filter((part) => part.type === "text")
+            : []
+          const messageText = textParts
+            .map((part) => part.text)
+            .join("") || (typeof m.content === "string" ? m.content : "")
 
           return (
           <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -247,11 +335,15 @@ export default function ChatPage() {
               }`}
             >
               {m.role === 'assistant' ? (
-                <Renderer
-                  library={openuiLibrary}
-                  response={messageText}
-                  isStreaming={isStreaming && m.id === messages[messages.length - 1]?.id}
-                />
+                hasOpenUiTags(messageText) ? (
+                  <Renderer
+                    library={openuiLibrary}
+                    response={messageText}
+                    isStreaming={isStreaming && m.id === messages[messages.length - 1]?.id}
+                  />
+                ) : (
+                  <p className="whitespace-pre-wrap leading-relaxed font-light">{messageText}</p>
+                )
               ) : (
                 <p className="whitespace-pre-wrap leading-relaxed font-light">{messageText}</p>
               )}

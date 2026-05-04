@@ -5,8 +5,9 @@ import { and, asc, eq } from "drizzle-orm"
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   const session = await auth()
   const userId = session?.user?.id
 
@@ -17,7 +18,7 @@ export async function GET(
   const sessionRow = await db
     .select()
     .from(chatSessions)
-    .where(and(eq(chatSessions.id, params.id), eq(chatSessions.userId, userId)))
+    .where(and(eq(chatSessions.id, id), eq(chatSessions.userId, userId)))
     .limit(1)
 
   if (sessionRow.length === 0) {
@@ -27,7 +28,7 @@ export async function GET(
   const rows = await db
     .select()
     .from(chatMessages)
-    .where(eq(chatMessages.sessionId, params.id))
+    .where(eq(chatMessages.sessionId, id))
     .orderBy(asc(chatMessages.createdAt))
 
   const messages = rows.map((row) => ({
