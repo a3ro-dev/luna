@@ -1,317 +1,436 @@
-"use client"
+"use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef } from "react";
 import Link from "next/link";
+import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useGSAP } from "@gsap/react";
-import { Calendar, Heart, Moon, Sparkles } from "lucide-react";
+import { CalendarDays, HeartPulse, MessageCircleHeart, Moon, Sparkles } from "lucide-react";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger, useGSAP);
 }
 
+const palette = {
+  cream: "#FCFBFB",
+  blush: "#F7C4C8",
+  rose: "#F4A6A6",
+  mauve: "#5A4A4D",
+  dusk: "#7A6A6D",
+  lavender: "#B4A6C4",
+  honey: "#EBCB8B",
+};
+
+const phases = [
+  {
+    label: "Day 01",
+    title: "A soft place to start",
+    body: "Log your period, symptoms, or a messy feeling in plain language. Luna turns it into gentle structure.",
+    icon: HeartPulse,
+    color: palette.rose,
+  },
+  {
+    label: "Day 14",
+    title: "Predictions that breathe",
+    body: "Cycle and ovulation windows adapt as your rhythm changes, with confidence shown calmly instead of pretending certainty.",
+    icon: CalendarDays,
+    color: palette.blush,
+  },
+  {
+    label: "Anytime",
+    title: "A companion with memory",
+    body: "Ask questions, revisit patterns, and let Luna remember the small details that make your body feel less random.",
+    icon: MessageCircleHeart,
+    color: palette.lavender,
+  },
+];
+
+const moments = [
+  "cramps after coffee",
+  "energy came back",
+  "spotting, mid-cycle",
+  "felt tender today",
+  "sleep was heavy",
+  "ovulation test photo",
+];
+
 export default function Home() {
-  const container = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
+  const heroCopyRef = useRef<HTMLDivElement>(null);
+  const heroPhoneRef = useRef<HTMLDivElement>(null);
+  const heroWashRef = useRef<HTMLDivElement>(null);
+  const heroBandRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+  const phaseRef = useRef<HTMLElement>(null);
+  const phaseTextRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const ribbonRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const quoteRef = useRef<HTMLElement>(null);
+  const quoteImageRef = useRef<HTMLDivElement>(null);
+  const ctaRef = useRef<HTMLElement>(null);
 
-  // Hero Refs
-  const heroRef = useRef<HTMLDivElement>(null);
-  const heroTextContainerRef = useRef<HTMLDivElement>(null);
-  const heroTitleRef = useRef<HTMLHeadingElement>(null);
-  const heroDescRef = useRef<HTMLParagraphElement>(null);
-  const heroBgRef = useRef<HTMLDivElement>(null);
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
 
-  // Feature Refs
-  const featuresContainerRef = useRef<HTMLDivElement>(null);
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        gsap.set(progressRef.current, { scaleX: 0, transformOrigin: "left center" });
+        gsap.to(progressRef.current, {
+          scaleX: 1,
+          ease: "none",
+          scrollTrigger: {
+            trigger: rootRef.current,
+            start: "top top",
+            end: "bottom bottom",
+            scrub: 0.2,
+          },
+        });
 
-  // Narrative Refs
-  const narrativeContainerRef = useRef<HTMLDivElement>(null);
-  const narrativeText1Ref = useRef<HTMLDivElement>(null);
-  const narrativeText2Ref = useRef<HTMLDivElement>(null);
-  const narrativeText3Ref = useRef<HTMLDivElement>(null);
-
-  // Parallax & CTA
-  const parallaxRef = useRef<HTMLDivElement>(null);
-  const parallaxBgRef = useRef<HTMLDivElement>(null);
-  const ctaBtnRef = useRef<HTMLAnchorElement>(null);
-
-  useGSAP(() => {
-    const mm = gsap.matchMedia();
-
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
-
-      // 1. HERO SECTION (Load Animation)
-      // Animate the inner elements on load to prevent conflict with ScrollTrigger
-      gsap.from([heroTitleRef.current, heroDescRef.current], {
-        opacity: 0,
-        y: 40,
-        filter: "blur(8px)",
-        duration: 1.2,
-        stagger: 0.2,
-        ease: "power3.out"
-      });
-
-      // Pin hero and fade/translate the CONTAINER on scroll
-      const heroTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: heroRef.current,
-          start: "top top",
-          end: "+=100%",
-          scrub: true,
-          pin: true,
-        }
-      });
-
-      heroTl.to(heroBgRef.current, {
-        scale: 1.1,
-        opacity: 0.6,
-        ease: "none"
-      }, 0)
-        .to(heroTextContainerRef.current, {
+        gsap.from([heroCopyRef.current, heroPhoneRef.current], {
           opacity: 0,
-          y: -80,
-          ease: "none"
-        }, 0);
+          y: 36,
+          filter: "blur(12px)",
+          duration: 1.1,
+          stagger: 0.16,
+          ease: "power4.out",
+        });
 
-      // 2. TYPOGRAPHIC FEATURE REVEAL
-      gsap.utils.toArray<HTMLElement>('.feature-row').forEach((row, i) => {
-        gsap.fromTo(row,
-          { opacity: 0, x: i % 2 === 0 ? -40 : 40, filter: "blur(8px)" },
+        const heroTl = gsap.timeline({
+          scrollTrigger: {
+            trigger: heroRef.current,
+            start: "top top",
+            end: "+=130%",
+            scrub: 0.7,
+            pin: true,
+          },
+        });
+
+        heroTl
+          .to(heroWashRef.current, { yPercent: 12, scale: 1.14, ease: "none" }, 0)
+          .to(heroBandRef.current, { yPercent: -22, rotate: -4, ease: "none" }, 0)
+          .to(heroPhoneRef.current, { yPercent: -18, rotate: 2.5, ease: "none" }, 0)
+          .to(heroCopyRef.current, { yPercent: -10, opacity: 0.2, filter: "blur(4px)", ease: "none" }, 0.12);
+
+        const canvas = canvasRef.current;
+        const context = canvas?.getContext("2d");
+        if (canvas && context) {
+          const frameCount = 428;
+          const frames = { frame: 0 };
+          const images: HTMLImageElement[] = [];
+
+          const drawFrame = () => {
+            const image = images[Math.round(frames.frame)];
+            if (!image?.complete || !image.naturalWidth) return;
+
+            const scale = Math.max(canvas.width / image.width, canvas.height / image.height);
+            const width = image.width * scale;
+            const height = image.height * scale;
+            const x = (canvas.width - width) / 2;
+            const y = (canvas.height - height) / 2;
+
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(image, x, y, width, height);
+          };
+
+          for (let index = 0; index < frameCount; index += 1) {
+            const image = new Image();
+            image.src = `/frames/frame_${String(index + 1).padStart(4, "0")}.jpg`;
+            if (index === 0) image.onload = drawFrame;
+            images.push(image);
+          }
+
+          const phaseTl = gsap.timeline({
+            scrollTrigger: {
+              trigger: phaseRef.current,
+              start: "top top",
+              end: "+=320%",
+              scrub: 0.45,
+              pin: true,
+            },
+          });
+
+          phaseTl
+            .set(phaseTextRefs.current, { opacity: 0, y: 40, filter: "blur(10px)" })
+            .set(phaseTextRefs.current[0], { opacity: 1, y: 0, filter: "blur(0px)" });
+
+          phases.forEach((_, index) => {
+            const current = phaseTextRefs.current[index];
+            const next = phaseTextRefs.current[index + 1];
+
+            if (index > 0) return;
+
+            phaseTl
+              .to(current, { opacity: 0, y: -34, filter: "blur(8px)", duration: 0.9 }, "+=0.35")
+              .to(next, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.9 }, "<0.18");
+          });
+
+          phaseTl
+            .to(phaseTextRefs.current[1], { opacity: 0, y: -34, filter: "blur(8px)", duration: 0.9 }, "+=0.45")
+            .to(phaseTextRefs.current[2], { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.9 }, "<0.18");
+
+          gsap.to(frames, {
+            frame: frameCount - 1,
+            snap: "frame",
+            ease: "none",
+            scrollTrigger: {
+              trigger: phaseRef.current,
+              start: "top top",
+              end: "+=320%",
+              scrub: 0.15,
+            },
+            onUpdate: drawFrame,
+          });
+        }
+
+        ribbonRefs.current.forEach((ribbon, index) => {
+          gsap.to(ribbon, {
+            yPercent: index % 2 === 0 ? -28 : 24,
+            xPercent: index % 2 === 0 ? 8 : -8,
+            ease: "none",
+            scrollTrigger: {
+              trigger: ribbon,
+              start: "top bottom",
+              end: "bottom top",
+              scrub: 0.8,
+            },
+          });
+        });
+
+        gsap.to(quoteImageRef.current, {
+          yPercent: 18,
+          scale: 1.08,
+          ease: "none",
+          scrollTrigger: {
+            trigger: quoteRef.current,
+            start: "top bottom",
+            end: "bottom top",
+            scrub: 0.8,
+          },
+        });
+
+        gsap.fromTo(
+          ctaRef.current,
+          { opacity: 0, y: 48, filter: "blur(10px)" },
           {
             opacity: 1,
-            x: 0,
+            y: 0,
             filter: "blur(0px)",
             duration: 1,
-            ease: "power3.out",
+            ease: "power4.out",
             scrollTrigger: {
-              trigger: row,
-              start: "top 85%",
+              trigger: ctaRef.current,
+              start: "top 74%",
               once: true,
-            }
-          }
+            },
+          },
         );
       });
 
-      // 3. STICKY SCROLL NARRATIVE
-      // Use explicit fromTo for all states to guarantee perfect reversing
-      const narrativeTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: narrativeContainerRef.current,
-          start: "top top",
-          end: "+=300%",
-          scrub: true,
-          pin: true,
-        }
-      });
-
-      narrativeTl
-        // Ensure Text 1 is fully visible at start
-        .set(narrativeText1Ref.current, { opacity: 1, y: 0 })
-        .set([narrativeText2Ref.current, narrativeText3Ref.current], { opacity: 0, y: 40 })
-
-        // Step 1 leaves, Step 2 enters
-        .to(narrativeText1Ref.current, { opacity: 0, y: -40, duration: 1 })
-        .to(narrativeText2Ref.current, { opacity: 1, y: 0, duration: 1 }, "<0.2")
-
-        // Hold Step 2
-        .to({}, { duration: 0.5 })
-
-        // Step 2 leaves, Step 3 enters
-        .to(narrativeText2Ref.current, { opacity: 0, y: -40, duration: 1 })
-        .to(narrativeText3Ref.current, { opacity: 1, y: 0, duration: 1 }, "<0.2");
-
-      // CANVAS IMAGE SEQUENCE SCRUBBING
-      const canvas = document.querySelector("#video-canvas") as HTMLCanvasElement;
-      if (canvas) {
-        const context = canvas.getContext("2d");
-        const FRAME_COUNT = 428;
-        const currentFrame = (index: number) => `/frames/frame_${(index + 1).toString().padStart(4, '0')}.jpg`;
-        const images: HTMLImageElement[] = [];
-        const frames = { frame: 0 };
-
-        for (let i = 0; i < FRAME_COUNT; i++) {
-          const img = new Image();
-          img.src = currentFrame(i);
-          images.push(img);
-        }
-
-        const render = () => {
-          if (images[Math.round(frames.frame)] && context) {
-            context.clearRect(0, 0, canvas.width, canvas.height);
-            const img = images[Math.round(frames.frame)];
-            // No 1.25x scaling to preserve original pixel quality!
-            const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
-            const x = (canvas.width / 2) - (img.width / 2) * scale;
-            const y = (canvas.height / 2) - (img.height / 2) * scale;
-            context.drawImage(img, x, y, img.width * scale, img.height * scale);
-          }
-        };
-
-        images[0].onload = render;
-
-        gsap.to(frames, {
-          frame: FRAME_COUNT - 1,
-          snap: "frame",
-          ease: "none",
-          scrollTrigger: {
-            trigger: narrativeContainerRef.current,
-            start: "top top",
-            end: "+=300%",
-            scrub: 0.1, // Faster scrub response
-          },
-          onUpdate: render,
-        });
-      }
-
-      // 4. PARALLAX MEDIA
-      gsap.to(parallaxBgRef.current, {
-        scrollTrigger: {
-          trigger: parallaxRef.current,
-          start: "top bottom",
-          end: "bottom top",
-          scrub: true,
-        },
-        y: "15%",
-        ease: "none"
-      });
-
-      // 5. CTA SECTION
-      gsap.fromTo(ctaBtnRef.current,
-        { scale: 0.9, opacity: 0, y: 20 },
-        {
-          scale: 1,
-          opacity: 1,
-          y: 0,
-          duration: 0.8,
-          ease: "back.out(1.5)",
-          scrollTrigger: {
-            trigger: ctaBtnRef.current,
-            start: "top 90%",
-            once: true,
-          }
-        }
-      );
-
-    });
-
-    return () => mm.revert();
-  }, { scope: container });
+      return () => mm.revert();
+    },
+    { scope: rootRef },
+  );
 
   return (
-    <div ref={container} className="bg-[#FCFBFB] font-sans selection:bg-[#F7C4C8] selection:text-white overflow-x-hidden">
+    <main
+      ref={rootRef}
+      className="min-h-screen overflow-x-hidden bg-[#FCFBFB] font-sans text-[#5A4A4D] selection:bg-[#F7C4C8] selection:text-[#FCFBFB]"
+    >
+      <div className="fixed left-0 top-0 z-50 h-1 w-full bg-[#F7C4C8]/20">
+        <div ref={progressRef} className="h-full w-full bg-[#F4A6A6]" />
+      </div>
 
-      {/* 1. HERO SECTION */}
-      <section ref={heroRef} className="relative h-screen w-full flex flex-col items-center justify-center z-10">
-        <div
-          ref={heroBgRef}
-          className="absolute inset-[-10%] w-[120%] h-[120%] bg-gradient-to-br from-[#FCFBFB] via-[#F7C4C8]/20 to-[#FCFBFB] -z-10 will-change-transform"
-        />
-
-        <div ref={heroTextContainerRef} className="text-center px-6 will-change-transform max-w-4xl">
-          <h1 ref={heroTitleRef} className="font-serif text-7xl md:text-[9rem] text-[#5A4A4D] mb-6 tracking-tight leading-none drop-shadow-sm">
-            Luna
-          </h1>
-          <p ref={heroDescRef} className="text-xl md:text-3xl text-[#7A6A6D] opacity-90 max-w-2xl mx-auto font-medium leading-relaxed">
-            Your beautiful, intelligent cycle tracker. Designed for peace of mind.
-          </p>
-        </div>
-      </section>
-
-      {/* 2. TYPOGRAPHIC FEATURE REVEAL */}
-      <section ref={featuresContainerRef} className="py-40 px-6 md:px-24 max-w-6xl mx-auto z-10 relative">
-        <div className="mb-32 max-w-2xl">
-          <h2 className="font-serif text-5xl md:text-6xl text-[#5A4A4D] mb-6 tracking-tight">Intelligently soft.</h2>
-          <p className="text-2xl text-[#7A6A6D] opacity-80 leading-relaxed font-medium">
-            Everything you need, nothing you don't. We stripped away the visual clutter of traditional trackers so you can focus on how you actually feel.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-24 md:gap-32">
-          {[
-            { num: "01", title: "Cycle Predictions", desc: "Adaptive algorithms learn your unique rhythm. Luna gets smarter with every cycle you log, providing accurate windows without the stress.", icon: <Calendar className="text-[#F4A6A6] w-8 h-8" /> },
-            { num: "02", title: "Symptom Tracking", desc: "Log your moods, pain levels, and energy naturally via chat. No more overwhelming forms or identical symptom bubbles to tap.", icon: <Heart className="text-[#F4A6A6] w-8 h-8" /> },
-            { num: "03", title: "Luna AI", desc: "A supportive, gentle companion available 24/7. She remembers your unique history to give you the clarity you deserve.", icon: <Sparkles className="text-[#EBCB8B] w-8 h-8" /> }
-          ].map((feature, i) => (
-            <div key={i} className="feature-row will-change-transform flex flex-col md:flex-row items-start gap-8 md:gap-16">
-              <span className="font-serif text-[#F7C4C8] text-6xl md:text-8xl opacity-40 tracking-tighter leading-none shrink-0 mt-2">
-                {feature.num}
-              </span>
-              <div className="max-w-xl">
-                <div className="bg-[#F7C4C8]/15 w-16 h-16 flex items-center justify-center rounded-[1.25rem] mb-8 shadow-sm">
-                  {feature.icon}
-                </div>
-                <h3 className="font-serif text-4xl text-[#5A4A4D] mb-4">{feature.title}</h3>
-                <p className="text-[#7A6A6D] text-xl opacity-90 leading-relaxed font-medium">{feature.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 3. STICKY SCROLL NARRATIVE */}
-      <section ref={narrativeContainerRef} className="h-screen w-full relative bg-white/50 flex items-center overflow-hidden z-10 border-y border-[#F7C4C8]/10">
-
-        {/* Left Side: Video Canvas Frame */}
-        <div className="w-full md:w-1/2 h-full flex items-center justify-center p-8 md:p-12 absolute md:relative opacity-20 md:opacity-100 -z-10 md:z-auto">
-          <div className="w-full max-w-lg aspect-[3/4] bg-[#FCFBFB] rounded-[2.5rem] shadow-[0_30px_60px_rgba(247,196,200,0.3)] border-8 border-white relative overflow-hidden flex items-center justify-center">
-            <canvas id="video-canvas" width="1080" height="1920" className="absolute w-full h-full object-cover" />
-
-            {/* Gradient Mask to hide bottom watermark gracefully without scaling */}
-            <div className="absolute bottom-0 w-full h-32 bg-gradient-to-t from-white via-white/80 to-transparent z-10 pointer-events-none" />
-          </div>
-        </div>
-
-        {/* Right Side: Swapping Text */}
-        <div className="w-full md:w-1/2 h-full relative flex flex-col justify-center px-8 md:px-24 pointer-events-none">
-          <div ref={narrativeText1Ref} className="absolute w-full max-w-lg pr-12 will-change-transform">
-            <Moon className="w-12 h-12 text-[#B4A6C4] mb-8" />
-            <h2 className="font-serif text-5xl md:text-6xl text-[#5A4A4D] mb-6 leading-tight tracking-tight">Understand your phases.</h2>
-            <p className="text-2xl text-[#7A6A6D] opacity-90 leading-relaxed font-medium">Luna guides you through the menstrual, follicular, ovulatory, and luteal phases with gentle, actionable insights.</p>
-          </div>
-
-          <div ref={narrativeText2Ref} className="absolute w-full max-w-lg pr-12 opacity-0 will-change-transform">
-            <Heart className="w-12 h-12 text-[#F4A6A6] mb-8" />
-            <h2 className="font-serif text-5xl md:text-6xl text-[#5A4A4D] mb-6 leading-tight tracking-tight">Listen to your body.</h2>
-            <p className="text-2xl text-[#7A6A6D] opacity-90 leading-relaxed font-medium">Track cramps, mood swings, and energy levels seamlessly through natural, open-ended conversation.</p>
-          </div>
-
-          <div ref={narrativeText3Ref} className="absolute w-full max-w-lg pr-12 opacity-0 will-change-transform">
-            <Sparkles className="w-12 h-12 text-[#EBCB8B] mb-8" />
-            <h2 className="font-serif text-5xl md:text-6xl text-[#5A4A4D] mb-6 leading-tight tracking-tight">Spot your patterns.</h2>
-            <p className="text-2xl text-[#7A6A6D] opacity-90 leading-relaxed font-medium">Luna gently remembers your history, helping you connect the dots over time with deeply personalized clarity.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. PARALLAX MEDIA */}
-      <section ref={parallaxRef} className="relative h-[70vh] w-full overflow-hidden flex items-center justify-center z-10 mt-32">
-        <div
-          ref={parallaxBgRef}
-          className="absolute inset-[-20%] w-[140%] h-[140%] bg-[#F7C4C8]/20 will-change-transform"
-        >
-          <div className="w-full h-full opacity-60 bg-[url('https://images.unsplash.com/photo-1518895949257-7621c3c786d7?q=80&w=2576&auto=format&fit=crop')] bg-cover bg-center mix-blend-multiply" />
-        </div>
-        <div className="relative z-20 text-center px-6">
-          <h2 className="font-serif text-6xl md:text-[8rem] text-white drop-shadow-md mb-6 leading-none">Breathe.</h2>
-          <p className="text-white/95 text-2xl md:text-3xl max-w-2xl mx-auto font-medium drop-shadow-sm">Your cycle shouldn't be stressful.</p>
-        </div>
-      </section>
-
-      {/* 5. CTA SECTION */}
-      <section className="py-40 px-6 text-center z-10 relative bg-[#FCFBFB]">
-        <h2 className="font-serif text-5xl md:text-7xl text-[#5A4A4D] mb-12 tracking-tight">Ready to meet Luna?</h2>
+      <header className="fixed left-0 right-0 top-0 z-40 flex items-center justify-between px-5 py-5 md:px-10">
+        <Link href="/" className="font-serif text-3xl leading-none text-[#5A4A4D]">
+          Luna
+        </Link>
         <Link
           href="/login"
-          ref={ctaBtnRef as any}
-          className="inline-flex h-16 items-center justify-center rounded-full bg-[#F7C4C8] hover:bg-[#F4A6A6] px-14 font-bold text-white shadow-lg shadow-[#F7C4C8]/30 transition-transform will-change-transform text-lg"
+          className="rounded-full border border-[#F7C4C8]/70 bg-[#FCFBFB]/90 px-5 py-2.5 text-sm font-bold text-[#5A4A4D] shadow-[0_10px_30px_rgba(247,196,200,0.2)] transition hover:border-[#F4A6A6] hover:text-[#9D6269]"
         >
-          Start Tracking
+          Start
         </Link>
+      </header>
+
+      <section ref={heroRef} className="relative flex min-h-screen items-center overflow-hidden px-5 pt-24 md:px-12">
+        <div
+          ref={heroWashRef}
+          className="absolute inset-0 bg-[radial-gradient(70%_60%_at_72%_28%,rgba(247,196,200,0.38),transparent_68%),linear-gradient(125deg,#FCFBFB_0%,#FBECEF_44%,#FCFBFB_88%)]"
+        />
+        <div
+          ref={heroBandRef}
+          className="absolute left-[-16vw] top-[18vh] h-[32vh] w-[140vw] rotate-[-8deg] bg-[#F7C4C8]/24"
+        />
+        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-10 md:grid-cols-[1.05fr_0.95fr]">
+          <div ref={heroCopyRef} className="max-w-3xl will-change-transform">
+            <p className="mb-5 w-fit rounded-full border border-[#F7C4C8]/70 bg-[#FCFBFB]/70 px-4 py-2 text-sm font-bold text-[#9D6269]">
+              Cycle tracking, softened
+            </p>
+            <h1 className="font-serif text-[clamp(5.5rem,18vw,14rem)] leading-[0.78] tracking-normal text-[#5A4A4D]">
+              Luna
+            </h1>
+            <p className="mt-8 max-w-2xl text-[clamp(1.35rem,3vw,2.55rem)] font-medium leading-[1.12] text-[#7A6A6D]">
+              A beautiful cycle tracker that learns your rhythm without making your body feel like a dashboard.
+            </p>
+            <div className="mt-10 flex flex-wrap gap-3">
+              {["private by design", "gentle predictions", "AI memory"].map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full bg-[#F7C4C8]/24 px-4 py-2 text-sm font-bold text-[#765D62]"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div ref={heroPhoneRef} className="relative mx-auto flex w-full max-w-[29rem] justify-center will-change-transform">
+            <div className="absolute -left-8 top-16 h-40 w-20 rotate-[-14deg] rounded-[999px] bg-[#B4A6C4]/30" />
+            <div className="absolute -right-5 bottom-20 h-52 w-24 rotate-[18deg] rounded-[999px] bg-[#EBCB8B]/28" />
+            <div className="relative aspect-[9/16] w-[min(78vw,24rem)] overflow-hidden rounded-[2.2rem] border-[10px] border-[#FCFBFB] bg-[#FCFBFB] shadow-[0_32px_90px_rgba(247,196,200,0.45)]">
+              <video
+                className="h-full w-full object-cover"
+                autoPlay
+                muted
+                loop
+                playsInline
+                poster="/frames/frame_0001.jpg"
+              >
+                <source src="/video.mp4" type="video/mp4" />
+              </video>
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#FCFBFB] via-[#FCFBFB]/76 to-transparent px-6 pb-6 pt-24">
+                <p className="font-serif text-4xl leading-none text-[#5A4A4D]">Today feels tender.</p>
+                <p className="mt-3 text-sm font-bold text-[#7A6A6D]/80">Logged with Luna</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <footer className="py-12 text-center text-sm font-medium text-[#7A6A6D] opacity-50 z-10 relative border-t border-[#F7C4C8]/20">
-        <p>© {new Date().getFullYear()} Luna. Designed with precision & motion.</p>
+      <section className="relative px-5 py-28 md:px-12 md:py-40">
+        <div
+          ref={(element) => {
+            ribbonRefs.current[0] = element;
+          }}
+          className="absolute right-[-22vw] top-12 h-28 w-[70vw] rotate-[-10deg] rounded-full bg-[#F7C4C8]/28"
+        />
+        <div
+          ref={(element) => {
+            ribbonRefs.current[1] = element;
+          }}
+          className="absolute bottom-24 left-[-18vw] h-24 w-[62vw] rotate-[9deg] rounded-full bg-[#B4A6C4]/18"
+        />
+        <div className="relative mx-auto grid max-w-7xl gap-12 md:grid-cols-[0.75fr_1.25fr]">
+          <div className="max-w-md">
+            <Moon className="mb-8 h-10 w-10 text-[#B4A6C4]" />
+            <h2 className="font-serif text-[clamp(3.4rem,8vw,7rem)] leading-[0.9] text-[#5A4A4D]">
+              Softer than a form.
+            </h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {moments.map((moment, index) => (
+              <div
+                key={moment}
+                className={`min-h-28 rounded-[2rem] border border-[#F7C4C8]/45 px-6 py-5 shadow-[0_18px_60px_rgba(247,196,200,0.12)] ${
+                  index % 3 === 0 ? "bg-[#F7C4C8]/18" : index % 3 === 1 ? "bg-[#FCFBFB]" : "bg-[#EBCB8B]/16"
+                }`}
+              >
+                <p className="text-sm font-bold text-[#9D6269]">quick log</p>
+                <p className="mt-3 font-serif text-3xl leading-none text-[#5A4A4D]">{moment}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section
+        ref={phaseRef}
+        className="relative flex min-h-screen items-center overflow-hidden border-y border-[#F7C4C8]/30 bg-[#FBECEF] px-5 py-20 md:px-12"
+      >
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(252,251,251,0.7),transparent_42%),radial-gradient(65%_55%_at_82%_65%,rgba(180,166,196,0.2),transparent_65%)]" />
+        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 md:grid-cols-[0.9fr_1.1fr]">
+          <div className="relative order-2 h-[58vh] min-h-[27rem] md:order-1">
+            {phases.map((phase, index) => {
+              const Icon = phase.icon;
+
+              return (
+                <div
+                  key={phase.title}
+                  ref={(element) => {
+                    phaseTextRefs.current[index] = element;
+                  }}
+                  className="absolute inset-0 flex max-w-xl flex-col justify-center will-change-transform"
+                >
+                  <Icon className="mb-7 h-11 w-11" style={{ color: phase.color }} />
+                  <p className="mb-5 text-sm font-bold uppercase tracking-[0.18em] text-[#9D6269]">{phase.label}</p>
+                  <h2 className="font-serif text-[clamp(3.25rem,7vw,6.5rem)] leading-[0.92] text-[#5A4A4D]">
+                    {phase.title}
+                  </h2>
+                  <p className="mt-7 max-w-lg text-xl font-medium leading-relaxed text-[#7A6A6D] md:text-2xl">
+                    {phase.body}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="order-1 mx-auto flex w-full max-w-[28rem] justify-center md:order-2">
+            <div className="relative aspect-[9/16] w-[min(72vw,23rem)] overflow-hidden rounded-[2.4rem] border-[10px] border-[#FCFBFB] bg-[#FCFBFB] shadow-[0_34px_90px_rgba(90,74,77,0.16)]">
+              <canvas ref={canvasRef} width={1080} height={1920} className="h-full w-full object-cover" />
+              <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-[#FCFBFB]/70 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-[#FCFBFB] via-[#FCFBFB]/84 to-transparent px-6 pb-6 pt-28">
+                <div>
+                  <p className="text-sm font-bold text-[#9D6269]">window</p>
+                  <p className="font-serif text-4xl leading-none text-[#5A4A4D]">calm clarity</p>
+                </div>
+                <Sparkles className="h-7 w-7 text-[#EBCB8B]" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section ref={quoteRef} className="relative min-h-[86vh] overflow-hidden px-5 py-32 md:px-12">
+        <div
+          ref={quoteImageRef}
+          className="absolute inset-[-10%] bg-[linear-gradient(rgba(90,74,77,0.12),rgba(90,74,77,0.18)),url('https://images.unsplash.com/photo-1518895949257-7621c3c786d7?q=80&w=2576&auto=format&fit=crop')] bg-cover bg-center"
+        />
+        <div className="absolute inset-0 bg-[#F7C4C8]/42 mix-blend-screen" />
+        <div className="relative mx-auto flex min-h-[62vh] max-w-7xl items-end">
+          <div className="max-w-4xl">
+            <p className="mb-6 text-sm font-bold uppercase tracking-[0.18em] text-[#FCFBFB] drop-shadow">
+              Less noise, more knowing
+            </p>
+            <h2 className="font-serif text-[clamp(4rem,10vw,9.5rem)] leading-[0.88] text-[#FCFBFB] drop-shadow-[0_12px_30px_rgba(90,74,77,0.24)]">
+              Your body can feel familiar again.
+            </h2>
+          </div>
+        </div>
+      </section>
+
+      <section ref={ctaRef} className="relative overflow-hidden bg-[#FCFBFB] px-5 py-32 text-center md:px-12 md:py-44">
+        <div className="absolute left-1/2 top-20 h-28 w-[78vw] -translate-x-1/2 rotate-[-5deg] rounded-full bg-[#F7C4C8]/24" />
+        <div className="relative mx-auto max-w-4xl">
+          <Sparkles className="mx-auto mb-8 h-10 w-10 text-[#EBCB8B]" />
+          <h2 className="font-serif text-[clamp(3.8rem,9vw,8rem)] leading-[0.9] text-[#5A4A4D]">
+            Meet Luna gently.
+          </h2>
+          <p className="mx-auto mt-7 max-w-2xl text-xl font-medium leading-relaxed text-[#7A6A6D] md:text-2xl">
+            Start with one log. Luna will learn the rest slowly, privately, and with care.
+          </p>
+          <Link
+            href="/login"
+            className="mt-10 inline-flex h-16 items-center justify-center rounded-full bg-[#F7C4C8] px-12 text-lg font-bold text-[#FCFBFB] shadow-[0_20px_50px_rgba(247,196,200,0.45)] transition hover:-translate-y-0.5 hover:bg-[#F4A6A6]"
+          >
+            Start Tracking
+          </Link>
+        </div>
+      </section>
+
+      <footer className="border-t border-[#F7C4C8]/25 bg-[#FCFBFB] px-5 py-10 text-center text-sm font-bold text-[#7A6A6D]/55">
+        Luna, {new Date().getFullYear()}. Designed with precision and motion.
       </footer>
-    </div>
+    </main>
   );
 }
