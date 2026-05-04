@@ -1,0 +1,63 @@
+import { pgTable, text, timestamp, integer, uuid, date, boolean, jsonb, real, unique } from "drizzle-orm/pg-core";
+
+export const users = pgTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash"),
+  name: text("name"),
+  image: text("image"),
+  timezone: text("timezone").default("UTC"),
+  weekStart: integer("week_start").default(1), // 0=Sun, 1=Mon
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const cycles = pgTable("cycles", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  mStart: date("m_start").notNull(),
+  mEnd: date("m_end"),
+  ovulationDate: date("ovulation_date"),
+  cycleLength: integer("cycle_length"), // derived: this.mStart - prev.mStart
+  periodLength: integer("period_length"), // derived: mEnd - mStart
+  follicularLength: integer("follicular_length"), // derived: ovulation - mEnd
+  lutealLength: integer("luteal_length"), // derived: nextStart - ovulation
+  isAnomaly: boolean("is_anomaly").default(false), // flagged by skip gate
+  notes: jsonb("notes").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const predictionParams = pgTable(
+  "prediction_params",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    paramName: text("param_name").notNull(), // cycle_length | period_length | follicular | luteal | alpha
+    smoothedValue: real("smoothed_value").notNull(),
+    variance: real("variance").notNull().default(0),
+    sampleCount: integer("sample_count").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    userParamUnique: unique().on(t.userId, t.paramName),
+  })
+);
+
+export const aiTraces = pgTable("ai_traces", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  model: text("model").notNull(),
+  inputTokens: integer("input_tokens"),
+  outputTokens: integer("output_tokens"),
+  costUsd: real("cost_usd"),
+  latencyMs: integer("latency_ms"),
+  feature: text("feature").notNull(), // "chat" | "predict" | "log_parse" | "web_search"
+  hasImages: boolean("has_images").default(false),
+  hadWebSearch: boolean("had_web_search").default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
