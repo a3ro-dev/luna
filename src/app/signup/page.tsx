@@ -5,8 +5,9 @@ import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter()
+  const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -17,18 +18,38 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
 
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    })
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name: name || undefined }),
+      })
 
-    if (res?.error) {
-      setError("Invalid email or password.")
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || "Something went wrong.")
+        setIsLoading(false)
+        return
+      }
+
+      // Auto sign-in after successful registration
+      const signInRes = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      })
+
+      if (signInRes?.error) {
+        // Account created but auto-login failed — send to login
+        router.push("/login")
+      } else {
+        router.push("/dashboard")
+        router.refresh()
+      }
+    } catch {
+      setError("Something went wrong. Please try again.")
       setIsLoading(false)
-    } else {
-      router.push("/dashboard")
-      router.refresh()
     }
   }
 
@@ -41,7 +62,7 @@ export default function LoginPage() {
               Luna
             </Link>
             <p className="mt-3 text-sm font-light text-[#8E7D82]">
-              Sign in to your cycle tracker
+              Create your account
             </p>
           </div>
 
@@ -51,6 +72,19 @@ export default function LoginPage() {
                 {error}
               </div>
             )}
+
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#8E7D82] mb-2 ml-1">
+                Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-5 py-3.5 rounded-2xl bg-[#FFF9F9] border border-[#FFDDE0]/40 text-[#6D5A60] font-light focus:outline-none focus:ring-2 focus:ring-[#FFB5C0]/30 focus:border-[#FFB5C0]/50 transition-all placeholder:text-[#8E7D82]/40"
+                placeholder="Optional"
+              />
+            </div>
 
             <div>
               <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#8E7D82] mb-2 ml-1">
@@ -75,8 +109,9 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={6}
                 className="w-full px-5 py-3.5 rounded-2xl bg-[#FFF9F9] border border-[#FFDDE0]/40 text-[#6D5A60] font-light focus:outline-none focus:ring-2 focus:ring-[#FFB5C0]/30 focus:border-[#FFB5C0]/50 transition-all placeholder:text-[#8E7D82]/40"
-                placeholder="••••••••"
+                placeholder="At least 6 characters"
               />
             </div>
 
@@ -88,16 +123,16 @@ export default function LoginPage() {
               {isLoading ? (
                 <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                "Sign In"
+                "Create Account"
               )}
             </button>
           </form>
         </div>
 
         <p className="mt-8 text-center text-sm font-light text-[#8E7D82]">
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-[#FFB5C0] hover:text-[#6D5A60] transition-colors">
-            Create one
+          Already have an account?{" "}
+          <Link href="/login" className="text-[#FFB5C0] hover:text-[#6D5A60] transition-colors">
+            Sign in
           </Link>
         </p>
       </div>

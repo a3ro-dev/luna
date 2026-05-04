@@ -145,37 +145,41 @@ export default function Home() {
             scrollTrigger: {
               trigger: phaseRef.current,
               start: "top top",
-              end: "bottom bottom",
-              scrub: 0.8,
+              end: "+=300%",
+              scrub: 0.6,
+              pin: true,
             },
           });
 
-          phases.forEach((_, index) => {
-            const current = phaseTextRefs.current[index];
-            if (!current) return;
-            gsap.set(current, { xPercent: -50, yPercent: -50, opacity: 0, y: 80, scale: 0.95, filter: "blur(16px)" });
+          // Set initial state for all phase cards
+          phaseTextRefs.current.forEach((el) => {
+            if (el) gsap.set(el, { opacity: 0, y: 50, filter: "blur(10px)" });
           });
 
+          // Card 0: fade in immediately
           phaseTl.to(phaseTextRefs.current[0], {
-            opacity: 1, y: 0, scale: 1, filter: "blur(0px)", pointerEvents: "auto", duration: 0.8, ease: "power2.out"
-          }, 0.1);
-          
+            opacity: 1, y: 0, filter: "blur(0px)", duration: 0.8, ease: "power2.out",
+          }, 0);
+          // Card 0: hold, then fade out
           phaseTl.to(phaseTextRefs.current[0], {
-            opacity: 0, y: -80, scale: 1.05, filter: "blur(16px)", pointerEvents: "none", duration: 0.8, ease: "power2.in"
-          }, "+=1.5");
+            opacity: 0, y: -40, filter: "blur(8px)", duration: 0.6, ease: "power2.in",
+          }, 1.2);
 
+          // Card 1: fade in as card 0 fades out
           phaseTl.to(phaseTextRefs.current[1], {
-            opacity: 1, y: 0, scale: 1, filter: "blur(0px)", pointerEvents: "auto", duration: 0.8, ease: "power2.out"
-          }, "<0.4");
-          
+            opacity: 1, y: 0, filter: "blur(0px)", duration: 0.8, ease: "power2.out",
+          }, 1.0);
+          // Card 1: hold, then fade out
           phaseTl.to(phaseTextRefs.current[1], {
-            opacity: 0, y: -80, scale: 1.05, filter: "blur(16px)", pointerEvents: "none", duration: 0.8, ease: "power2.in"
-          }, "+=1.5");
+            opacity: 0, y: -40, filter: "blur(8px)", duration: 0.6, ease: "power2.in",
+          }, 2.4);
 
+          // Card 2: fade in as card 1 fades out
           phaseTl.to(phaseTextRefs.current[2], {
-            opacity: 1, y: 0, scale: 1, filter: "blur(0px)", pointerEvents: "auto", duration: 0.8, ease: "power2.out"
-          }, "<0.4");
+            opacity: 1, y: 0, filter: "blur(0px)", duration: 0.8, ease: "power2.out",
+          }, 2.2);
 
+          // Frame scrubbing synced to the same pinned trigger
           gsap.to(frames, {
             frame: frameCount - 1,
             snap: "frame",
@@ -183,7 +187,7 @@ export default function Home() {
             scrollTrigger: {
               trigger: phaseRef.current,
               start: "top top",
-              end: "bottom bottom",
+              end: "+=300%",
               scrub: 0.15,
             },
             onUpdate: drawFrame,
@@ -227,7 +231,7 @@ export default function Home() {
           Luna
         </Link>
         <Link
-          href="/login"
+          href="/signup"
           className="rounded-full border border-white/60 bg-white/40 px-6 py-2.5 text-xs font-semibold uppercase tracking-widest text-[#6D5A60] shadow-[0_10px_30px_rgba(255,181,192,0.15)] backdrop-blur-md transition hover:bg-white/60 hover:text-[#FFB5C0]"
         >
           Start
@@ -298,44 +302,40 @@ export default function Home() {
         </div>
       </section>
 
-      <section ref={phaseRef} className="relative h-[400vh] w-full bg-[#FFF9F9]">
-        <div className="sticky left-0 top-0 h-screen w-full overflow-hidden">
+      <section ref={phaseRef} className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#FFF9F9]">
           <canvas
             ref={canvasRef}
             width={1920}
             height={1080}
-            className="absolute inset-0 h-full w-full object-cover opacity-60 mix-blend-multiply"
+            className="absolute inset-0 h-full w-full object-cover opacity-50"
           />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#FFF9F9_100%)] opacity-70 pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,#FFF9F9_80%)] pointer-events-none" />
           <div className="absolute inset-0 bg-gradient-to-b from-[#FFF9F9] via-transparent to-[#FFF9F9] pointer-events-none" />
 
-          <div className="absolute inset-0 pointer-events-none">
-            {phases.map((phase, index) => {
-              const Icon = phase.icon;
-              return (
-                <div
-                  key={phase.title}
-                  ref={(el) => {
-                    phaseTextRefs.current[index] = el;
-                  }}
-                  className="absolute left-1/2 top-1/2 flex w-[calc(100%-40px)] max-w-xl flex-col items-center rounded-[3.5rem] border border-white/60 bg-white/50 px-8 py-14 text-center shadow-[0_40px_80px_rgba(255,181,192,0.15)] backdrop-blur-2xl will-change-transform md:px-14 md:py-16"
-                  style={{ opacity: 0, pointerEvents: "none" }}
-                >
-                  <Icon className="mb-8 h-12 w-12" strokeWidth={1} style={{ color: phase.color }} />
-                  <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.25em] text-[#FFB5C0]">
-                    {phase.label}
-                  </p>
-                  <h2 className="font-serif text-[clamp(2.5rem,5vw,4rem)] font-light leading-tight text-[#6D5A60]">
-                    {phase.title}
-                  </h2>
-                  <p className="mt-6 text-lg font-light leading-relaxed text-[#8E7D82]">
-                    {phase.body}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+          {phases.map((phase, index) => {
+            const Icon = phase.icon;
+            return (
+              <div
+                key={phase.title}
+                ref={(el) => {
+                  phaseTextRefs.current[index] = el;
+                }}
+                className="absolute flex max-w-lg flex-col items-center rounded-[3rem] border border-white/50 bg-white/50 px-10 py-12 text-center shadow-[0_30px_60px_rgba(255,181,192,0.12)] backdrop-blur-2xl will-change-transform md:px-14 md:py-14"
+                style={{ opacity: 0 }}
+              >
+                <Icon className="mb-6 h-10 w-10 md:h-11 md:w-11" strokeWidth={1.2} style={{ color: phase.color }} />
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.25em] text-[#FFB5C0]">
+                  {phase.label}
+                </p>
+                <h2 className="font-serif text-[clamp(2.2rem,5vw,3.5rem)] font-light leading-tight text-[#6D5A60]">
+                  {phase.title}
+                </h2>
+                <p className="mt-5 text-base font-light leading-relaxed text-[#8E7D82] md:text-lg">
+                  {phase.body}
+                </p>
+              </div>
+            );
+          })}
       </section>
 
       <section ref={quoteRef} className="relative flex min-h-[70vh] items-center justify-center overflow-hidden bg-[#FFF9F9] px-5 py-32 md:px-12">
@@ -362,7 +362,7 @@ export default function Home() {
             Start with one log. Luna will learn the rest slowly, privately, and with care.
           </p>
           <Link
-            href="/login"
+            href="/signup"
             className="mt-14 inline-flex h-14 items-center justify-center rounded-full bg-[#6D5A60] px-10 text-[11px] font-semibold uppercase tracking-widest text-white shadow-[0_20px_40px_rgba(109,90,96,0.25)] transition duration-300 hover:-translate-y-1 hover:bg-[#8E7D82] hover:shadow-[0_30px_60px_rgba(109,90,96,0.35)]"
           >
             Start Tracking
