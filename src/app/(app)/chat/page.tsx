@@ -7,12 +7,13 @@ import { openuiLibrary } from "@openuidev/react-ui"
 import "@openuidev/react-ui/components.css"
 
 export default function ChatPage() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading, status } = useChat({
+  const { messages, sendMessage, status } = useChat({
     api: "/api/chat"
   })
 
-  const isBusy = isLoading || status === "streaming" || status === "submitted"
+  const isBusy = status === "streaming" || status === "submitted"
 
+  const [input, setInput] = useState("")
   const [images, setImages] = useState<File[]>([])
   const [totalImagesInContext, setTotalImagesInContext] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -36,12 +37,20 @@ export default function ChatPage() {
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    const trimmedInput = input.trim()
+    if (trimmedInput.length === 0 && images.length === 0) {
+      return
+    }
     if (totalImagesInContext + images.length > 10) {
       alert("Maximum 10 images allowed per conversation context.")
       return
     }
     setTotalImagesInContext(prev => prev + images.length)
-    handleSubmit(e)
+    sendMessage({
+      role: "user",
+      content: trimmedInput.length > 0 ? trimmedInput : "Sent an image.",
+    })
+    setInput("")
     setImages([])
   }
 
@@ -121,9 +130,9 @@ export default function ChatPage() {
               className="flex-1 bg-transparent border-none py-4 px-2 text-[#6D5A60] font-light placeholder:text-[#8E7D82]/40 focus:outline-none focus:ring-0"
               value={input}
               placeholder="How are you feeling today?"
-              onChange={handleInputChange}
+              onChange={(e) => setInput(e.target.value)}
             />
-            <button type="submit" disabled={isBusy || (!input && images.length === 0)} className="mr-2 bg-[#6D5A60] hover:bg-[#8E7D82] text-white p-2.5 rounded-full transition-colors disabled:opacity-40">
+            <button type="submit" disabled={isBusy || (input.trim().length === 0 && images.length === 0)} className="mr-2 bg-[#6D5A60] hover:bg-[#8E7D82] text-white p-2.5 rounded-full transition-colors disabled:opacity-40">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
             </button>
           </div>
