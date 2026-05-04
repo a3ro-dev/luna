@@ -45,7 +45,8 @@ export function skipGate(
   if (value > SKIP_THRESHOLD) {
     return { value: smoothed, isAnomaly: true }; // likely missed log — ignore for smoother
   }
-  const sigma = Math.sqrt(Math.max(variance, 0.01));
+  // Floor variance at 4.0 (σ≥2d) to prevent tight convergence from flagging normal variation
+  const sigma = Math.sqrt(Math.max(variance, 4.0));
   const delta = value - smoothed;
   if (Math.abs(delta) > OUTLIER_SIGMA * sigma) {
     // Soft clamp: pull toward mean

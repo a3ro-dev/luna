@@ -1,6 +1,26 @@
 import React from "react"
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
+import { db } from "@/lib/db"
+import { cycles, predictionParams } from "@/lib/db/schema"
+import { eq, desc, and } from "drizzle-orm"
+import Link from "next/link"
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date)
+  d.setDate(d.getDate() + days)
+  return d
+}
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+}
+
+function daysUntil(date: Date): number {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  return Math.round((date.getTime() - now.getTime()) / 86400000)
+}
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -8,86 +28,252 @@ export default async function DashboardPage() {
     redirect("/login")
   }
 
-  // Placeholder static data for UI demonstration
-  const predictedNextPeriod = "October 14th, 2026"
-  const predictedOvulation = "September 30th, 2026"
-  
+  // Fetch latest cycles
+  const userCycles = await db.query.cycles.findMany({
+    where: eq(cycles.userId, session.user.id!),
+    orderBy: [desc(cycles.mStart)],
+    limit: 6,
+  })
+
+  // Fetch prediction params
+  const params = await db.query.predictionParams.findMany({
+    where: eq(predictionParams.userId, session.user.id!),
+  })
+
+  const cycleLengthParam = params.find((p) => p.paramName === "cycle_length")
+  const periodLengthParam = params.find((p) => p.paramName === "period_length")
+
+  const avgCycleLength = cycleLengthParam ? Math.round(cycleLengthParam.smoothedValue) : 28
+  const avgPeriodLength = periodLengthParam ? Math.round(periodLengthParam.smoothedValue) : 5
+
+  // Compute predictions from the most recent cycle
+  const lastCycle = userCycles[0]
+  const lastPeriodStart = lastCycle ? new Date(lastCycle.mStart + "T00:00:00") : new Date()
+
+  const nextPeriodDate = addDays(lastPeriodStart, avgCycleLength)
+  const nextOvulationDate = addDays(lastPeriodStart, avgCycleLength - 14)
+
+  const daysToNextPeriod = daysUntil(nextPeriodDate)
+  const daysToOvulation = daysUntil(nextOvulationDate)
+
+  // Build calendar for current month
+  const today = new Date()
+  const currentMonth = today.getMonth()
+  const currentYear = today.getFullYear()
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay()
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+
+  // Collect all period days and predicted days for this month
+  const periodDays = new Set<number>()
+  const ovulationDays = new Set<number>()
+  const predictedPeriodDays = new Set<number>()
+  const follicularDays = new Set<number>()
+  const lutealDays = new Set<number>()
+
+  // Check actual cycle data for this month
+  for (const c of userCycles) {
+    if (!c.mStart) continue
+    const start = new Date(c.mStart + "T00:00:00")
+    const end = c.mEnd ? new Date(c.mEnd + "T00:00:00") : addDays(start, avgPeriodLength)
+
+    // Mark period days
+    for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
+      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+        periodDays.add(d.getDate())
+      }
+    }
+
+    // Mark ovulation day
+    if (c.ovulationDate) {
+      const ov = new Date(c.ovulationDate + "T00:00:00")
+      if (ov.getMonth() === currentMonth && ov.getFullYear() === currentYear) {
+        ovulationDays.add(ov.getDate())
+      }
+    }
+  }
+
+  // Mark predicted period days
+  const predStart = nextPeriodDate
+  const predEnd = addDays(predStart, avgPeriodLength)
+  for (let d = new Date(predStart); d <= predEnd; d = addDays(d, 1)) {
+    if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+      predictedPeriodDays.add(d.getDate())
+    }
+  }
+
+  // Mark predicted ovulation
+  if (nextOvulationDate.getMonth() === currentMonth && nextOvulationDate.getFullYear() === currentYear) {
+    ovulationDays.add(nextOvulationDate.getDate())
+  }
+
+  // Follicular: period end to ovulation
+  // Luteal: ovulation to next period
+  if (lastCycle?.mEnd) {
+    const follStart = addDays(new Date(lastCycle.mEnd + "T00:00:00"), 1)
+    for (let d = new Date(follStart); d < nextOvulationDate; d = addDays(d, 1)) {
+      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+        follicularDays.add(d.getDate())
+      }
+    }
+    for (let d = addDays(nextOvulationDate, 1); d < nextPeriodDate; d = addDays(d, 1)) {
+      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+        lutealDays.add(d.getDate())
+      }
+    }
+  }
+
+  const monthName = today.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+
   return (
-    <div className="min-h-screen bg-[#FCFBFB] text-[#7A6A6D] font-sans p-6 md:p-12 selection:bg-[#F7C4C8] selection:text-white">
-      <header className="mb-12">
-        <h1 className="font-serif text-5xl text-[#5A4A4D] mb-2 tracking-tight">
-          Welcome back, {session.user.name || session.user.email?.split("@")[0] || "lovely"}
-        </h1>
-        <p className="text-lg opacity-80">Here is your cycle overview for the coming weeks.</p>
-      </header>
+    <div className="min-h-screen bg-[#FFF9F9] text-[#8E7D82] font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
+      <div className="mx-auto max-w-5xl px-5 py-10 md:px-12 md:py-16">
 
-      <div className="grid md:grid-cols-3 gap-6 mb-12">
-        {/* Prediction Cards */}
-        <div className="bg-white rounded-3xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-[#F7C4C8]/20 transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)]">
-          <h3 className="text-sm font-medium uppercase tracking-wider mb-2 text-[#F4A6A6]">Next Period</h3>
-          <p className="font-serif text-4xl text-[#5A4A4D]">{predictedNextPeriod}</p>
-          <p className="text-sm opacity-60 mt-2">In about 12 days</p>
+        <header className="mb-14">
+          <h1 className="font-serif text-[clamp(2.5rem,5vw,3.5rem)] font-light text-[#6D5A60] tracking-tight">
+            Welcome back, {session.user.name || session.user.email?.split("@")[0] || "lovely"}
+          </h1>
+          <p className="mt-2 text-base font-light text-[#8E7D82]">Here is your cycle overview for the coming weeks.</p>
+        </header>
+
+        <div className="grid gap-5 md:grid-cols-3 mb-14">
+          <div className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#FFB5C0]">Next Period</p>
+            <p className="mt-3 font-serif text-[clamp(1.5rem,3vw,2rem)] font-light text-[#6D5A60]">{formatDate(nextPeriodDate)}</p>
+            <p className="mt-2 text-sm font-light text-[#8E7D82]">
+              {daysToNextPeriod <= 0 ? "Due now" : daysToNextPeriod === 1 ? "Tomorrow" : `In ${daysToNextPeriod} days`}
+            </p>
+          </div>
+
+          <div className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#FBE6B6]">Estimated Ovulation</p>
+            <p className="mt-3 font-serif text-[clamp(1.5rem,3vw,2rem)] font-light text-[#6D5A60]">{formatDate(nextOvulationDate)}</p>
+            <p className="mt-2 text-sm font-light text-[#8E7D82]">
+              {daysToOvulation <= 0 ? "Passed" : daysToOvulation === 1 ? "Tomorrow" : `In ${daysToOvulation} days`}
+            </p>
+          </div>
+
+          <div className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl flex flex-col items-center justify-center text-center">
+            <p className="font-serif text-lg font-light text-[#6D5A60] mb-5">Have a question?</p>
+            <Link
+              href="/chat"
+              className="inline-flex h-12 items-center justify-center rounded-full bg-[#6D5A60] px-8 text-[10px] font-semibold uppercase tracking-widest text-white shadow-[0_12px_24px_rgba(109,90,96,0.2)] transition duration-300 hover:bg-[#8E7D82]"
+            >
+              Ask Luna
+            </Link>
+          </div>
         </div>
-        
-        <div className="bg-white rounded-3xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-[#F7C4C8]/20 transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)]">
-          <h3 className="text-sm font-medium uppercase tracking-wider mb-2 text-[#EBCB8B]">Estimated Ovulation</h3>
-          <p className="font-serif text-4xl text-[#5A4A4D]">{predictedOvulation}</p>
-          <p className="text-sm opacity-60 mt-2">High chance of conception</p>
-        </div>
 
-        <div className="bg-white rounded-3xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-[#F7C4C8]/20 transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)] flex items-center justify-center flex-col">
-          <p className="font-serif text-xl text-[#5A4A4D] text-center mb-4">Have questions about your cycle?</p>
-          <a href="/chat" className="bg-[#F7C4C8] text-white px-6 py-3 rounded-full hover:bg-[#F4A6A6] transition-colors font-medium">
-            Ask Luna
-          </a>
-        </div>
-      </div>
+        <section className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl mb-14">
+          <h2 className="font-serif text-2xl font-light text-[#6D5A60] mb-8">{monthName}</h2>
+          <div className="grid grid-cols-7 gap-2 text-center">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+              <div key={d} className="text-[9px] font-semibold uppercase tracking-widest text-[#8E7D82]/50 pb-3">{d}</div>
+            ))}
+            {Array.from({ length: firstDay + daysInMonth }).map((_, i) => {
+              const day = i - firstDay + 1
+              if (day < 1) return <div key={i} />
 
-      <section className="bg-white rounded-3xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-[#F7C4C8]/20">
-        <h2 className="font-serif text-3xl text-[#5A4A4D] mb-6">Calendar</h2>
-        <div className="grid grid-cols-7 gap-2 text-center">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="text-xs font-bold uppercase text-[#7A6A6D]/50 mb-2">{day}</div>
-          ))}
-          {/* Mock Calendar Grid */}
-          {Array.from({ length: 35 }).map((_, i) => {
-            const day = i - 2; // Offset for demo
-            let phaseColor = "hover:bg-[#F7C4C8]/10";
-            let textColor = "text-[#7A6A6D]";
-            let style = {};
+              const isToday = day === today.getDate()
+              const isPeriod = periodDays.has(day)
+              const isPredicted = predictedPeriodDays.has(day)
+              const isOvulation = ovulationDays.has(day)
+              const isFollicular = follicularDays.has(day)
+              const isLuteal = lutealDays.has(day)
 
-            if (day > 0 && day <= 5) {
-              // Menstrual
-              phaseColor = "bg-[#F4A6A6]";
-              textColor = "text-white";
-            } else if (day > 5 && day <= 12) {
-              // Follicular
-              phaseColor = "bg-[#A3BCA9]/20";
-            } else if (day > 12 && day <= 16) {
-              // Ovulatory
-              phaseColor = "bg-[#EBCB8B]/40";
-            } else if (day > 16 && day <= 28) {
-              // Luteal
-              phaseColor = "bg-[#B4A6C4]/20";
-            } else if (day > 28 && day <= 32) {
-              // Predicted Menstrual (dashed/lighter)
-              phaseColor = "bg-transparent border border-dashed border-[#F4A6A6]";
-              textColor = "text-[#F4A6A6]";
-              style = { opacity: 0.7 };
-            }
+              let bg = "hover:bg-[#FFDDE0]/10"
+              let text = "text-[#8E7D82]"
+              let extra = ""
 
-            return (
-              <div 
-                key={i} 
-                style={style}
-                className={`h-12 md:h-20 rounded-xl flex items-center justify-center text-sm md:text-lg transition-colors cursor-pointer ${day > 0 && day <= 31 ? phaseColor : 'text-transparent pointer-events-none'} ${textColor}`}
-              >
-                {day > 0 && day <= 31 ? day : ''}
+              if (isPeriod) {
+                bg = "bg-[#FFB5C0]"
+                text = "text-white"
+              } else if (isPredicted) {
+                bg = "bg-transparent border border-dashed border-[#FFB5C0]"
+                text = "text-[#FFB5C0]"
+              } else if (isOvulation) {
+                bg = "bg-[#FBE6B6]/60"
+                text = "text-[#6D5A60]"
+              } else if (isFollicular) {
+                bg = "bg-[#D6CBE3]/15"
+              } else if (isLuteal) {
+                bg = "bg-[#FFDDE0]/15"
+              }
+
+              if (isToday) {
+                extra = "ring-2 ring-[#6D5A60]/30 ring-offset-2 ring-offset-[#FFF9F9]"
+              }
+
+              return (
+                <div
+                  key={i}
+                  className={`h-12 md:h-16 rounded-2xl flex items-center justify-center text-sm font-light transition-colors cursor-default ${bg} ${text} ${extra}`}
+                >
+                  {day}
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-5 text-[10px] font-semibold uppercase tracking-widest text-[#8E7D82]/60">
+            <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-[#FFB5C0]" /> Period</span>
+            <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full border border-dashed border-[#FFB5C0]" /> Predicted</span>
+            <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-[#FBE6B6]/60" /> Ovulation</span>
+            <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-[#D6CBE3]/20" /> Follicular</span>
+            <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-[#FFDDE0]/20" /> Luteal</span>
+          </div>
+        </section>
+
+        <section className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl mb-14">
+          <h2 className="font-serif text-2xl font-light text-[#6D5A60] mb-6">Your rhythm</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#FFB5C0] mb-1">Avg Cycle</p>
+              <p className="font-serif text-3xl font-light text-[#6D5A60]">{avgCycleLength}<span className="text-base text-[#8E7D82]"> days</span></p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#FFB5C0] mb-1">Avg Period</p>
+              <p className="font-serif text-3xl font-light text-[#6D5A60]">{avgPeriodLength}<span className="text-base text-[#8E7D82]"> days</span></p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#FFB5C0] mb-1">Cycles Tracked</p>
+              <p className="font-serif text-3xl font-light text-[#6D5A60]">{userCycles.length < 6 ? userCycles.length : `${userCycles.length}+`}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#FFB5C0] mb-1">Consistency</p>
+              <p className="font-serif text-3xl font-light text-[#6D5A60]">
+                {cycleLengthParam && cycleLengthParam.variance < 3 ? "High" : cycleLengthParam && cycleLengthParam.variance < 8 ? "Moderate" : "Varied"}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
+          <h2 className="font-serif text-2xl font-light text-[#6D5A60] mb-6">Recent cycles</h2>
+          <div className="space-y-4">
+            {userCycles.slice(0, 5).map((c) => (
+              <div key={c.id} className="flex items-center justify-between border-b border-[#FFDDE0]/20 pb-4 last:border-none">
+                <div>
+                  <p className="font-serif text-lg font-light text-[#6D5A60]">
+                    {new Date(c.mStart + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </p>
+                  <p className="text-xs font-light text-[#8E7D82]">
+                    {c.periodLength ? `${c.periodLength}d period` : ""}
+                    {c.cycleLength ? ` · ${c.cycleLength}d cycle` : ""}
+                  </p>
+                </div>
+                <div className="text-right">
+                  {c.isAnomaly && (
+                    <span className="text-[9px] font-semibold uppercase tracking-widest text-[#FFB5C0] bg-[#FFB5C0]/10 px-3 py-1 rounded-full">
+                      Unusual
+                    </span>
+                  )}
+                </div>
               </div>
-            );
-          })}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+
+      </div>
     </div>
   )
 }
