@@ -35,7 +35,24 @@ export default function ChatPage() {
     setImages(prev => prev.filter((_, i) => i !== index))
   }
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result
+        if (typeof result === "string") {
+          const base64 = result.split(",")[1] || ""
+          resolve(base64)
+        } else {
+          reject(new Error("Failed to read file"))
+        }
+      }
+      reader.onerror = () => reject(new Error("Failed to read file"))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const trimmedInput = input.trim()
     if (trimmedInput.length === 0 && images.length === 0) {
@@ -46,9 +63,26 @@ export default function ChatPage() {
       return
     }
     setTotalImagesInContext(prev => prev + images.length)
+
+    const imageParts = await Promise.all(
+      images.map(async (file) => ({
+        type: "file" as const,
+        mediaType: file.type || "application/octet-stream",
+        data: await readFileAsBase64(file),
+        filename: file.name,
+      }))
+    )
+
+    const parts = [
+      ...imageParts,
+      ...(trimmedInput.length > 0
+        ? [{ type: "text" as const, text: trimmedInput }]
+        : [])
+    ]
+
     sendMessage({
       role: "user",
-      content: trimmedInput.length > 0 ? trimmedInput : "Sent an image.",
+      parts,
     })
     setInput("")
     setImages([])
@@ -75,7 +109,15 @@ export default function ChatPage() {
           </div>
         )}
 
-        {messages.map(m => (
+        {messages.map(m => {
+          const messageText = Array.isArray(m.parts)
+            ? m.parts
+                .filter((part) => part.type === "text")
+                .map((part) => part.text)
+                .join("")
+            : (m.content ?? "")
+
+          return (
           <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
               className={`max-w-[80%] md:max-w-[60%] rounded-[1.5rem] p-5 ${
@@ -87,15 +129,16 @@ export default function ChatPage() {
               {m.role === 'assistant' ? (
                 <Renderer
                   library={openuiLibrary}
-                  response={m.content || ""}
+                  response={messageText}
                   isStreaming={isStreaming && m.id === messages[messages.length - 1]?.id}
                 />
               ) : (
-                <p className="whitespace-pre-wrap leading-relaxed font-light">{m.content}</p>
+                <p className="whitespace-pre-wrap leading-relaxed font-light">{messageText}</p>
               )}
             </div>
           </div>
-        ))}
+          )
+        })}
         {isBusy && messages[messages.length - 1]?.role !== 'assistant' && (
           <div className="flex justify-start">
             <div className="bg-white/80 text-[#6D5A60] rounded-[1.5rem] p-5 rounded-tl-lg border border-[#FFDDE0]/30 shadow-sm flex space-x-2 items-center backdrop-blur-xl">
