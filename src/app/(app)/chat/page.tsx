@@ -123,7 +123,7 @@ export default function ChatPage() {
               placeholder="How are you feeling today?"
               onChange={handleInputChange}
             />
-            <button type="submit" disabled={isBusy || ((!input || input.trim().length === 0) && images.length === 0)} className="mr-2 bg-[#6D5A60] hover:bg-[#8E7D82] text-white p-2.5 rounded-full transition-colors disabled:opacity-40">
+            <button type="submit" disabled={isBusy || (!input && images.length === 0)} className="mr-2 bg-[#6D5A60] hover:bg-[#8E7D82] text-white p-2.5 rounded-full transition-colors disabled:opacity-40">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
             </button>
           </div>
