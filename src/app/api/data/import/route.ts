@@ -22,8 +22,60 @@ interface ParsedCycle {
 
 function daysBetween(a: string, b: string): number {
   return Math.round(
-    (new Date(b).getTime() - new Date(a).getTime()) / (1000 * 60 * 60 * 24),
+    (new Date(b + "T12:00:00Z").getTime() -
+      new Date(a + "T12:00:00Z").getTime()) /
+      (1000 * 60 * 60 * 24),
   );
+}
+
+/**
+ * Parse a date string into YYYY-MM-DD without using `new Date()` which
+ * is affected by the server's timezone.  Supports:
+ *   - "Jan 28, 2025"   (Period Calendar / My Calendar format)
+ *   - "2025-01-28"     (ISO format)
+ *   - "2025/01/28"     (slash-separated)
+ * Returns null if the date cannot be parsed.
+ */
+function parseCalendarDate(raw: string): string | null {
+  // ISO format: 2025-01-28
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) return raw;
+
+  // Slash format: 2025/01/28
+  const slashMatch = raw.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  if (slashMatch) return `${slashMatch[1]}-${slashMatch[2]}-${slashMatch[3]}`;
+
+  // "Mon DD, YYYY" format (e.g. "Jan 28, 2025")
+  const monthNames: Record<string, string> = {
+    jan: "01",
+    feb: "02",
+    mar: "03",
+    apr: "04",
+    may: "05",
+    jun: "06",
+    jul: "07",
+    aug: "08",
+    sep: "09",
+    oct: "10",
+    nov: "11",
+    dec: "12",
+  };
+  const calMatch = raw.match(/^(\w{3})\s+(\d{1,2}),?\s+(\d{4})$/i);
+  if (calMatch) {
+    const mon = monthNames[calMatch[1].toLowerCase()];
+    if (mon) {
+      const day = calMatch[2].padStart(2, "0");
+      return `${calMatch[3]}-${mon}-${day}`;
+    }
+  }
+
+  // Fallback: let Date try, then extract YYYY-MM-DD using UTC noon
+  const d = new Date(raw);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().slice(0, 10);
+  }
+
+  return null;
 }
 
 // ─── Parser: Period Calendar (My Calendar) ───────────────────────────
@@ -40,10 +92,10 @@ function parsePeriodCalendar(text: string): ParsedCycle[] {
     const [dateStr, eventStr] = line.split("\t").map((s) => s.trim());
     if (!dateStr || !eventStr) continue;
 
-    const parsed = new Date(dateStr);
-    if (isNaN(parsed.getTime())) continue;
-
-    const iso = parsed.toISOString().split("T")[0];
+    // Parse the date into YYYY-MM-DD without going through Date to avoid
+    // timezone offset shifting the day (e.g. IST midnight → previous day in UTC).
+    const iso = parseCalendarDate(dateStr.trim());
+    if (!iso) continue;
 
     if (/period\s+starts/i.test(eventStr)) {
       events.push({ date: iso, type: "start", raw: eventStr });
@@ -118,9 +170,9 @@ function parseClue(text: string): ParsedCycle[] {
     if (!dateStr || !periodVal || periodVal === "" || periodVal === "spotting")
       continue;
 
-    const parsed = new Date(dateStr);
-    if (isNaN(parsed.getTime())) continue;
-    periodDates.push(parsed.toISOString().split("T")[0]);
+    const iso = parseCalendarDate(dateStr);
+    if (!iso) continue;
+    periodDates.push(iso);
   }
 
   periodDates.sort();
@@ -158,9 +210,9 @@ function parseFlo(text: string): ParsedCycle[] {
       if (flowIdx >= 0 && (!flowVal || flowVal === "none" || flowVal === ""))
         continue;
 
-      const parsed = new Date(dateStr);
-      if (isNaN(parsed.getTime())) continue;
-      periodDates.push(parsed.toISOString().split("T")[0]);
+      const iso = parseCalendarDate(dateStr);
+      if (!iso) continue;
+      periodDates.push(iso);
     }
 
     periodDates.sort();
@@ -181,9 +233,9 @@ function parseAppleHealth(text: string): ParsedCycle[] {
 
   while ((match = regex.exec(text)) !== null) {
     const dateStr = match[1];
-    const parsed = new Date(dateStr);
-    if (!isNaN(parsed.getTime())) {
-      periodDates.push(parsed.toISOString().split("T")[0]);
+    const iso = parseCalendarDate(dateStr.split(" ")[0]); // "2025-01-28 ..." → "2025-01-28"
+    if (iso) {
+      periodDates.push(iso);
     }
   }
 
@@ -192,9 +244,9 @@ function parseAppleHealth(text: string): ParsedCycle[] {
     /<Record[^>]*startDate="([^"]+)"[^>]*type="HKCategoryTypeIdentifierMenstrualFlow"[^>]*\/>/g;
   while ((match = regex2.exec(text)) !== null) {
     const dateStr = match[1];
-    const parsed = new Date(dateStr);
-    if (!isNaN(parsed.getTime())) {
-      periodDates.push(parsed.toISOString().split("T")[0]);
+    const iso = parseCalendarDate(dateStr.split(" ")[0]);
+    if (iso) {
+      periodDates.push(iso);
     }
   }
 
