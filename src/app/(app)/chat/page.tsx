@@ -2,6 +2,8 @@
 
 import React, { useRef, useState, useEffect } from "react"
 import { useChat } from "@ai-sdk/react"
+import { signOut, useSession } from "next-auth/react"
+import Link from "next/link"
 
 type ChatSession = {
   id: string
@@ -11,6 +13,7 @@ type ChatSession = {
 }
 
 export default function ChatPage() {
+  const { status: authStatus } = useSession()
   const { messages, sendMessage, status, setMessages } = useChat({
     api: "/api/chat"
   })
@@ -23,6 +26,7 @@ export default function ChatPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [isLoadingSessions, setIsLoadingSessions] = useState(true)
+  const [isSessionsOpen, setIsSessionsOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -171,6 +175,7 @@ export default function ChatPage() {
     setMessages([])
     const sessionMessages = await loadSessionMessages(sessionId)
     setMessages(sessionMessages)
+    setIsSessionsOpen(false)
   }
 
   const handleNewSession = async () => {
@@ -179,6 +184,7 @@ export default function ChatPage() {
     setSessions((prev) => [created, ...prev])
     setActiveSessionId(created.id)
     setMessages([])
+    setIsSessionsOpen(false)
   }
 
   const handleRenameSession = async (sessionId: string) => {
@@ -217,7 +223,54 @@ export default function ChatPage() {
   }
 
   const isStreaming = status === "streaming"
-  const hasOpenUiTags = (value: string) => /<\/?(Card|Chart|Table|Progress|StatGroup|Badge|Row|Column)\b/.test(value)
+
+  const renderSessionsList = () => (
+    <div className="space-y-2 overflow-y-auto">
+      {isLoadingSessions && (
+        <div className="text-xs text-[#8E7D82]/60">Loading...</div>
+      )}
+      {!isLoadingSessions && sessions.length === 0 && (
+        <div className="text-xs text-[#8E7D82]/60">No chats yet</div>
+      )}
+      {sessions.map((session) => {
+        const isActive = session.id === activeSessionId
+        return (
+          <div
+            key={session.id}
+            className={`w-full rounded-xl px-3 py-2 text-sm transition-colors ${
+              isActive
+                ? "bg-[#FFEEF1] text-[#6D5A60]"
+                : "text-[#8E7D82] hover:bg-[#FFF5F7]"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => handleSelectSession(session.id)}
+              className="w-full text-left"
+            >
+              {session.title || "Untitled chat"}
+            </button>
+            <div className="flex items-center justify-end gap-2 mt-2 text-[10px]">
+              <button
+                type="button"
+                onClick={() => handleRenameSession(session.id)}
+                className="text-[#8E7D82] hover:text-[#6D5A60]"
+              >
+                Rename
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteSession(session.id)}
+                className="text-[#B08C92] hover:text-[#6D5A60]"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-[#FFF9F9] flex font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
@@ -232,57 +285,42 @@ export default function ChatPage() {
             New
           </button>
         </div>
-        <div className="space-y-2 overflow-y-auto">
-          {isLoadingSessions && (
-            <div className="text-xs text-[#8E7D82]/60">Loading...</div>
-          )}
-          {!isLoadingSessions && sessions.length === 0 && (
-            <div className="text-xs text-[#8E7D82]/60">No chats yet</div>
-          )}
-          {sessions.map((session) => {
-            const isActive = session.id === activeSessionId
-            return (
-              <div
-                key={session.id}
-                className={`w-full rounded-xl px-3 py-2 text-sm transition-colors ${
-                  isActive
-                    ? "bg-[#FFEEF1] text-[#6D5A60]"
-                    : "text-[#8E7D82] hover:bg-[#FFF5F7]"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => handleSelectSession(session.id)}
-                  className="w-full text-left"
-                >
-                  {session.title || "Untitled chat"}
-                </button>
-                <div className="flex items-center justify-end gap-2 mt-2 text-[10px]">
-                  <button
-                    type="button"
-                    onClick={() => handleRenameSession(session.id)}
-                    className="text-[#8E7D82] hover:text-[#6D5A60]"
-                  >
-                    Rename
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteSession(session.id)}
-                    className="text-[#B08C92] hover:text-[#6D5A60]"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+        {renderSessionsList()}
       </aside>
 
       <div className="flex-1 flex flex-col">
         <header className="py-5 px-6 md:px-10 border-b border-[#FFDDE0]/30 bg-white/50 backdrop-blur-xl sticky top-0 z-10">
-          <h1 className="font-serif text-2xl font-light text-[#6D5A60]">Luna</h1>
-          <p className="text-xs font-light text-[#8E7D82]">Your caring health companion</p>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h1 className="font-serif text-2xl font-light text-[#6D5A60]">Luna</h1>
+              <p className="text-xs font-light text-[#8E7D82]">Your caring health companion</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {authStatus === "authenticated" ? (
+                <button
+                  type="button"
+                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border border-[#FFDDE0]/60 rounded-full px-4 py-2 hover:bg-[#FFF5F7] transition"
+                >
+                  Sign out
+                </button>
+              ) : (
+                <Link
+                  href="/login"
+                  className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border border-[#FFDDE0]/60 rounded-full px-4 py-2 hover:bg-[#FFF5F7] transition"
+                >
+                  Log in
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsSessionsOpen(true)}
+                className="md:hidden text-xs text-[#8E7D82] hover:text-[#6D5A60] transition-colors"
+              >
+                Chats
+              </button>
+            </div>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-6 md:p-10 space-y-5">
@@ -367,6 +405,30 @@ export default function ChatPage() {
           </form>
         </div>
       </div>
+
+      {isSessionsOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-[#6D5A60]/20"
+            onClick={() => setIsSessionsOpen(false)}
+            aria-label="Close chat list"
+          />
+          <div className="absolute right-0 top-0 h-full w-[78%] max-w-[320px] bg-white/90 backdrop-blur-xl border-l border-[#FFDDE0]/40 px-4 py-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-serif text-base text-[#6D5A60]">Chats</h2>
+              <button
+                type="button"
+                onClick={handleNewSession}
+                className="text-xs text-[#8E7D82] hover:text-[#6D5A60] transition-colors"
+              >
+                New
+              </button>
+            </div>
+            {renderSessionsList()}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

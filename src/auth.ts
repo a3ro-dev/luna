@@ -35,6 +35,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   session: {
     strategy: "jwt", // Credentials provider requires JWT strategy
+    maxAge: 60 * 60 * 24 * 30,
+    updateAge: 60 * 60 * 24,
+  },
+  jwt: {
+    maxAge: 60 * 60 * 24 * 30,
   },
   callbacks: {
     async jwt({ token, user }) {

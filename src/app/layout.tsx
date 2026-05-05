@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Instrument_Serif, DM_Sans } from "next/font/google";
 import "./globals.css";
+import AppSessionProvider from "@/components/SessionProvider";
 
 const instrumentSerif = Instrument_Serif({
   weight: "400",
@@ -29,7 +30,7 @@ export default function RootLayout({
       className={`${instrumentSerif.variable} ${dmSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans bg-[#FCFBFB]">
-        {children}
+        <AppSessionProvider>{children}</AppSessionProvider>
       </body>
     </html>
   );

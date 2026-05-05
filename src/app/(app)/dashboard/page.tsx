@@ -5,6 +5,7 @@ import { db } from "@/lib/db"
 import { cycles, predictionParams } from "@/lib/db/schema"
 import { eq, desc, and } from "drizzle-orm"
 import Link from "next/link"
+import SignOutButton from "@/components/SignOutButton"
 
 function addDays(date: Date, days: number): Date {
   const d = new Date(date)
@@ -128,11 +129,14 @@ export default async function DashboardPage() {
     <div className="min-h-screen bg-[#FFF9F9] text-[#8E7D82] font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
       <div className="mx-auto max-w-5xl px-5 py-10 md:px-12 md:py-16">
 
-        <header className="mb-14">
-          <h1 className="font-serif text-[clamp(2.5rem,5vw,3.5rem)] font-light text-[#6D5A60] tracking-tight">
-            Welcome back, {session.user.name || session.user.email?.split("@")[0] || "lovely"}
-          </h1>
-          <p className="mt-2 text-base font-light text-[#8E7D82]">Here is your cycle overview for the coming weeks.</p>
+        <header className="mb-14 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h1 className="font-serif text-[clamp(2.5rem,5vw,3.5rem)] font-light text-[#6D5A60] tracking-tight">
+              Welcome back, {session.user.name || session.user.email?.split("@")[0] || "lovely"}
+            </h1>
+            <p className="mt-2 text-base font-light text-[#8E7D82]">Here is your cycle overview for the coming weeks.</p>
+          </div>
+          <SignOutButton className="h-10 rounded-full border border-[#FFDDE0]/60 px-5 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] transition hover:bg-[#FFF5F7]" />
         </header>
 
         <div className="grid gap-5 md:grid-cols-3 mb-14">

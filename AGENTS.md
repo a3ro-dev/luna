@@ -4,6 +4,13 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+design-motion-principles ~\.agents\skills\design-motion-principles
+  Agents: Antigravity, Codex, Cursor, Gemini CLI, GitHub Copilot +1 more
+find-skills ~\.agents\skills\find-skills
+  Agents: Antigravity, Codex, Cursor, Gemini CLI, GitHub Copilot +1 more
+impeccable ~\.agents\skills\impeccable
+  Agents: Antigravity, Codex, Cursor, Gemini CLI, GitHub Copilot +1 more
+
 # Luna Agent Guide
 
 ## Project Basics
