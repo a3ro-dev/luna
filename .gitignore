@@ -61,3 +61,5 @@ public/window.svg
 
 # duplicate docs (use luna_rewrite_prd_techspec.md as the source of truth)
 Luna Rewrite — PRD & Technical Specification.md
+
+.vercel
