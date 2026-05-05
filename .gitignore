@@ -50,9 +50,7 @@ skills-lock.json
 # utility scripts
 get-prompt.mjs
 
-# large media — use Git LFS or external hosting instead
-public/frames/
-public/video.mp4
+# large media tracked via Git LFS (see .gitattributes)
 
 # default Next.js boilerplate assets
 public/file.svg
