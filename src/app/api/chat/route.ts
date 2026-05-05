@@ -18,6 +18,7 @@ import {
 import { auth } from "@/auth";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { z } from "zod";
+import { logError } from "@/lib/utils";
 import { baseOpenUiPrompt } from "@/lib/chat/prompt";
 import {
   addCycleNoteEntry,
@@ -617,14 +618,17 @@ export async function POST(req: Request) {
 
         if (filePart.url.length > MAX_IMAGE_SIZE_BYTES * 1.37) {
           // base64 is ~37% larger than raw bytes
-          console.error("Image too large, skipping:", filePart.filename);
+          logError(
+            "image-upload",
+            `Image too large, skipping: ${filePart.filename}`,
+          );
           continue;
         }
 
         if (!ALLOWED_MEDIA_TYPES.includes(filePart.mediaType)) {
-          console.error(
-            "Unsupported image type, skipping:",
-            filePart.mediaType,
+          logError(
+            "image-upload",
+            `Unsupported image type, skipping: ${filePart.mediaType}`,
           );
           continue;
         }
@@ -637,7 +641,7 @@ export async function POST(req: Request) {
             filename: filePart.filename,
           });
         } catch (imgErr) {
-          console.error("Failed to store uploaded image:", imgErr);
+          logError("image-upload", imgErr);
         }
       }
     }

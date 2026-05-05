@@ -111,11 +111,15 @@ export const SchemaDisplayPath = ({
     '<span class="text-blue-600 dark:text-blue-400">{$1}</span>',
   );
 
+  // If children is a string, escape it too; otherwise use highlighted path
+  const html =
+    typeof children === "string" ? escapeHtml(children) : highlightedPath;
+
   return (
     <span
       className={cn("font-mono text-sm", className)}
       // oxlint-disable-next-line eslint-plugin-react(no-danger)
-      dangerouslySetInnerHTML={{ __html: children ?? highlightedPath }}
+      dangerouslySetInnerHTML={{ __html: html }}
       {...props}
     />
   );

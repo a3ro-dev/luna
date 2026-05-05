@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid input.", details: parsed.error.flatten() },
+        { error: "Invalid input.", details: parsed.error.issues },
         { status: 400 },
       );
     }
@@ -68,15 +68,15 @@ export async function POST(req: Request) {
       }
     }
 
-    if (timezone && typeof timezone === "string") {
+    if (timezone !== undefined) {
       updates.timezone = timezone;
     }
 
-    if (Array.isArray(conditions)) {
+    if (conditions !== undefined) {
       updates.conditions = conditions;
     }
 
-    if (typeof pushNotificationsEnabled === "boolean") {
+    if (pushNotificationsEnabled !== undefined) {
       updates.pushNotificationsEnabled = pushNotificationsEnabled;
     }
 

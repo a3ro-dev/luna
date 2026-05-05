@@ -1,5 +1,4 @@
 {
-  "gitLFS": true,
   "crons": [
     {
       "path": "/api/cron/cleanup-images",
