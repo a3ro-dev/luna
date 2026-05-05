@@ -12,10 +12,11 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Next.js dev needs these; tighten in prod
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
-      "font-src 'self'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "img-src 'self' data: blob: https://models.dev",
+      "font-src 'self' https://fonts.gstatic.com https://frontend-cdn.perplexity.ai",
       "connect-src 'self' https://ai.hackclub.com https://api.supermemory.ai https://search.hackclub.com",
+      "media-src 'self'",
       "frame-ancestors 'none'",
     ].join("; "),
   },
