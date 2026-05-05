@@ -1,4 +1,15 @@
-import { pgTable, text, timestamp, integer, uuid, date, boolean, jsonb, real, unique } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  integer,
+  uuid,
+  date,
+  boolean,
+  jsonb,
+  real,
+  unique,
+} from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -6,8 +17,22 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash"),
   name: text("name"),
   image: text("image"),
-  timezone: text("timezone").default("UTC"),
+  timezone: text("timezone").default("Asia/Kolkata"),
   weekStart: integer("week_start").default(1), // 0=Sun, 1=Mon
+  dateOfBirth: date("date_of_birth"),
+  onboardingCompleted: boolean("onboarding_completed").default(false),
+  onboardingVersion: integer("onboarding_version").default(0),
+  dobEditCount: integer("dob_edit_count").default(0),
+  conditions: jsonb("conditions").default([]), // e.g. ["pcos", "endometriosis"]
+  pushNotificationsEnabled: boolean("push_notifications_enabled").default(
+    false,
+  ),
+  pushSubscription: jsonb("push_subscription"),
+  plan: text("plan").default("free"), // "free" | "premium" | "premium+"
+  passwordResetToken: text("password_reset_token"),
+  passwordResetExpiry: timestamp("password_reset_expiry", {
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -43,7 +68,7 @@ export const predictionParams = pgTable(
   },
   (t) => ({
     userParamUnique: unique().on(t.userId, t.paramName),
-  })
+  }),
 );
 
 export const aiTraces = pgTable("ai_traces", {
@@ -96,5 +121,18 @@ export const chatSummaries = pgTable("chat_summaries", {
     .references(() => users.id, { onDelete: "cascade" }),
   summary: text("summary").notNull(),
   messageCount: integer("message_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const uploadedImages = pgTable("uploaded_images", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  messageId: uuid("message_id"),
+  imageData: text("image_data").notNull(), // base64 data URL
+  mediaType: text("media_type").notNull(), // e.g. "image/jpeg"
+  filename: text("filename"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });

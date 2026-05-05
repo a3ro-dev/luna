@@ -180,7 +180,6 @@ export default function ChatPage() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const hasRequestedRename = useRef<Set<string>>(new Set());
   const prevStatusRef = useRef(status);
-  const isSubmitting = useRef(false);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [isSessionsOpen, setIsSessionsOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -287,12 +286,11 @@ export default function ChatPage() {
   // --- PromptInput onSubmit handler ---
   const handlePromptSubmit = useCallback(
     async ({ text, files }: PromptInputMessage) => {
-      if (isSubmitting.current || isBusy) return;
-      isSubmitting.current = true;
+      if (isBusy) return;
+
+      if (text.trim().length === 0 && files.length === 0) return;
 
       try {
-        if (text.trim().length === 0 && files.length === 0) return;
-
         let sessionId = activeSessionId;
         if (!sessionId) {
           const created = await createSession();
@@ -324,10 +322,8 @@ export default function ChatPage() {
             },
           },
         );
-      } finally {
-        setTimeout(() => {
-          isSubmitting.current = false;
-        }, 500);
+      } catch {
+        // sendMessage errors are handled by useChat
       }
     },
     [activeSessionId, isBusy, sendMessage, setMessages],
@@ -344,18 +340,12 @@ export default function ChatPage() {
   };
 
   const handleNewSession = async () => {
-    if (isSubmitting.current) return;
-    isSubmitting.current = true;
-    try {
-      const created = await createSession();
-      if (!created) return;
-      setSessions((prev) => [created, ...prev]);
-      setActiveSessionId(created.id);
-      setMessages([]);
-      setIsSessionsOpen(false);
-    } finally {
-      isSubmitting.current = false;
-    }
+    const created = await createSession();
+    if (!created) return;
+    setSessions((prev) => [created, ...prev]);
+    setActiveSessionId(created.id);
+    setMessages([]);
+    setIsSessionsOpen(false);
   };
 
   const handleRenameSession = async (sessionId: string) => {

@@ -1,43 +1,48 @@
-"use client"
+"use client";
 
-import React, { useState } from "react"
-import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
+import React, { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
 
     const res = await signIn("credentials", {
       email,
       password,
       redirect: false,
-    })
+    });
 
     if (res?.error) {
-      setError("Invalid email or password.")
-      setIsLoading(false)
+      setError("Invalid email or password.");
+      setIsLoading(false);
     } else {
-      router.push("/dashboard")
-      router.refresh()
+      // Send login notification (non-blocking)
+      fetch("/api/auth/login-notification", { method: "POST" }).catch(() => {});
+      router.push("/dashboard");
+      router.refresh();
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-[#FFF9F9] flex flex-col items-center justify-center font-sans p-4 selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
       <div className="w-full max-w-md">
         <div className="rounded-[2.5rem] border border-white/60 bg-white/50 p-10 shadow-[0_30px_60px_rgba(255,181,192,0.1)] backdrop-blur-2xl">
           <div className="text-center mb-10">
-            <Link href="/" className="font-serif text-4xl font-light text-[#6D5A60]">
+            <Link
+              href="/"
+              className="font-serif text-4xl font-light text-[#6D5A60]"
+            >
               Luna
             </Link>
             <p className="mt-3 text-sm font-light text-[#8E7D82]">
@@ -91,16 +96,28 @@ export default function LoginPage() {
                 "Sign In"
               )}
             </button>
+
+            <div className="mt-4 text-center">
+              <Link
+                href="/forgot-password"
+                className="text-[12px] font-light text-[#8E7D82] hover:text-[#FFB5C0] transition-colors"
+              >
+                Forgot password?
+              </Link>
+            </div>
           </form>
         </div>
 
         <p className="mt-8 text-center text-sm font-light text-[#8E7D82]">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-[#FFB5C0] hover:text-[#6D5A60] transition-colors">
+          <Link
+            href="/signup"
+            className="text-[#FFB5C0] hover:text-[#6D5A60] transition-colors"
+          >
             Create one
           </Link>
         </p>
       </div>
     </div>
-  )
+  );
 }

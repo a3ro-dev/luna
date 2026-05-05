@@ -1,36 +1,36 @@
-"use client"
+"use client";
 
-import React, { useState } from "react"
-import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
+import React, { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function SignupPage() {
-  const router = useRouter()
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
 
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, name: name || undefined }),
-      })
+      });
 
-      const data = await res.json()
+      const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Something went wrong.")
-        setIsLoading(false)
-        return
+        setError(data.error || "Something went wrong.");
+        setIsLoading(false);
+        return;
       }
 
       // Auto sign-in after successful registration
@@ -38,27 +38,30 @@ export default function SignupPage() {
         email,
         password,
         redirect: false,
-      })
+      });
 
       if (signInRes?.error) {
         // Account created but auto-login failed — send to login
-        router.push("/login")
+        router.push("/login");
       } else {
-        router.push("/dashboard")
-        router.refresh()
+        router.push("/onboarding");
+        router.refresh();
       }
     } catch {
-      setError("Something went wrong. Please try again.")
-      setIsLoading(false)
+      setError("Something went wrong. Please try again.");
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-[#FFF9F9] flex flex-col items-center justify-center font-sans p-4 selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
       <div className="w-full max-w-md">
         <div className="rounded-[2.5rem] border border-white/60 bg-white/50 p-10 shadow-[0_30px_60px_rgba(255,181,192,0.1)] backdrop-blur-2xl">
           <div className="text-center mb-10">
-            <Link href="/" className="font-serif text-4xl font-light text-[#6D5A60]">
+            <Link
+              href="/"
+              className="font-serif text-4xl font-light text-[#6D5A60]"
+            >
               Luna
             </Link>
             <p className="mt-3 text-sm font-light text-[#8E7D82]">
@@ -131,11 +134,14 @@ export default function SignupPage() {
 
         <p className="mt-8 text-center text-sm font-light text-[#8E7D82]">
           Already have an account?{" "}
-          <Link href="/login" className="text-[#FFB5C0] hover:text-[#6D5A60] transition-colors">
+          <Link
+            href="/login"
+            className="text-[#FFB5C0] hover:text-[#6D5A60] transition-colors"
+          >
             Sign in
           </Link>
         </p>
       </div>
     </div>
-  )
+  );
 }

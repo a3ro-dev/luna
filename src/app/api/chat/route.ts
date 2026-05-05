@@ -12,6 +12,8 @@ import {
   chatMessages,
   chatSessions,
   chatSummaries,
+  users,
+  uploadedImages,
 } from "@/lib/db/schema";
 import { auth } from "@/auth";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
@@ -29,6 +31,8 @@ import {
   sanitizeTimeZone,
 } from "@/lib/cycle-tools";
 import { looksLikeOpenUiLang } from "@/lib/chat/openui";
+import { getModelConfig } from "@/lib/chat/models";
+import { storeImage } from "@/lib/chat/images";
 
 export const maxDuration = 60;
 
@@ -522,7 +526,7 @@ const maybeSummarizeSession = async (
     "Summarize the conversation so far for future context. Focus on user preferences, symptoms, cycle events, goals, and any explicit requests. Keep it concise and factual.";
 
   const summaryResult = await streamText({
-    model: hackClubAI(modelName),
+    model: hackClubAI.chat(modelName),
     system: summaryPrompt,
     messages: await convertToModelMessages(recentForSummary),
   });
@@ -579,20 +583,67 @@ export async function POST(req: Request) {
       .where(eq(chatSessions.id, sessionId));
   }
 
+  // --- Store any uploaded images in DB (7-day retention) ---
+  if (lastIncoming && Array.isArray(lastIncoming.parts)) {
+    for (const part of lastIncoming.parts) {
+      if (
+        part.type === "file" &&
+        (
+          part as {
+            type: string;
+            mediaType?: string;
+            url?: string;
+            filename?: string;
+          }
+        ).mediaType?.startsWith("image/") &&
+        (part as { type: string; url?: string }).url
+      ) {
+        const filePart = part as {
+          type: string;
+          mediaType: string;
+          url: string;
+          filename?: string;
+        };
+        try {
+          await storeImage({
+            userId,
+            imageData: filePart.url,
+            mediaType: filePart.mediaType,
+            filename: filePart.filename,
+          });
+        } catch (imgErr) {
+          console.error("Failed to store uploaded image:", imgErr);
+        }
+      }
+    }
+  }
+
+  // --- Resolve user's plan tier for model selection ---
+  const userRow = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: { plan: true },
+  });
+  const modelConfig = getModelConfig(userRow?.plan);
+
   const lastUserText = getTextFromParts(lastIncoming?.parts ?? []);
   const memoryContext = await recallMemory(userId, lastUserText);
   const recentMessages = await getRecentMessages(sessionId);
   const latestSummary = await getLatestSummary(sessionId);
   const contextSnippets = await getContextSnippets(sessionId, lastUserText);
-  const systemPrompt = buildSystemPrompt({
-    memoryContext,
-    latestSummary: latestSummary?.summary,
-    contextSnippets,
-    timeZone: userTimeZone,
-  });
+
+  // Append plan-specific persona to the system prompt
+  const systemPrompt =
+    buildSystemPrompt({
+      memoryContext,
+      latestSummary: latestSummary?.summary,
+      contextSnippets,
+      timeZone: userTimeZone,
+    }) +
+    "\n\n" +
+    modelConfig.personaPrompt;
 
   const startTime = Date.now();
-  const modelName = "x-ai/grok-4.3";
+  const modelName = modelConfig.modelId;
   const tools = createChatTools({ userId, timeZone: userTimeZone });
 
   const result = await streamText({
@@ -600,7 +651,7 @@ export async function POST(req: Request) {
     system: systemPrompt,
     messages: await convertToModelMessages(recentMessages),
     tools,
-    stopWhen: stepCountIs(8),
+    stopWhen: stepCountIs(modelConfig.maxSteps),
     onFinish: async ({ usage, text, steps }) => {
       const latencyMs = Date.now() - startTime;
 
