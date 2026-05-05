@@ -430,10 +430,7 @@ export default function ChatPage() {
               output?: unknown;
             };
             return (
-              <Tool
-                key={`tool-${i}`}
-                defaultOpen={toolPart.state === "input-streaming"}
-              >
+              <Tool key={`tool-${i}`} defaultOpen={false}>
                 <ToolHeader
                   type="dynamic-tool"
                   state={

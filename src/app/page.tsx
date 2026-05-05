@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -81,6 +83,18 @@ export default function Home() {
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [subError, setSubError] = useState("");
+
+  const { status: authStatus } = useSession();
+  const router = useRouter();
+  const isAuthenticated = authStatus === "authenticated";
+  const ctaHref = isAuthenticated ? "/dashboard" : "/signup";
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const timer = setTimeout(() => router.push("/dashboard"), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, router]);
 
   const openSubscribeModal = (plan: string) => {
     setSubModal({ open: true, plan });
@@ -337,10 +351,10 @@ export default function Home() {
           Luna
         </Link>
         <Link
-          href="/signup"
+          href={ctaHref}
           className="rounded-full border border-white/60 bg-white/40 px-6 py-2.5 text-xs font-semibold uppercase tracking-widest text-[#6D5A60] shadow-[0_10px_30px_rgba(255,181,192,0.15)] backdrop-blur-md transition hover:bg-white/60 hover:text-[#FFB5C0]"
         >
-          Start
+          {isAuthenticated ? "Dashboard" : "Start"}
         </Link>
       </header>
 
@@ -534,10 +548,10 @@ export default function Home() {
                   </li>
                 </ul>
                 <Link
-                  href="/signup"
+                  href={ctaHref}
                   className="block w-full h-12 text-center leading-[3rem] rounded-full border border-[#FFDDE0]/60 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] transition hover:bg-[#FFF5F7]"
                 >
-                  Get started
+                  {isAuthenticated ? "Go to app" : "Get started"}
                 </Link>
               </div>
             </div>
@@ -663,10 +677,10 @@ export default function Home() {
             with care.
           </p>
           <Link
-            href="/signup"
+            href={ctaHref}
             className="mt-14 inline-flex h-14 items-center justify-center rounded-full bg-[#6D5A60] px-10 text-[11px] font-semibold uppercase tracking-widest text-white shadow-[0_20px_40px_rgba(109,90,96,0.25)] transition duration-300 hover:-translate-y-1 hover:bg-[#8E7D82] hover:shadow-[0_30px_60px_rgba(109,90,96,0.35)]"
           >
-            Start Tracking
+            {isAuthenticated ? "Open Luna" : "Start Tracking"}
           </Link>
         </div>
       </section>
