@@ -8,6 +8,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.6.2",
+    date: "2026-05-05",
+    type: "fix",
+    title: "Period length off-by-one, dashboard count & favicon",
+    description:
+      "Fixed period length calculation to use inclusive day count (a period Jan 28–31 is 4 days, not 3). Fixed dashboard showing only 6 cycles tracked instead of the actual total. Added proper Luna favicon replacing the default Vercel icon. Compact mobile navigation on /chat with icon-only buttons.",
+  },
+  {
+    version: "0.6.1",
+    date: "2026-05-05",
+    type: "fix",
+    title: "Landing page auth redirect for signed-in users",
+    description:
+      "Fixed /start and landing page CTAs always redirecting to /signup even when already signed in. Signed-in users now see 'Dashboard' / 'Open Luna' CTAs and get auto-redirected to /dashboard.",
+  },
+  {
     version: "0.6.0",
     date: "2026-05-05",
     type: "feat",
