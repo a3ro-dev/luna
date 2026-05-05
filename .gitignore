@@ -41,5 +41,25 @@ yarn-error.log*
 next-env.d.ts
 import-data.ts
 drizzle/
+
+# agent / skills
 .agents
 .github
+skills-lock.json
+
+# utility scripts
+get-prompt.mjs
+
+# large media — use Git LFS or external hosting instead
+public/frames/
+public/video.mp4
+
+# default Next.js boilerplate assets
+public/file.svg
+public/globe.svg
+public/next.svg
+public/vercel.svg
+public/window.svg
+
+# duplicate docs (use luna_rewrite_prd_techspec.md as the source of truth)
+Luna Rewrite — PRD & Technical Specification.md
