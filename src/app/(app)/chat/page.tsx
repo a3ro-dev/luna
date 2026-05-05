@@ -616,6 +616,24 @@ export default function ChatPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Link href="/dashboard">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7]"
+                    >
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Link href="/settings">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7]"
+                    >
+                      Settings
+                    </Button>
+                  </Link>
                   {authStatus === "authenticated" ? (
                     <Button
                       variant="outline"

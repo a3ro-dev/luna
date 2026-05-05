@@ -2,7 +2,7 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM_ADDRESS = "Luna <onboarding@resend.dev>";
+const FROM_ADDRESS = "Luna <noreply@luna.a3ro.dev>";
 
 /* ──────────────────────────────────────────────────────────────
    Shared layout — every email wraps its body in this shell
@@ -512,7 +512,10 @@ export async function sendSubscriptionRequestEmail({
   }
   const subscriberResult = results[1];
   if (subscriberResult.status === "rejected") {
-    console.error("Failed to send subscriber confirmation:", subscriberResult.reason);
+    console.error(
+      "Failed to send subscriber confirmation:",
+      subscriberResult.reason,
+    );
   }
 
   return {
