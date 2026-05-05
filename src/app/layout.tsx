@@ -21,7 +21,8 @@ export const metadata: Metadata = {
   title: "Luna - Cycle Tracker",
   description: "Your caring health companion",
   icons: {
-    icon: "/luna.png",
+    icon: [{ url: "/luna.png", sizes: "any" }],
+    apple: "/luna.png",
   },
 };
 

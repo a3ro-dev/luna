@@ -460,7 +460,7 @@ async function refreshCycleAnalytics(userId: string): Promise<AnalyticsResult> {
       ? diffInDays(previous.mStart, current.mStart)
       : null;
     const nextPeriodLength = current.mEnd
-      ? diffInDays(current.mStart, current.mEnd)
+      ? diffInDays(current.mStart, current.mEnd) + 1
       : null;
     const nextFollicularLength =
       current.mEnd && current.ovulationDate

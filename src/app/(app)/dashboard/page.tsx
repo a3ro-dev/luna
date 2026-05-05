@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { cycles, predictionParams } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import DashboardClient from "./DashboardClient";
 
 function addDays(date: Date, days: number): Date {
@@ -32,11 +32,24 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  // Fetch latest cycles
+  // Count total cycles
+  const [{ count: totalCycles }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(cycles)
+    .where(eq(cycles.userId, session.user.id!));
+
+  // Fetch latest cycles (for recent cycles list)
   const userCycles = await db.query.cycles.findMany({
     where: eq(cycles.userId, session.user.id!),
     orderBy: [desc(cycles.mStart)],
     limit: 6,
+  });
+
+  // Fetch all cycles for calendar (slim columns)
+  const allCyclesForCalendar = await db.query.cycles.findMany({
+    where: eq(cycles.userId, session.user.id!),
+    orderBy: [desc(cycles.mStart)],
+    columns: { mStart: true, mEnd: true, ovulationDate: true },
   });
 
   // Fetch prediction params
@@ -81,7 +94,7 @@ export default async function DashboardPage() {
   const lutealDays = new Set<number>();
 
   // Check actual cycle data for this month
-  for (const c of userCycles) {
+  for (const c of allCyclesForCalendar) {
     if (!c.mStart) continue;
     const start = new Date(c.mStart + "T00:00:00");
     const end = c.mEnd
@@ -195,9 +208,7 @@ export default async function DashboardPage() {
       daysToOvulation={daysToOvulation}
       avgCycleLength={avgCycleLength}
       avgPeriodLength={avgPeriodLength}
-      cyclesTracked={
-        userCycles.length < 6 ? userCycles.length : userCycles.length
-      }
+      cyclesTracked={totalCycles}
       consistency={consistency}
       consistencyVariance={consistencyVariance}
       monthName={monthName}

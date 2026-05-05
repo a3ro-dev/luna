@@ -603,26 +603,98 @@ export default function ChatPage() {
           {/* --- Main Chat Area --- */}
           <div className="flex-1 flex flex-col min-w-0 min-h-0">
             {/* Header */}
-            <header className="py-4 px-6 md:px-10 border-b border-[#FFDDE0]/30 bg-white/50 backdrop-blur-xl sticky top-0 z-10">
-              <div className="flex items-center justify-between gap-3">
+            <header className="py-2 px-4 md:py-4 md:px-10 border-b border-[#FFDDE0]/30 bg-white/50 backdrop-blur-xl sticky top-0 z-10">
+              <div className="flex items-center justify-between gap-2 md:gap-3">
                 <motion.div
                   initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
                   animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                   transition={{ type: "spring", duration: 0.45, bounce: 0 }}
                 >
-                  <h1 className="flex items-center gap-2 font-serif text-2xl font-light text-[#6D5A60]">
+                  <h1 className="flex items-center gap-1.5 font-serif text-xl md:text-2xl font-light text-[#6D5A60]">
                     <img
                       src="/luna.png"
                       alt=""
-                      className="h-7 w-7 rounded-full"
+                      className="h-6 w-6 md:h-7 md:w-7 rounded-full"
                     />
                     Luna
                   </h1>
-                  <p className="text-xs font-light text-[#8E7D82]">
+                  <p className="text-[10px] md:text-xs font-light text-[#8E7D82] hidden sm:block">
                     Your caring health companion
                   </p>
                 </motion.div>
-                <div className="flex items-center gap-2">
+
+                {/* Mobile: icon-only nav */}
+                <div className="flex items-center gap-0.5 md:hidden">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setIsSessionsOpen(true)}
+                    className="text-[#8E7D82] hover:text-[#6D5A60] hover:bg-[#FFF5F7] cursor-pointer"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                  </Button>
+                  <Link href="/dashboard">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-[#8E7D82] hover:text-[#6D5A60] hover:bg-[#FFF5F7] cursor-pointer"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect width="7" height="7" x="3" y="3" rx="1" />
+                        <rect width="7" height="7" x="14" y="3" rx="1" />
+                        <rect width="7" height="7" x="14" y="14" rx="1" />
+                        <rect width="7" height="7" x="3" y="14" rx="1" />
+                      </svg>
+                    </Button>
+                  </Link>
+                  <Link href="/settings">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-[#8E7D82] hover:text-[#6D5A60] hover:bg-[#FFF5F7] cursor-pointer"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    </Button>
+                  </Link>
+                </div>
+
+                {/* Desktop: pill buttons */}
+                <div className="hidden md:flex items-center gap-2">
                   <Link href="/dashboard">
                     <Button
                       variant="outline"
@@ -661,14 +733,6 @@ export default function ChatPage() {
                       </Button>
                     </Link>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsSessionsOpen(true)}
-                    className="md:hidden text-xs text-[#8E7D82] hover:text-[#6D5A60] cursor-pointer"
-                  >
-                    Chats
-                  </Button>
                 </div>
               </div>
             </header>
