@@ -323,93 +323,121 @@ export function predict(
 ### 2.5 AI Chat Architecture
 
 **Model selection:**
-- Default: `meta-llama/llama-4-maverick` — fast, multimodal, good instruction following
-- Fallback: `google/gemini-2.0-flash-001`
-- Web search: pass `plugins: [{ id: "web_search" }]` in request body per HackClub docs
+- Chat: `x-ai/grok-4.3` via HackClub AI proxy — fast, strong instruction following
+- Rename: `~anthropic/claude-haiku-latest` via HackClub AI proxy — cheap, good for short titles
 
-**System prompt strategy:**
-```
-You are Luna — a warm, caring health companion specialising in menstrual cycle tracking.
-You are NOT a doctor. You help users understand their cycle, log events, and feel supported.
-You have access to the user's cycle history and memory context (injected below).
-You can search the web for general health information.
-You accept images (max 4 per message): OPK strips, handwritten notes, symptom logs.
-When the user implies a logging action, return a structured JSON tool call alongside your response.
-```
+**Vercel AI SDK v6:**
+- Uses `streamText()` with `convertToModelMessages()` for UIMessage → model message conversion
+- `stopWhen: stepCountIs(8)` — allows up to 8 tool-calling rounds
+- `result.toUIMessageStreamResponse()` streams back as UI Message stream for the `useChat` hook
+- Usage fields: `usage.inputTokens` / `usage.outputTokens` (not `promptTokens`/`completionTokens`)
 
-**Supermemory integration:**
-- On each chat message: query Supermemory with the message text → retrieve top-k relevant memories
-- Inject memories into system prompt as `[MEMORY CONTEXT]` block
-- After each assistant response: write key facts extracted to Supermemory (`POST /api/memory`)
-- `containerTag` = `user.id` for strict per-user isolation
+**10 AI Tools:**
+| Tool | Purpose |
+|---|---|
+| `logPeriodStart` | Log period start date |
+| `logPeriodEnd` | Log period end date |
+| `logOvulation` | Log ovulation date |
+| `addNoteSymptom` | Add free-text note or symptom to a cycle |
+| `fetchRecentCycles` | Fetch recent cycles (returns OpenUI table) |
+| `computePredictions` | Next period/ovulation predictions (returns OpenUI card) |
+| `fetchStats` | Cycle statistics and averages (returns OpenUI card) |
+| `exportData` | Return export link for user's cycle data |
+| `rememberFact` | Store personal fact in Supermemory (not cycle data) |
+| `searchWeb` | Search the web via HackClub Search API |
+
+**System prompt:** `baseOpenUiPrompt` from `src/lib/chat/prompt.ts` — defines Luna's persona, tool routing table, `rememberFact` guidelines, and full OpenUI Lang DSL specification.
+
+**Dynamic context (4 layers):**
+1. Recent 20 messages from DB
+2. Latest session summary (auto-generated after 30+ messages, delta 12+)
+3. Keyword snippets (6 keywords from last message → 6 matching older messages)
+4. Supermemory recall (top 5 memories via `POST /v4/search`)
+
+**Supermemory v4 integration:**
+- Recall: `POST https://api.supermemory.ai/v4/search` with `{ q, containerTag: userId, limit: 5, searchMode: "memories" }`
+- Store: `POST https://api.supermemory.ai/v4/memories` with `{ containerTag: userId, memories: [{ content, isStatic }] }`
+- Only stores personal profile facts (health conditions, life context, preferences) — NOT cycle data or chat messages
+- `containerTag` = `userId` for per-user isolation
+
+**Web search:**
+- `searchWeb` tool calls `GET https://search.hackclub.com/res/v1/web/search?q=...&count=5`
+- Auth: `Authorization: Bearer ${HACKCLUB_WEB_SEARCH_API_KEY}`
+- Returns formatted markdown links with descriptions
 
 **Image handling:**
-- Accept up to 4 images per message (base64 or URL)
-- Track running image count per chat context — hard stop at 10 per context window
-- Images sent as `content: [{ type: "image_url", ... }]` per OpenAI vision format
+- Accept up to 4 images per message via `FileUIPart` (type: "file", mediaType, url, filename)
+- Images sent as data URLs via the UIMessage parts system
 
 **Streaming:**
 ```typescript
 // app/api/chat/route.ts
 export async function POST(req: Request) {
-  const { messages, images } = await req.json();
-  const memories = await supermemory.search(messages.at(-1).content, userId);
-  const systemPrompt = buildSystemPrompt(memories, userCycleContext);
+  const { messages, sessionId, timezone } = await req.json();
+  // ... auth, session resolution, context gathering ...
 
-  const response = await fetch("https://ai.hackclub.com/proxy/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.HACKCLUB_API_KEY}` },
-    body: JSON.stringify({
-      model: "meta-llama/llama-4-maverick",
-      stream: true,
-      messages: [{ role: "system", content: systemPrompt }, ...messages],
-      plugins: webSearchEnabled ? [{ id: "web_search" }] : [],
-    }),
+  const result = await streamText({
+    model: hackClubAI.chat("x-ai/grok-4.3"),
+    system: systemPrompt,
+    messages: await convertToModelMessages(recentMessages),
+    tools: createChatTools({ userId, timeZone }),
+    stopWhen: stepCountIs(8),
+    onFinish: async ({ usage, text, steps }) => {
+      // Persist assistant message, bump session, maybe summarize, log trace
+    },
   });
 
-  // Pipe SSE stream directly to client + capture usage for tracing
-  return new Response(response.body, {
-    headers: { "Content-Type": "text/event-stream" },
-  });
+  return result.toUIMessageStreamResponse();
 }
 ```
 
 ### 2.6 Usage Tracing
 
-HackClub AI `/api/stats` returns aggregate token/cost data. Strategy:
+Every AI call is logged to the `ai_traces` table in the `onFinish` callback:
 
-1. Capture `usage` from each streaming response's final `[DONE]` chunk
-2. Write to `ai_traces` table with model, feature tag, latency, cost estimate
-3. Query `ai_traces` for per-user monthly rollup → show in Settings as a minimal pill:  
-   `"This month: 42 conversations · ~$0.04"`
-4. Server-side: alert if any single call exceeds 8k tokens (prompt engineering regression signal)
+| Field | Source |
+|---|---|
+| `model` | `"x-ai/grok-4.3"` (hardcoded) |
+| `inputTokens` | `usage.inputTokens ?? 0` |
+| `outputTokens` | `usage.outputTokens ?? 0` |
+| `costUsd` | Rough: `(input × 0.0001 + output × 0.0002) / 1000` |
+| `latencyMs` | Wall-clock: `Date.now() - startTime` |
+| `feature` | `"chat"` (hardcoded) |
+| `hasImages` | `true` if any user message has a `file`-type part |
+| `hadWebSearch` | `true` if any step used the `searchWeb` tool |
 
 ### 2.7 Route Structure
 
 ```
-app/
-├── (auth)/
-│   ├── login/page.tsx
-│   └── onboarding/page.tsx          ← first-time cycle history setup
-├── (app)/
-│   ├── layout.tsx                   ← sidebar nav, session guard
-│   ├── dashboard/page.tsx           ← calendar + prediction cards
-│   ├── chat/page.tsx                ← AI companion
-│   ├── log/page.tsx                 ← manual logging UI
-│   ├── stats/page.tsx               ← cycle statistics
-│   └── settings/page.tsx            ← prefs + usage trace
-├── api/
-│   ├── auth/[...nextauth]/route.ts
-│   ├── chat/route.ts                ← streaming AI endpoint
-│   ├── log/route.ts                 ← cycle event logging
-│   ├── predict/route.ts             ← prediction engine
-│   ├── calendar/route.ts            ← calendar assembly
-│   └── stats/route.ts               ← usage tracing rollup
+src/
+├── app/
+│   ├── (auth)/
+│   │   └── login/page.tsx
+│   ├── (app)/
+│   │   ├── layout.tsx
+│   │   └── chat/page.tsx                   ← AI companion (primary interface)
+│   └── api/
+│       ├── auth/[...nextauth]/route.ts     ← Auth.js handlers
+│       ├── auth/register/route.ts          ← User registration
+│       ├── chat/route.ts                   ← Streaming AI endpoint + 10 tools
+│       └── chat/sessions/
+│           ├── route.ts                    ← GET/POST sessions
+│           └── [id]/
+│               ├── route.ts                ← DELETE session
+│               ├── messages/route.ts       ← GET session messages
+│               └── rename/route.ts         ← POST AI-generate title
+├── auth.ts                                 ← Auth.js config
+├── components/
+│   ├── ai-elements/                        ← Conversation, Message, PromptInput, etc.
+│   └── ui/                                 ← shadcn components
 └── lib/
-    ├── prediction/engine.ts         ← algorithm (above)
-    ├── db/schema.ts                 ← drizzle schema
-    ├── memory/supermemory.ts        ← memory client
-    └── ai/hackclub.ts               ← AI client wrapper + tracer
+    ├── chat/
+    │   ├── prompt.ts                       ← System prompt + OpenUI DSL spec
+    │   └── openui.ts                       ← OpenUI detection (root = ...)
+    ├── cycle-tools.ts                      ← Cycle logging, predictions, stats
+    └── db/
+        ├── schema.ts                       ← Drizzle schema (7 tables)
+        └── index.ts                        ← Drizzle client
 ```
 
 ### 2.8 Design Tokens (Soft Palette)
@@ -445,43 +473,49 @@ app/
 }
 ```
 
-### 2.9 OpenUI Integration (Stretch Goal)
+### 2.9 OpenUI Integration
 
-OpenUI lang allows the AI to generate UI components on the fly. Use it for:
-- Dynamic symptom logging forms ("I want to log my mood and bloating today")
-- Agent-generated summary cards after a chat session
-- Keep it sandboxed in the chat view — never in the calendar or prediction views
+OpenUI Lang is actively used for structured AI responses. The system prompt includes a full OpenUI DSL specification (~200 lines) covering:
 
-Implementation: render OpenUI output in an isolated `<iframe>` or sandboxed `div` inside the chat message bubble. Never trust OpenUI output with DOM access outside its container.
+- **Components:** `Card`, `TextContent`, `MarkDownRenderer`, `Callout`, `Table`/`Col`, charts (`BarChart`, `LineChart`, etc.), `Form`/`FormControl`, `Button`, `ListBlock`, `FollowUpBlock`, `SectionBlock`, `Tabs`, `Accordion`, `Steps`, `Carousel`, `TagBlock`
+- **Actions:** `Action([@ToAssistant("msg")])`, `@OpenUrl("url")`
+- **Streaming:** `root = Card(...)` must be first line for optimal streaming
+
+**Gating:** `looksLikeOpenUiLang()` (from `src/lib/chat/openui.ts`) checks if assistant text starts with `root =` to decide between structured OpenUI rendering vs plain text.
+
+**When OpenUI is used:**
+- `fetchRecentCycles` → Table with start/end/cycle/period columns
+- `computePredictions` → Card with next period date, ovulation date, confidence, follow-ups
+- `fetchStats` → Card with averages, cycle count, follow-ups
+
+**When plain text is used:**
+- Confirmations ("got it, logged your period start! 💕")
+- Clarifications ("i need a clear start date")
+- General conversation responses
 
 ### 2.10 Environment Variables
 
 ```bash
 # Auth
 AUTH_SECRET=
-AUTH_GOOGLE_ID=
-AUTH_GOOGLE_SECRET=
 
 # Database
-DATABASE_URL=                   # Neon postgres connection string
+NEON_DATABASE_URL=                   # Neon postgres connection string
 
 # AI
-HACKCLUB_API_KEY=
+HACKCLUB_AI_API_KEY=                  # HackClub AI proxy key
+HACKCLUB_WEB_SEARCH_API_KEY=          # HackClub Search API key
 
 # Memory
-SUPERMEMORY_API_KEY=
-
-# App
-NEXT_PUBLIC_APP_URL=
+SUPERMEMORY_API_KEY=                  # Supermemory v4 API key
 ```
 
 ---
 
 ## Part 3: Open Questions Before Sprint 1
 
-1. **Model choice:** `llama-4-maverick` vs `gemini-2.0-flash` — do you want to benchmark both at the start, or pick one and commit?
+1. **Calendar view:** Is the monthly calendar with phase color coding v1 scope or v2?
 2. **Onboarding:** If a user has existing Luna (Discord) data, do you want a CSV import flow?
-3. **OpenUI:** Is this v1 scope or explicitly v2?
-4. **Notifications:** Vercel Cron for period reminders — v1 or v2?
-5. **Image limit UI:** 4/message + 10/context — surface this as a subtle counter in the chat input, or silent enforcement only?
+3. **Notifications:** Vercel Cron for period reminders — v1 or v2?
+4. **Stats dashboard:** Dedicated `/stats` page vs in-chat stats only?
 

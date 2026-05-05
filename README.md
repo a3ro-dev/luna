@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Luna
+
+A soft, supportive menstrual cycle companion. Log your cycle, receive gentle predictions, and chat about symptoms and feelings — without clinical tone.
+
+## Stack
+
+| Layer | Tech |
+|---|---|
+| Framework | Next.js 15 (App Router) |
+| UI | Tailwind v4, AI Elements, OpenUI, shadcn |
+| Auth | Auth.js v5 (Credentials — email + password) |
+| Database | Neon PostgreSQL + Drizzle ORM |
+| AI | Vercel AI SDK v6 + HackClub AI proxy (`x-ai/grok-4.3`) |
+| Memory | Supermemory v4 API (per-user persistent facts) |
+| Search | HackClub Search API |
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+cp .env.example .env   # fill in keys
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Purpose |
+|---|---|
+| `NEON_DATABASE_URL` | Neon PostgreSQL connection string |
+| `AUTH_SECRET` | Auth.js secret key |
+| `HACKCLUB_AI_API_KEY` | HackClub AI proxy key |
+| `HACKCLUB_WEB_SEARCH_API_KEY` | HackClub Search API key |
+| `SUPERMEMORY_API_KEY` | Supermemory v4 API key |
 
-## Learn More
+## Database
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+pnpm drizzle-kit generate   # generate migration
+pnpm drizzle-kit migrate    # apply migration
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+7 tables: `users`, `cycles`, `prediction_params`, `ai_traces`, `chat_sessions`, `chat_messages`, `chat_summaries`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Structure
 
-## Deploy on Vercel
+```
+src/
+├── app/
+│   ├── (app)/chat/          # Chat page
+│   └── api/
+│       ├── auth/             # Auth.js handlers
+│       ├── chat/             # Chat streaming API + tools
+│       └── chat/sessions/    # Session CRUD + rename + messages
+├── auth.ts                  # Auth.js config
+├── components/
+│   ├── ai-elements/         # Conversation, Message, PromptInput, etc.
+│   └── ui/                  # shadcn components
+└── lib/
+    ├── chat/
+    │   ├── prompt.ts        # System prompt + OpenUI DSL spec
+    │   └── openui.ts        # OpenUI detection (root = ...)
+    ├── cycle-tools.ts       # Cycle logging, predictions, stats
+    └── db/
+        └── schema.ts        # Drizzle schema
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Troubleshooting
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **404 on static chunks**: Delete `.next` and `node_modules/.cache`, restart dev server
+- **`@opentelemetry/api` crash**: Ensure `next.config.ts` has `serverExternalPackages: ['@opentelemetry/api']`
+- **Invalid config warning**: Remove `experimental.turbopack` — not valid in Next.js 15.0.0

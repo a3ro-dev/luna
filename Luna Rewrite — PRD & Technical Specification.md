@@ -54,8 +54,8 @@ Single user type: a person tracking their own menstrual cycle. Auth is per-accou
 #### F3 -- AI Companion (Chat)
 
 - Powered by HackClub AI API (OpenAI-compatible, OpenRouter proxy)
-- Recommended model: `meta-llama/llama-4-maverick` or `google/gemini-2.0-flash-001` (fast, cheap, multimodal)
-- Persistent memory via Supermemory: the agent remembers symptoms, preferences, past conversations, logged notes
+- Model: `x-ai/grok-4.3` via HackClub AI proxy (rename uses `~anthropic/claude-haiku-latest`)
+- Persistent memory via Supermemory v4: the agent remembers personal facts (health conditions, preferences), NOT cycle data or messages
 - Web search enabled for questions like "what does mid-cycle spotting mean?" using HackClub AI web search
 - Streaming responses via SSE
 
@@ -77,16 +77,19 @@ Single user type: a person tracking their own menstrual cycle. Auth is per-accou
 #### F6 -- Usage Tracing (Internal)
 
 - Every AI call logs: model, input tokens, output tokens, cost estimate, latency
-- Pulled from HackClub AI `/api/stats` endpoint
-- Shown to the user as a minimal "usage this month" pill in settings
-- Used internally for efficiency monitoring -- identify expensive prompts, slow models
+- Stored in `ai_traces` table (not pulled from HackClub `/api/stats`)
+- Fields: model, inputTokens, outputTokens, costUsd, latencyMs, feature, hasImages, hadWebSearch
+- Cost formula: `(inputTokens × 0.0001 + outputTokens × 0.0002) / 1000` (rough USD)
 
 
 #### F7 -- Auth
 
 - Auth.js (NextAuth v5)
-- Providers: Google OAuth + email magic link
-- Session stored in Neon PostgreSQL via Auth.js adapter
+- Provider: Credentials only (email + password via `bcryptjs`)
+- JWT session strategy (required for Credentials provider)
+- Session max age: 30 days
+- Custom sign-in page: `/login`
+- Adapter: DrizzleAdapter (Neon PostgreSQL)
 
 
 ### 1.6 Design Principles
@@ -138,15 +141,16 @@ Single user type: a person tracking their own menstrual cycle. Auth is per-accou
 
 | Layer | Choice | Rationale |
 | :-- | :-- | :-- |
-| Framework | Next.js 15 (App Router) | SSR + API routes in one, Vercel-native |
-| UI | shadcn/ui + Tailwind v4 | Composable, unstyled base -- full palette control |
-| Auth | Auth.js v5 (NextAuth) | Google + magic link, built-in Neon adapter |
+| Framework | Next.js 15.0.0 (App Router) | SSR + API routes in one, Vercel-native |
+| UI | Tailwind v4 + AI Elements + OpenUI + shadcn | Composable, unstyled base -- full palette control + structured AI rendering |
+| Auth | Auth.js v5 (NextAuth) — Credentials only | Email + password, JWT strategy, DrizzleAdapter |
 | Database | Neon PostgreSQL | Serverless, branching, free tier generous |
 | ORM | Drizzle ORM | Type-safe, lightweight, pairs well with Neon |
-| AI API | HackClub AI (OpenRouter proxy) | Free/cheap, OpenAI-compatible SDK |
-| Memory | Supermemory API | Per-user persistent memory, semantic search |
+| AI SDK | Vercel AI SDK v6 | `streamText`, `tool`, `stepCountIs`, `convertToModelMessages` |
+| AI API | HackClub AI proxy | `x-ai/grok-4.3` for chat, `~anthropic/claude-haiku-latest` for rename |
+| Memory | Supermemory v4 API | Per-user persistent memory, semantic search |
+| Search | HackClub Search API | `GET https://search.hackclub.com/res/v1/web/search` |
 | Hosting | Vercel | Zero-config Next.js deploy |
-| Agent UI | OpenUI lang (stretch) | Dynamic UI component generation from LLM |
 
 ### 2.3 Database Schema (Drizzle)
 
@@ -156,6 +160,7 @@ Single user type: a person tracking their own menstrual cycle. Auth is per-accou
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
+  passwordHash: text("password_hash"),
   name: text("name"),
   image: text("image"),
   timezone: text("timezone").default("UTC"),
