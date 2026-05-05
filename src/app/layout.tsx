@@ -4,7 +4,7 @@ import "./globals.css";
 import AppSessionProvider from "@/components/SessionProvider";
 import { cn } from "@/lib/utils";
 
-const figtree = Figtree({subsets:['latin'],variable:'--font-sans'});
+const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
 
 const instrumentSerif = Instrument_Serif({
   weight: "400",
@@ -20,6 +20,9 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "Luna - Cycle Tracker",
   description: "Your caring health companion",
+  icons: {
+    icon: "/luna.png",
+  },
 };
 
 export default function RootLayout({
@@ -30,7 +33,14 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", instrumentSerif.variable, dmSans.variable, "font-sans", figtree.variable)}
+      className={cn(
+        "h-full",
+        "antialiased",
+        instrumentSerif.variable,
+        dmSans.variable,
+        "font-sans",
+        figtree.variable,
+      )}
     >
       <body className="min-h-full flex flex-col font-sans bg-[#FCFBFB]">
         <AppSessionProvider>{children}</AppSessionProvider>

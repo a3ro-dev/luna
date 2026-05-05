@@ -45,8 +45,9 @@ export default function ForgotPasswordPage() {
           <div className="text-center mb-10">
             <Link
               href="/"
-              className="font-serif text-4xl font-light text-[#6D5A60]"
+              className="flex items-center justify-center gap-2 font-serif text-4xl font-light text-[#6D5A60]"
             >
+              <img src="/luna.png" alt="" className="h-10 w-10 rounded-full" />
               Luna
             </Link>
             <p className="mt-3 text-sm font-light text-[#8E7D82]">
@@ -76,7 +77,10 @@ export default function ForgotPasswordPage() {
                 Check your inbox
               </h2>
               <p className="text-sm font-light text-[#8E7D82] leading-relaxed">
-                If an account exists for <strong className="text-[#6D5A60]">{email}</strong>, you&apos;ll receive a password reset link shortly. The link expires in 1 hour.
+                If an account exists for{" "}
+                <strong className="text-[#6D5A60]">{email}</strong>, you&apos;ll
+                receive a password reset link shortly. The link expires in 1
+                hour.
               </p>
               <Link
                 href="/login"

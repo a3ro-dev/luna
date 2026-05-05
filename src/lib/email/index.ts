@@ -39,6 +39,7 @@ function emailShell(bodyHtml: string, footerText: string = "") {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding-bottom:36px; text-align:center;">
+                    <img src="https://luna.a3ro.dev/luna.png" alt="Luna" width="44" height="44" style="border-radius:50%; display:inline-block; vertical-align:middle; margin-bottom:8px;" />
                     <h1 style="font-family:Georgia,'Times New Roman',serif; font-weight:300; font-size:36px; color:#6D5A60; margin:0; letter-spacing:-0.02em;">
                       Luna
                     </h1>

@@ -331,8 +331,9 @@ export default function Home() {
       <header className="fixed left-0 right-0 top-0 z-40 flex items-center justify-between px-6 py-6 md:px-12">
         <Link
           href="/"
-          className="font-serif text-3xl font-light leading-none text-[#6D5A60]"
+          className="flex items-center gap-2 font-serif text-3xl font-light leading-none text-[#6D5A60]"
         >
+          <img src="/luna.png" alt="Luna" className="h-9 w-9 rounded-full" />
           Luna
         </Link>
         <Link
@@ -705,7 +706,17 @@ export default function Home() {
               className="absolute right-6 top-6 flex h-8 w-8 items-center justify-center rounded-full text-[#8E7D82] transition hover:bg-[#FFDDE0]/30 hover:text-[#6D5A60] cursor-pointer"
               aria-label="Close"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M18 6 6 18M6 6l12 12" />
               </svg>
             </button>
@@ -720,8 +731,8 @@ export default function Home() {
                   You&apos;re on the list!
                 </h3>
                 <p className="text-sm font-light text-[#8E7D82] leading-relaxed max-w-xs mx-auto">
-                  We&apos;ve sent a confirmation to your email. We&apos;ll reach out
-                  personally with next steps for {subModal.plan}.
+                  We&apos;ve sent a confirmation to your email. We&apos;ll reach
+                  out personally with next steps for {subModal.plan}.
                 </p>
                 <button
                   type="button"

@@ -613,7 +613,12 @@ export default function ChatPage() {
                   animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                   transition={{ type: "spring", duration: 0.45, bounce: 0 }}
                 >
-                  <h1 className="font-serif text-2xl font-light text-[#6D5A60]">
+                  <h1 className="flex items-center gap-2 font-serif text-2xl font-light text-[#6D5A60]">
+                    <img
+                      src="/luna.png"
+                      alt=""
+                      className="h-7 w-7 rounded-full"
+                    />
                     Luna
                   </h1>
                   <p className="text-xs font-light text-[#8E7D82]">
@@ -686,7 +691,7 @@ export default function ChatPage() {
                     }}
                   >
                     <motion.div
-                      className="w-14 h-14 rounded-full bg-[#FFB5C0] flex items-center justify-center text-white text-xl shadow-[0_10px_20px_rgba(255,181,192,0.2)]"
+                      className="w-14 h-14 rounded-full bg-[#FFB5C0] flex items-center justify-center shadow-[0_10px_20px_rgba(255,181,192,0.2)] overflow-hidden"
                       animate={{ scale: [1, 1.05, 1] }}
                       transition={{
                         duration: 3,
@@ -694,7 +699,11 @@ export default function ChatPage() {
                         ease: "easeInOut",
                       }}
                     >
-                      ✨
+                      <img
+                        src="/luna.png"
+                        alt="Luna"
+                        className="h-10 w-10 rounded-full"
+                      />
                     </motion.div>
                   </motion.div>
                   <motion.div

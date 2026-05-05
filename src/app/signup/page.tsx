@@ -60,8 +60,9 @@ export default function SignupPage() {
           <div className="text-center mb-10">
             <Link
               href="/"
-              className="font-serif text-4xl font-light text-[#6D5A60]"
+              className="flex items-center justify-center gap-2 font-serif text-4xl font-light text-[#6D5A60]"
             >
+              <img src="/luna.png" alt="" className="h-10 w-10 rounded-full" />
               Luna
             </Link>
             <p className="mt-3 text-sm font-light text-[#8E7D82]">
