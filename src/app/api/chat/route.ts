@@ -1,6 +1,5 @@
 import {
   convertToModelMessages,
-  isStepCount,
   streamText,
   tool,
   type UIMessage,
@@ -11,7 +10,7 @@ import { aiTraces, chatMessages, chatSessions, chatSummaries } from "@/lib/db/sc
 import { auth } from "@/auth"
 import { and, desc, eq, ilike, or } from "drizzle-orm"
 import { z } from "zod"
-import { openuiChatLibrary, openuiChatPromptOptions } from "@openuidev/react-ui"
+import { openuiChatLibrary, openuiChatPromptOptions } from "@openuidev/react-ui/genui-lib"
 import {
   addCycleNoteEntry,
   fetchRecentCyclesEntry,
@@ -455,7 +454,7 @@ export async function POST(req: Request) {
     system: systemPrompt,
     messages: await convertToModelMessages(recentMessages),
     tools,
-    stopWhen: isStepCount(8),
+    maxSteps: 8,
     // Note: passing web_search plugin conceptually (may require provider-specific config in real environment)
     ...(webSearchEnabled ? {
       providerOptions: {
