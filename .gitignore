@@ -41,3 +41,5 @@ yarn-error.log*
 next-env.d.ts
 import-data.ts
 drizzle/
+.agents
+.github

@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, DM_Sans } from "next/font/google";
+import { Instrument_Serif, DM_Sans, Figtree } from "next/font/google";
 import "./globals.css";
 import AppSessionProvider from "@/components/SessionProvider";
+import { cn } from "@/lib/utils";
+
+const figtree = Figtree({subsets:['latin'],variable:'--font-sans'});
 
 const instrumentSerif = Instrument_Serif({
   weight: "400",
@@ -27,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${instrumentSerif.variable} ${dmSans.variable} h-full antialiased`}
+      className={cn("h-full", "antialiased", instrumentSerif.variable, dmSans.variable, "font-sans", figtree.variable)}
     >
       <body className="min-h-full flex flex-col font-sans bg-[#FCFBFB]">
         <AppSessionProvider>{children}</AppSessionProvider>

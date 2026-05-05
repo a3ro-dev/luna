@@ -2,15 +2,21 @@ import {
   convertToModelMessages,
   streamText,
   tool,
+  stepCountIs,
   type UIMessage,
-} from "ai"
-import { createOpenAI } from "@ai-sdk/openai"
-import { db } from "@/lib/db"
-import { aiTraces, chatMessages, chatSessions, chatSummaries } from "@/lib/db/schema"
-import { auth } from "@/auth"
-import { and, desc, eq, ilike, or } from "drizzle-orm"
-import { z } from "zod"
-import { baseOpenUiPrompt } from "@/lib/chat/prompt"
+} from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { db } from "@/lib/db";
+import {
+  aiTraces,
+  chatMessages,
+  chatSessions,
+  chatSummaries,
+} from "@/lib/db/schema";
+import { auth } from "@/auth";
+import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { z } from "zod";
+import { baseOpenUiPrompt } from "@/lib/chat/prompt";
 import {
   addCycleNoteEntry,
   fetchRecentCyclesEntry,
@@ -21,43 +27,65 @@ import {
   logPeriodStartEntry,
   resolveUserTimeZone,
   sanitizeTimeZone,
-} from "@/lib/cycle-tools"
-import { looksLikeOpenUiLang } from "@/lib/chat/openui"
+} from "@/lib/cycle-tools";
+import { looksLikeOpenUiLang } from "@/lib/chat/openui";
 
-export const maxDuration = 60
+export const maxDuration = 60;
 
 // HackClub AI provider
 const hackClubAI = createOpenAI({
   baseURL: "https://ai.hackclub.com/proxy/v1",
   apiKey: process.env.HACKCLUB_AI_API_KEY,
-})
+});
 
-// Supermemory fetch helpers
-async function getSupermemoryContext(userId: string): Promise<string> {
-  try {
-    const res = await fetch("https://api.supermemory.ai/v1/context", {
-      headers: {
-        Authorization: `Bearer ${process.env.SUPERMEMORY_API_KEY}`,
-      },
-      body: JSON.stringify({ userId }),
-      method: "POST",
-    });
-    if (!res.ok) return "";
-    const data = await res.json();
-    return data.context || "";
-  } catch (e) {
-    return "";
-  }
-}
+// Supermemory — only stores personal profile facts about the user
+// (health conditions, life context, preferences, recurring patterns)
+// NOT cycle data (that's in our DB) and NOT chat messages (that's in our DB).
 
-async function writeSupermemoryFact(userId: string, fact: string) {
+async function recallMemory(userId: string, query: string): Promise<string> {
+  if (!process.env.SUPERMEMORY_API_KEY || !query.trim()) return "";
   try {
-    await fetch("https://api.supermemory.ai/v1/memory", {
+    const res = await fetch("https://api.supermemory.ai/v4/search", {
       headers: {
         Authorization: `Bearer ${process.env.SUPERMEMORY_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ userId, content: fact }),
+      body: JSON.stringify({
+        q: query,
+        containerTag: userId,
+        limit: 5,
+        searchMode: "memories",
+      }),
+      method: "POST",
+    });
+    if (!res.ok) return "";
+    const data = await res.json();
+    const results: Array<{ memory?: string }> = data.results ?? [];
+    return results
+      .filter((r) => typeof r.memory === "string" && r.memory.trim().length > 0)
+      .map((r) => r.memory!.trim())
+      .join("\n");
+  } catch {
+    return "";
+  }
+}
+
+async function storeMemoryFact(
+  userId: string,
+  fact: string,
+  isStatic = false,
+): Promise<void> {
+  if (!process.env.SUPERMEMORY_API_KEY || !fact.trim()) return;
+  try {
+    await fetch("https://api.supermemory.ai/v4/memories", {
+      headers: {
+        Authorization: `Bearer ${process.env.SUPERMEMORY_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        containerTag: userId,
+        memories: [{ content: fact.trim(), isStatic }],
+      }),
       method: "POST",
     });
   } catch (e) {
@@ -65,19 +93,17 @@ async function writeSupermemoryFact(userId: string, fact: string) {
   }
 }
 
-const RECENT_MESSAGE_LIMIT = 20
-const SUMMARY_TRIGGER_COUNT = 30
-const SUMMARY_MIN_DELTA = 12
-
-
+const RECENT_MESSAGE_LIMIT = 20;
+const SUMMARY_TRIGGER_COUNT = 30;
+const SUMMARY_MIN_DELTA = 12;
 
 const getTextFromParts = (parts: UIMessage["parts"]): string => {
-  if (!Array.isArray(parts)) return ""
+  if (!Array.isArray(parts)) return "";
   return parts
     .filter((part) => part.type === "text")
     .map((part) => part.text)
-    .join("")
-}
+    .join("");
+};
 
 const getOrCreateSession = async (userId: string) => {
   const existing = await db
@@ -85,27 +111,24 @@ const getOrCreateSession = async (userId: string) => {
     .from(chatSessions)
     .where(eq(chatSessions.userId, userId))
     .orderBy(desc(chatSessions.updatedAt))
-    .limit(1)
+    .limit(1);
 
-  if (existing.length > 0) return existing[0]
+  if (existing.length > 0) return existing[0];
 
-  const created = await db
-    .insert(chatSessions)
-    .values({ userId })
-    .returning()
+  const created = await db.insert(chatSessions).values({ userId }).returning();
 
-  return created[0]
-}
+  return created[0];
+};
 
 const getSessionById = async (sessionId: string, userId: string) => {
   const rows = await db
     .select()
     .from(chatSessions)
     .where(and(eq(chatSessions.id, sessionId), eq(chatSessions.userId, userId)))
-    .limit(1)
+    .limit(1);
 
-  return rows[0]
-}
+  return rows[0];
+};
 
 const getRecentMessages = async (sessionId: string) => {
   const rows = await db
@@ -113,7 +136,7 @@ const getRecentMessages = async (sessionId: string) => {
     .from(chatMessages)
     .where(eq(chatMessages.sessionId, sessionId))
     .orderBy(desc(chatMessages.createdAt))
-    .limit(RECENT_MESSAGE_LIMIT)
+    .limit(RECENT_MESSAGE_LIMIT);
 
   return rows
     .slice()
@@ -122,8 +145,8 @@ const getRecentMessages = async (sessionId: string) => {
       id: row.id,
       role: row.role as UIMessage["role"],
       parts: Array.isArray(row.parts) ? (row.parts as UIMessage["parts"]) : [],
-    }))
-}
+    }));
+};
 
 const getLatestSummary = async (sessionId: string) => {
   const rows = await db
@@ -131,10 +154,10 @@ const getLatestSummary = async (sessionId: string) => {
     .from(chatSummaries)
     .where(eq(chatSummaries.sessionId, sessionId))
     .orderBy(desc(chatSummaries.createdAt))
-    .limit(1)
+    .limit(1);
 
-  return rows[0]
-}
+  return rows[0];
+};
 
 const extractKeywords = (text: string) => {
   const stopwords = new Set([
@@ -165,7 +188,7 @@ const extractKeywords = (text: string) => {
     "are",
     "for",
     "but",
-  ])
+  ]);
 
   return Array.from(
     new Set(
@@ -173,32 +196,32 @@ const extractKeywords = (text: string) => {
         .toLowerCase()
         .replace(/[^a-z0-9\s]/g, " ")
         .split(/\s+/)
-        .filter((word) => word.length > 3 && !stopwords.has(word))
-    )
-  ).slice(0, 6)
-}
+        .filter((word) => word.length > 3 && !stopwords.has(word)),
+    ),
+  ).slice(0, 6);
+};
 
 const getContextSnippets = async (sessionId: string, queryText: string) => {
-  const keywords = extractKeywords(queryText)
-  if (keywords.length === 0) return []
+  const keywords = extractKeywords(queryText);
+  if (keywords.length === 0) return [];
 
   const conditions = keywords.map((keyword) =>
-    ilike(chatMessages.textContent, `%${keyword}%`)
-  )
+    ilike(chatMessages.textContent, `%${keyword}%`),
+  );
 
   const rows = await db
     .select()
     .from(chatMessages)
     .where(and(eq(chatMessages.sessionId, sessionId), or(...conditions)))
     .orderBy(desc(chatMessages.createdAt))
-    .limit(6)
+    .limit(6);
 
   return rows
     .slice()
     .reverse()
     .map((row) => `${row.role}: ${row.textContent ?? ""}`)
-    .filter((line) => line.trim().length > 0)
-}
+    .filter((line) => line.trim().length > 0);
+};
 
 const buildSystemPrompt = ({
   memoryContext,
@@ -206,34 +229,43 @@ const buildSystemPrompt = ({
   contextSnippets,
   timeZone,
 }: {
-  memoryContext: string
-  latestSummary?: string
-  contextSnippets: string[]
-  timeZone: string
+  memoryContext: string;
+  latestSummary?: string;
+  contextSnippets: string[];
+  timeZone: string;
 }) => {
   const summaryContext = latestSummary
     ? `Conversation Summary:\n${latestSummary}\n\n`
-    : ""
-  const snippetContext = contextSnippets.length > 0
-    ? `Relevant Context Snippets:\n${contextSnippets.join("\n")}\n\n`
-    : ""
+    : "";
+  const snippetContext =
+    contextSnippets.length > 0
+      ? `Relevant Context Snippets:\n${contextSnippets.join("\n")}\n\n`
+      : "";
 
-  return `${baseOpenUiPrompt}\n\n${summaryContext}${snippetContext}User Context & Memory:\n${memoryContext}\n\nToday in the user's timezone (${timeZone}) is ${getCurrentIsoDate(timeZone)}.`
-}
+  return `${baseOpenUiPrompt}\n\n${summaryContext}${snippetContext}User Context & Memory:\n${memoryContext}\n\nToday in the user's timezone (${timeZone}) is ${getCurrentIsoDate(timeZone)}.`;
+};
 
 const createChatTools = ({
   userId,
   timeZone,
 }: {
-  userId: string
-  timeZone: string
+  userId: string;
+  timeZone: string;
 }) => ({
   logPeriodStart: tool({
     description: "Log the start date of a menstrual period.",
     inputSchema: z.object({
-      date: z.string().describe("The period start date, ideally normalized to YYYY-MM-DD."),
-      timezone: z.string().optional().describe("Optional IANA timezone used to normalize the date."),
-      notes: z.string().optional().describe("Optional free-text note or symptom detail."),
+      date: z
+        .string()
+        .describe("The period start date, ideally normalized to YYYY-MM-DD."),
+      timezone: z
+        .string()
+        .optional()
+        .describe("Optional IANA timezone used to normalize the date."),
+      notes: z
+        .string()
+        .optional()
+        .describe("Optional free-text note or symptom detail."),
     }),
     execute: async ({ date, timezone, notes }) =>
       logPeriodStartEntry({
@@ -246,9 +278,17 @@ const createChatTools = ({
   logPeriodEnd: tool({
     description: "Log the end date of a menstrual period.",
     inputSchema: z.object({
-      date: z.string().describe("The period end date, ideally normalized to YYYY-MM-DD."),
-      timezone: z.string().optional().describe("Optional IANA timezone used to normalize the date."),
-      notes: z.string().optional().describe("Optional free-text note or symptom detail."),
+      date: z
+        .string()
+        .describe("The period end date, ideally normalized to YYYY-MM-DD."),
+      timezone: z
+        .string()
+        .optional()
+        .describe("Optional IANA timezone used to normalize the date."),
+      notes: z
+        .string()
+        .optional()
+        .describe("Optional free-text note or symptom detail."),
     }),
     execute: async ({ date, timezone, notes }) =>
       logPeriodEndEntry({
@@ -259,11 +299,20 @@ const createChatTools = ({
       }),
   }),
   logOvulation: tool({
-    description: "Log an ovulation date for the user's current or most recent cycle.",
+    description:
+      "Log an ovulation date for the user's current or most recent cycle.",
     inputSchema: z.object({
-      date: z.string().describe("The ovulation date, ideally normalized to YYYY-MM-DD."),
-      timezone: z.string().optional().describe("Optional IANA timezone used to normalize the date."),
-      notes: z.string().optional().describe("Optional free-text note or symptom detail."),
+      date: z
+        .string()
+        .describe("The ovulation date, ideally normalized to YYYY-MM-DD."),
+      timezone: z
+        .string()
+        .optional()
+        .describe("Optional IANA timezone used to normalize the date."),
+      notes: z
+        .string()
+        .optional()
+        .describe("Optional free-text note or symptom detail."),
     }),
     execute: async ({ date, timezone, notes }) =>
       logOvulationEntry({
@@ -274,12 +323,24 @@ const createChatTools = ({
       }),
   }),
   addNoteSymptom: tool({
-    description: "Add a free-text note or symptom to the closest matching cycle.",
+    description:
+      "Add a free-text note or symptom to the closest matching cycle.",
     inputSchema: z.object({
       note: z.string().describe("Free-text note or symptom description."),
-      date: z.string().optional().describe("Optional date for the note, ideally normalized to YYYY-MM-DD."),
-      timezone: z.string().optional().describe("Optional IANA timezone used to normalize the date."),
-      symptoms: z.array(z.string()).optional().describe("Optional symptom phrases to include."),
+      date: z
+        .string()
+        .optional()
+        .describe(
+          "Optional date for the note, ideally normalized to YYYY-MM-DD.",
+        ),
+      timezone: z
+        .string()
+        .optional()
+        .describe("Optional IANA timezone used to normalize the date."),
+      symptoms: z
+        .array(z.string())
+        .optional()
+        .describe("Optional symptom phrases to include."),
     }),
     execute: async ({ note, date, timezone, symptoms }) =>
       addCycleNoteEntry({
@@ -298,9 +359,13 @@ const createChatTools = ({
     execute: async ({ limit }) => fetchRecentCyclesEntry({ userId, limit }),
   }),
   computePredictions: tool({
-    description: "Compute the next period and ovulation predictions from the user's cycle history.",
+    description:
+      "Compute the next period and ovulation predictions from the user's cycle history.",
     inputSchema: z.object({
-      timezone: z.string().optional().describe("Optional IANA timezone used for date calculations."),
+      timezone: z
+        .string()
+        .optional()
+        .describe("Optional IANA timezone used for date calculations."),
     }),
     execute: async ({ timezone }) =>
       getCycleInsightsEntry({
@@ -310,9 +375,13 @@ const createChatTools = ({
       }),
   }),
   fetchStats: tool({
-    description: "Fetch cycle statistics and compact prediction-ready insights.",
+    description:
+      "Fetch cycle statistics and compact prediction-ready insights.",
     inputSchema: z.object({
-      timezone: z.string().optional().describe("Optional IANA timezone used for date calculations."),
+      timezone: z
+        .string()
+        .optional()
+        .describe("Optional IANA timezone used for date calculations."),
     }),
     execute: async ({ timezone }) =>
       getCycleInsightsEntry({
@@ -331,26 +400,114 @@ const createChatTools = ({
       exportUrl: "/api/data/export",
     }),
   }),
-})
+  rememberFact: tool({
+    description:
+      "Remember a personal fact about the user that should persist across all future conversations. Use ONLY for things NOT already stored in cycle data: health conditions (PCOS, endometriosis, etc.), life context (trying to conceive, on birth control, perimenopausal), personal preferences, recurring symptom patterns they mention, or important context that affects how you should respond. Do NOT use for cycle dates, period lengths, or chat messages — those are already stored.",
+    inputSchema: z.object({
+      fact: z
+        .string()
+        .describe(
+          "A concise, entity-centric fact. e.g. 'User has PCOS' or 'User is trying to conceive' or 'User gets migraines before every period'",
+        ),
+      isStatic: z
+        .boolean()
+        .optional()
+        .describe(
+          "True for permanent traits (name, diagnosis, on birth control). False or omitted for evolving context.",
+        ),
+    }),
+    execute: async ({ fact, isStatic }) => {
+      await storeMemoryFact(userId, fact, isStatic ?? false);
+      return {
+        responseMode: "plain" as const,
+        kind: "confirmation" as const,
+        message: `remembered: ${fact}`,
+      };
+    },
+  }),
+  searchWeb: tool({
+    description:
+      "Search the web for current information. Use when the user asks about something that requires up-to-date knowledge: health topics, recent studies, current events, or anything your training data may not cover. Do NOT use for cycle data, predictions, or things already in the user's data.",
+    inputSchema: z.object({
+      query: z.string().describe("Search query. Be specific and concise."),
+    }),
+    execute: async ({ query }) => {
+      if (!process.env.HACKCLUB_WEB_SEARCH_API_KEY) {
+        return {
+          responseMode: "plain" as const,
+          kind: "search" as const,
+          message: "Web search is not available right now.",
+        };
+      }
+      try {
+        const res = await fetch(
+          `https://search.hackclub.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.HACKCLUB_WEB_SEARCH_API_KEY}`,
+            },
+          },
+        );
+        if (!res.ok) {
+          return {
+            responseMode: "plain" as const,
+            kind: "search" as const,
+            message: "Search is temporarily unavailable.",
+          };
+        }
+        const data = await res.json();
+        const results: Array<{
+          title?: string;
+          url?: string;
+          description?: string;
+        }> = data?.web?.results ?? [];
+        if (results.length === 0) {
+          return {
+            responseMode: "plain" as const,
+            kind: "search" as const,
+            message: "No results found.",
+          };
+        }
+        const formatted = results
+          .map(
+            (r, i) =>
+              `${i + 1}. [${r.title ?? "Untitled"}](${r.url ?? "#"})\n${r.description ?? ""}`,
+          )
+          .join("\n\n");
+        return {
+          responseMode: "plain" as const,
+          kind: "search" as const,
+          message: `Here are the search results for "${query}":\n\n${formatted}`,
+        };
+      } catch {
+        return {
+          responseMode: "plain" as const,
+          kind: "search" as const,
+          message: "Search failed. Try again later.",
+        };
+      }
+    },
+  }),
+});
 
 const maybeSummarizeSession = async (
   sessionId: string,
   userId: string,
-  modelName: string
+  modelName: string,
 ) => {
-  const summaryRow = await getLatestSummary(sessionId)
+  const summaryRow = await getLatestSummary(sessionId);
 
   const messageCountRows = await db
     .select()
     .from(chatMessages)
     .where(eq(chatMessages.sessionId, sessionId))
-    .orderBy(desc(chatMessages.createdAt))
+    .orderBy(desc(chatMessages.createdAt));
 
-  const messageCount = messageCountRows.length
-  const lastSummaryCount = summaryRow?.messageCount ?? 0
+  const messageCount = messageCountRows.length;
+  const lastSummaryCount = summaryRow?.messageCount ?? 0;
 
-  if (messageCount < SUMMARY_TRIGGER_COUNT) return
-  if (messageCount - lastSummaryCount < SUMMARY_MIN_DELTA) return
+  if (messageCount < SUMMARY_TRIGGER_COUNT) return;
+  if (messageCount - lastSummaryCount < SUMMARY_MIN_DELTA) return;
 
   const recentForSummary = messageCountRows
     .slice()
@@ -359,52 +516,54 @@ const maybeSummarizeSession = async (
       id: row.id,
       role: row.role as UIMessage["role"],
       parts: Array.isArray(row.parts) ? (row.parts as UIMessage["parts"]) : [],
-    }))
+    }));
 
   const summaryPrompt =
-    "Summarize the conversation so far for future context. Focus on user preferences, symptoms, cycle events, goals, and any explicit requests. Keep it concise and factual."
+    "Summarize the conversation so far for future context. Focus on user preferences, symptoms, cycle events, goals, and any explicit requests. Keep it concise and factual.";
 
   const summaryResult = await streamText({
     model: hackClubAI(modelName),
     system: summaryPrompt,
     messages: await convertToModelMessages(recentForSummary),
-  })
+  });
 
-  const summaryText = await summaryResult.text
-  if (summaryText.trim().length === 0) return
+  const summaryText = await summaryResult.text;
+  if (summaryText.trim().length === 0) return;
 
   await db.insert(chatSummaries).values({
     sessionId,
     userId,
     summary: summaryText.trim(),
     messageCount,
-  })
-}
+  });
+};
 
 export async function POST(req: Request) {
-  const authSession = await auth()
-  const userId = authSession?.user?.id
+  const authSession = await auth();
+  const userId = authSession?.user?.id;
 
   if (!userId) {
-    return new Response("Unauthorized", { status: 401 })
+    return new Response("Unauthorized", { status: 401 });
   }
 
   const {
     messages,
-    webSearchEnabled,
     sessionId: requestSessionId,
     timezone: clientTimeZone,
-  } = await req.json()
-  const userMessages = (Array.isArray(messages) ? messages : []) as UIMessage[]
-  const userTimeZone = await resolveUserTimeZone(userId, sanitizeTimeZone(clientTimeZone))
+  } = await req.json();
+  const userMessages = (Array.isArray(messages) ? messages : []) as UIMessage[];
+  const userTimeZone = await resolveUserTimeZone(
+    userId,
+    sanitizeTimeZone(clientTimeZone),
+  );
 
   const resolvedSession = requestSessionId
     ? await getSessionById(requestSessionId, userId)
-    : undefined
-  const chatSession = resolvedSession ?? (await getOrCreateSession(userId))
-  const sessionId = chatSession.id
+    : undefined;
+  const chatSession = resolvedSession ?? (await getOrCreateSession(userId));
+  const sessionId = chatSession.id;
 
-  const lastIncoming = userMessages[userMessages.length - 1]
+  const lastIncoming = userMessages[userMessages.length - 1];
   if (lastIncoming && lastIncoming.role === "user") {
     await db.insert(chatMessages).values({
       sessionId,
@@ -412,54 +571,38 @@ export async function POST(req: Request) {
       role: "user",
       parts: lastIncoming.parts ?? [],
       textContent: getTextFromParts(lastIncoming.parts ?? []),
-    })
+    });
 
     await db
       .update(chatSessions)
       .set({ updatedAt: new Date() })
-      .where(eq(chatSessions.id, sessionId))
+      .where(eq(chatSessions.id, sessionId));
   }
 
-  const memoryContext = await getSupermemoryContext(userId)
-  const recentMessages = await getRecentMessages(sessionId)
-  const latestSummary = await getLatestSummary(sessionId)
-  const lastUserText = getTextFromParts(lastIncoming?.parts ?? [])
-  const contextSnippets = await getContextSnippets(sessionId, lastUserText)
+  const lastUserText = getTextFromParts(lastIncoming?.parts ?? []);
+  const memoryContext = await recallMemory(userId, lastUserText);
+  const recentMessages = await getRecentMessages(sessionId);
+  const latestSummary = await getLatestSummary(sessionId);
+  const contextSnippets = await getContextSnippets(sessionId, lastUserText);
   const systemPrompt = buildSystemPrompt({
     memoryContext,
     latestSummary: latestSummary?.summary,
     contextSnippets,
     timeZone: userTimeZone,
-  })
+  });
 
-  const startTime = Date.now()
-  const modelName = "x-ai/grok-4.3"
-  const tools = createChatTools({ userId, timeZone: userTimeZone })
+  const startTime = Date.now();
+  const modelName = "x-ai/grok-4.3";
+  const tools = createChatTools({ userId, timeZone: userTimeZone });
 
   const result = await streamText({
     model: hackClubAI.chat(modelName),
     system: systemPrompt,
     messages: await convertToModelMessages(recentMessages),
     tools,
-    maxSteps: 8,
-    // Note: passing web_search plugin conceptually (may require provider-specific config in real environment)
-    ...(webSearchEnabled ? {
-      providerOptions: {
-        openai: {
-          plugins: [{ id: "web_search" }]
-        }
-      }
-    } : {}),
-    onFinish: async ({ usage, text }) => {
-      const latencyMs = Date.now() - startTime
-
-      // Simple heuristic: write key facts back if the AI gives a helpful answer about user state
-      // Real implementation might use a tool call or secondary LLM pass to extract facts.
-      if (text.length > 50 && !looksLikeOpenUiLang(text)) {
-         // Background task to extract and write fact (simulated here)
-        const lastUserText = getTextFromParts(lastIncoming?.parts ?? [])
-         writeSupermemoryFact(userId, `User said: ${lastUserText}. Luna replied: ${text.substring(0, 50)}...`);
-      }
+    stopWhen: stepCountIs(8),
+    onFinish: async ({ usage, text, steps }) => {
+      const latencyMs = Date.now() - startTime;
 
       await db.insert(chatMessages).values({
         sessionId,
@@ -467,32 +610,43 @@ export async function POST(req: Request) {
         role: "assistant",
         parts: [{ type: "text", text }],
         textContent: text,
-      })
+      });
 
       await db
         .update(chatSessions)
         .set({ updatedAt: new Date() })
-        .where(eq(chatSessions.id, sessionId))
+        .where(eq(chatSessions.id, sessionId));
 
-      await maybeSummarizeSession(sessionId, userId, modelName)
+      await maybeSummarizeSession(sessionId, userId, modelName);
 
       // HackClub API cost approximation (very rough) or actual cost if available
-      const costUsd = (usage.promptTokens * 0.0001 + usage.completionTokens * 0.0002) / 1000
+      const costUsd =
+        ((usage.inputTokens ?? 0) * 0.0001 +
+          (usage.outputTokens ?? 0) * 0.0002) /
+        1000;
 
       // Track AI usage
       await db.insert(aiTraces).values({
         userId,
         model: modelName,
-        inputTokens: usage.promptTokens,
-        outputTokens: usage.completionTokens,
+        inputTokens: usage.inputTokens ?? 0,
+        outputTokens: usage.outputTokens ?? 0,
         costUsd,
         latencyMs,
         feature: "chat",
-        hasImages: userMessages.some(m => Array.isArray(m.parts) && m.parts.some(p => p.type === "file")),
-        hadWebSearch: !!webSearchEnabled,
-      })
+        hasImages: userMessages.some(
+          (m) =>
+            Array.isArray(m.parts) && m.parts.some((p) => p.type === "file"),
+        ),
+        hadWebSearch:
+          steps?.some((step) =>
+            step.toolResults?.some(
+              (tr: { toolName?: string }) => tr.toolName === "searchWeb",
+            ),
+          ) ?? false,
+      });
     },
-  })
+  });
 
-  return result.toUIMessageStreamResponse()
+  return result.toUIMessageStreamResponse();
 }
