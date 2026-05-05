@@ -577,7 +577,7 @@ export default function ChatPage() {
   return (
     <ThemeProvider>
       <TooltipProvider>
-        <div className="min-h-screen bg-[#FFF9F9] flex font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
+        <div className="h-dvh overflow-hidden bg-[#FFF9F9] flex font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
           {/* --- Desktop Sidebar --- */}
           <aside className="w-[260px] shrink-0 border-r border-[#FFDDE0]/40 bg-white/60 backdrop-blur-xl px-4 py-6 hidden md:flex md:flex-col gap-4">
             <div className="flex items-center justify-between">
@@ -613,7 +613,7 @@ export default function ChatPage() {
           </aside>
 
           {/* --- Main Chat Area --- */}
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 flex flex-col min-w-0 min-h-0">
             {/* Header */}
             <header className="py-4 px-6 md:px-10 border-b border-[#FFDDE0]/30 bg-white/50 backdrop-blur-xl sticky top-0 z-10">
               <div className="flex items-center justify-between gap-3">
