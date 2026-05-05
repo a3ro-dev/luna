@@ -4,10 +4,13 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { sendOtpEmail } from "@/lib/email";
+import { logError } from "@/lib/utils";
 
 function generateOtp(): string {
-  // 6-digit numeric OTP
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // Cryptographically secure 6-digit OTP
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return (100000 + (array[0] % 900000)).toString();
 }
 
 export async function POST(req: Request) {
@@ -49,7 +52,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, email: userRecord.email });
   } catch (err) {
-    console.error("Send OTP error:", err);
+    logError("send-otp", err);
     return NextResponse.json(
       { error: "Failed to send verification code." },
       { status: 500 },

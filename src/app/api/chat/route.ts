@@ -473,10 +473,11 @@ const createChatTools = ({
           };
         }
         const formatted = results
-          .map(
-            (r, i) =>
-              `${i + 1}. [${r.title ?? "Untitled"}](${r.url ?? "#"})\n${r.description ?? ""}`,
-          )
+          .map((r, i) => {
+            // Sanitize URLs — only allow http/https schemes
+            const safeUrl = r.url && /^https?:\/\//i.test(r.url) ? r.url : "#";
+            return `${i + 1}. [${r.title ?? "Untitled"}](${safeUrl})\n${r.description ?? ""}`;
+          })
           .join("\n\n");
         return {
           responseMode: "plain" as const,
@@ -604,6 +605,30 @@ export async function POST(req: Request) {
           url: string;
           filename?: string;
         };
+
+        // Validate image size and media type before storing
+        const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+        const ALLOWED_MEDIA_TYPES = [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/gif",
+        ];
+
+        if (filePart.url.length > MAX_IMAGE_SIZE_BYTES * 1.37) {
+          // base64 is ~37% larger than raw bytes
+          console.error("Image too large, skipping:", filePart.filename);
+          continue;
+        }
+
+        if (!ALLOWED_MEDIA_TYPES.includes(filePart.mediaType)) {
+          console.error(
+            "Unsupported image type, skipping:",
+            filePart.mediaType,
+          );
+          continue;
+        }
+
         try {
           await storeImage({
             userId,

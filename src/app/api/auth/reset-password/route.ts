@@ -3,24 +3,42 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq, and, gt } from "drizzle-orm";
 import { hash } from "bcryptjs";
+import { resetPasswordSchema } from "@/lib/schemas/auth";
+import { logError } from "@/lib/utils";
+import { rateLimit } from "@/lib/rate-limit";
+
+// Rate limit password reset attempts by IP
+const MAX_RESET_ATTEMPTS = 5;
+const RESET_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 export async function POST(req: Request) {
   try {
-    const { token, password } = await req.json();
-
-    if (!token || !password) {
+    // Rate limit by IP to prevent brute-force token attacks
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const rateResult = rateLimit(
+      `reset-pw:${ip}`,
+      MAX_RESET_ATTEMPTS,
+      RESET_WINDOW_MS,
+    );
+    if (!rateResult.success) {
       return NextResponse.json(
-        { error: "Token and new password are required." },
+        { error: "Too many attempts. Please try again later." },
+        { status: 429 },
+      );
+    }
+
+    const rawBody = await req.json();
+    const parsed = resetPasswordSchema.safeParse(rawBody);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid input.", details: parsed.error.flatten() },
         { status: 400 },
       );
     }
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: "Password must be at least 6 characters." },
-        { status: 400 },
-      );
-    }
+    const { token, password } = parsed.data;
 
     // Find user with this token that hasn't expired
     const userRecord = await db.query.users.findFirst({
@@ -33,7 +51,10 @@ export async function POST(req: Request) {
 
     if (!userRecord) {
       return NextResponse.json(
-        { error: "This reset link is invalid or has expired. Please request a new one." },
+        {
+          error:
+            "This reset link is invalid or has expired. Please request a new one.",
+        },
         { status: 400 },
       );
     }
@@ -53,7 +74,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("Reset password error:", err);
+    logError("reset-password", err);
     return NextResponse.json(
       { error: "Something went wrong." },
       { status: 500 },

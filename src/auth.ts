@@ -1,12 +1,12 @@
-import NextAuth from "next-auth"
-import Credentials from "next-auth/providers/credentials"
-import { DrizzleAdapter } from "@auth/drizzle-adapter"
-import { db } from "./lib/db"
-import { users } from "./lib/db/schema"
-import { eq } from "drizzle-orm"
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import { DrizzleAdapter } from "@auth/drizzle-adapter";
+import { db } from "./lib/db";
+import { users } from "./lib/db/schema";
+import { eq } from "drizzle-orm";
 // Note: In a real app, use bcryptjs or similar. Using a simple comparison for demonstration if no bcrypt is available.
 // If bcryptjs is installed, import { compare } from "bcryptjs". Here we will assume bcryptjs.
-import { compare } from "bcryptjs"
+import { compare } from "bcryptjs";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: DrizzleAdapter(db),
@@ -17,45 +17,60 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null
+        if (!credentials?.email || !credentials?.password) return null;
 
         const userRecord = await db.query.users.findFirst({
           where: eq(users.email, credentials.email as string),
-        })
+        });
 
-        if (!userRecord || !userRecord.passwordHash) return null
+        if (!userRecord || !userRecord.passwordHash) return null;
 
-        const isValid = await compare(credentials.password as string, userRecord.passwordHash)
+        const isValid = await compare(
+          credentials.password as string,
+          userRecord.passwordHash,
+        );
 
-        if (!isValid) return null
+        if (!isValid) return null;
 
-        return userRecord
+        return userRecord;
       },
     }),
   ],
   session: {
     strategy: "jwt", // Credentials provider requires JWT strategy
-    maxAge: 60 * 60 * 24 * 30,
-    updateAge: 60 * 60 * 24,
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60, // 1 hour — force re-auth more frequently
   },
   jwt: {
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: 60 * 60 * 24 * 7, // 7 days
   },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
+        token.id = user.id;
       }
-      return token
+      // Verify user still exists on every token refresh
+      // This runs on initial sign-in and on session access
+      if (token.id) {
+        const userExists = await db.query.users.findFirst({
+          where: eq(users.id, token.id as string),
+          columns: { id: true },
+        });
+        if (!userExists) {
+          // Force re-authentication by clearing the id
+          return { ...token, id: undefined };
+        }
+      }
+      return token;
     },
     async session({ session, token }) {
       if (session.user && token.id) {
-        session.user.id = token.id as string
+        session.user.id = token.id as string;
       }
-      return session
+      return session;
     },
   },
   pages: {
     signIn: "/login",
-  }
-})
+  },
+});

@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { onboardingSchema } from "@/lib/schemas/auth";
+import { logError } from "@/lib/utils";
 
 const MAX_DOB_EDITS = 2;
 
@@ -15,8 +17,18 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json();
-    const { dateOfBirth, timezone, conditions, pushNotificationsEnabled } = body;
+    const rawBody = await req.json();
+    const parsed = onboardingSchema.safeParse(rawBody);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid input.", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const { dateOfBirth, timezone, conditions, pushNotificationsEnabled } =
+      parsed.data;
 
     const userRecord = await db.query.users.findFirst({
       where: eq(users.id, userId),
@@ -68,14 +80,11 @@ export async function POST(req: Request) {
       updates.pushNotificationsEnabled = pushNotificationsEnabled;
     }
 
-    await db
-      .update(users)
-      .set(updates)
-      .where(eq(users.id, userId));
+    await db.update(users).set(updates).where(eq(users.id, userId));
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("Onboarding error:", err);
+    logError("onboarding", err);
     return NextResponse.json(
       { error: "Something went wrong." },
       { status: 500 },

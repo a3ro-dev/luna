@@ -97,10 +97,18 @@ export const SchemaDisplayPath = ({
 }: SchemaDisplayPathProps) => {
   const { path } = useContext(SchemaDisplayContext);
 
-  // Highlight path parameters
-  const highlightedPath = path.replaceAll(
+  // Escape HTML first to prevent injection, then apply highlighting
+  const escapeHtml = (str: string) =>
+    str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  const escapedPath = escapeHtml(path);
+  const highlightedPath = escapedPath.replaceAll(
     /\{([^}]+)\}/g,
-    '<span class="text-blue-600 dark:text-blue-400">{$1}</span>'
+    '<span class="text-blue-600 dark:text-blue-400">{$1}</span>',
   );
 
   return (
@@ -127,7 +135,7 @@ export const SchemaDisplayDescription = ({
     <p
       className={cn(
         "border-b px-4 py-3 text-muted-foreground text-sm",
-        className
+        className,
       )}
       {...props}
     >
@@ -241,7 +249,7 @@ export const SchemaDisplayProperty = ({
         <CollapsibleTrigger
           className={cn(
             "group flex w-full items-center gap-2 py-3 text-left transition-colors hover:bg-muted/50",
-            className
+            className,
           )}
           style={{ paddingLeft }}
         >
@@ -401,7 +409,7 @@ export const SchemaDisplay = ({
       requestBody,
       responseBody,
     }),
-    [description, method, parameters, path, requestBody, responseBody]
+    [description, method, parameters, path, requestBody, responseBody],
   );
 
   return (
@@ -409,7 +417,7 @@ export const SchemaDisplay = ({
       <div
         className={cn(
           "overflow-hidden rounded-lg border bg-background",
-          className
+          className,
         )}
         {...props}
       >
@@ -462,7 +470,7 @@ export const SchemaDisplayExample = ({
   <pre
     className={cn(
       "mx-4 mb-4 overflow-auto rounded-md bg-muted p-4 font-mono text-sm",
-      className
+      className,
     )}
     {...props}
   >

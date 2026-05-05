@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cleanupExpiredImages } from "@/lib/chat/images";
+import { logError } from "@/lib/utils";
 
 /**
  * Cleanup endpoint for expired images.
@@ -7,11 +8,18 @@ import { cleanupExpiredImages } from "@/lib/chat/images";
  * Protected by a simple shared secret to prevent abuse.
  */
 export async function GET(req: Request) {
-  // Verify cron secret if set
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    console.error("CRON_SECRET is not set. Refusing to run cron job.");
+    return NextResponse.json(
+      { error: "Server misconfiguration" },
+      { status: 500 },
+    );
+  }
+
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -23,10 +31,7 @@ export async function GET(req: Request) {
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("Image cleanup error:", err);
-    return NextResponse.json(
-      { error: "Cleanup failed" },
-      { status: 500 },
-    );
+    logError("image-cleanup", err);
+    return NextResponse.json({ error: "Cleanup failed" }, { status: 500 });
   }
 }

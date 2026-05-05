@@ -3,20 +3,43 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { forgotPasswordSchema } from "@/lib/schemas/auth";
+import { rateLimit } from "@/lib/rate-limit";
+import { logError } from "@/lib/utils";
+
+const MAX_RESET_ATTEMPTS = 3;
+const RESET_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
+    const rawBody = await req.json();
+    const parsed = forgotPasswordSchema.safeParse(rawBody);
 
-    if (!email || typeof email !== "string") {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Email is required." },
+        { error: "Invalid input.", details: parsed.error.flatten() },
         { status: 400 },
       );
     }
 
+    const { email } = parsed.data;
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Rate limit by email
+    const rateResult = rateLimit(
+      `reset:${normalizedEmail}`,
+      MAX_RESET_ATTEMPTS,
+      RESET_WINDOW_MS,
+    );
+    if (!rateResult.success) {
+      return NextResponse.json(
+        { error: "Too many reset requests. Please try again later." },
+        { status: 429 },
+      );
+    }
+
     const userRecord = await db.query.users.findFirst({
-      where: eq(users.email, email.trim().toLowerCase()),
+      where: eq(users.email, normalizedEmail),
       columns: { id: true, email: true, name: true },
     });
 
@@ -38,9 +61,10 @@ export async function POST(req: Request) {
       .where(eq(users.id, userRecord.id));
 
     // Build reset URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` :
-      "http://localhost:3000";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000";
     const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
     // Send reset email (non-blocking)
@@ -49,12 +73,12 @@ export async function POST(req: Request) {
       resetUrl,
       userName: userRecord.name || undefined,
     }).catch((err) => {
-      console.error("Failed to send password reset email:", err);
+      logError("password-reset-email", err);
     });
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("Forgot password error:", err);
+    logError("forgot-password", err);
     return NextResponse.json(
       { error: "Something went wrong." },
       { status: 500 },

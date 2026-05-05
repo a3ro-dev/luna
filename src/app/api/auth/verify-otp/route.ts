@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq, and, gt } from "drizzle-orm";
+import { logError } from "@/lib/utils";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("Verify OTP error:", err);
+    logError("verify-otp", err);
     return NextResponse.json(
       { error: "Something went wrong." },
       { status: 500 },
