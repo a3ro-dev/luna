@@ -419,3 +419,104 @@ export function parseUserAgent(ua: string): {
 
   return { browser, os, device };
 }
+
+/* ──────────────────────────────────────────────────────────────
+   5. Subscription request — notifies admin of a new paid plan interest
+   ────────────────────────────────────────────────────────────── */
+
+interface SendSubscriptionRequestParams {
+  subscriberEmail: string;
+  planName: string;
+  subscriberName?: string;
+}
+
+export async function sendSubscriptionRequestEmail({
+  subscriberEmail,
+  planName,
+  subscriberName,
+}: SendSubscriptionRequestParams) {
+  const adminEmail = "akshatsingh14372@outlook.com";
+  const now = new Date().toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "full",
+    timeStyle: "short",
+  });
+
+  const body = `
+    ${heading("New Subscription Request ✨")}
+    ${paragraph("Someone wants to subscribe to Luna! Here are the details:")}
+    ${softDivider()}
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%; margin:0 0 24px 0; background:rgba(255,221,224,0.12); border-radius:20px; overflow:hidden;">
+      <tr>
+        <td style="padding:24px 28px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">
+            ${infoRow("Plan", planName)}
+            ${infoRow("Email", subscriberEmail)}
+            ${subscriberName ? infoRow("Name", subscriberName) : ""}
+            ${infoRow("Requested at", now)}
+          </table>
+        </td>
+      </tr>
+    </table>
+    ${softDivider()}
+    ${paragraph("Reply directly to this person or add them to your subscription list manually.")}
+    ${ctaButton("Reply to subscriber", `mailto:${subscriberEmail}?subject=Welcome to Luna ${planName}!`)}
+  `;
+
+  // Also send a confirmation to the subscriber
+  const subscriberBody = `
+    ${heading("We got your request! 💕")}
+    ${paragraph(`${subscriberName ? `hey ${subscriberName}` : "hey there"}, thanks for your interest in <strong style="color:#6D5A60;">${planName}</strong>!`)}
+    ${paragraph("We're handling subscriptions personally right now to make sure every Luna experience feels right. You'll hear from us soon with next steps.")}
+    ${softDivider()}
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%; margin:0 0 24px 0; background:rgba(214,203,227,0.12); border-radius:20px; overflow:hidden;">
+      <tr>
+        <td style="padding:24px 28px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">
+            ${infoRow("Plan", planName)}
+            ${infoRow("Your email", subscriberEmail)}
+          </table>
+        </td>
+      </tr>
+    </table>
+    ${paragraph("In the meantime, you can keep using Luna Free — we're just a chat away ✨")}
+  `;
+
+  const results = await Promise.allSettled([
+    // Notify admin
+    resend.emails.send({
+      from: FROM_ADDRESS,
+      to: adminEmail,
+      subject: `🌙 New subscription request: ${planName}`,
+      replyTo: subscriberEmail,
+      html: emailShell(
+        body,
+        "Luna subscription notification — sent automatically.",
+      ),
+    }),
+    // Confirm to subscriber
+    resend.emails.send({
+      from: FROM_ADDRESS,
+      to: subscriberEmail,
+      subject: "We got your Luna subscription request ✨",
+      html: emailShell(
+        subscriberBody,
+        "You're receiving this because you requested a Luna subscription.",
+      ),
+    }),
+  ]);
+
+  const adminResult = results[0];
+  if (adminResult.status === "rejected") {
+    console.error("Failed to send admin notification:", adminResult.reason);
+  }
+  const subscriberResult = results[1];
+  if (subscriberResult.status === "rejected") {
+    console.error("Failed to send subscriber confirmation:", subscriberResult.reason);
+  }
+
+  return {
+    adminSent: adminResult.status === "fulfilled",
+    subscriberSent: subscriberResult.status === "fulfilled",
+  };
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -70,6 +70,56 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const quoteRef = useRef<HTMLElement>(null);
   const ctaRef = useRef<HTMLElement>(null);
+
+  // Subscription modal state
+  const [subModal, setSubModal] = useState<{ open: boolean; plan: string }>({
+    open: false,
+    plan: "",
+  });
+  const [subForm, setSubForm] = useState({ email: "", name: "" });
+  const [subStatus, setSubStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [subError, setSubError] = useState("");
+
+  const openSubscribeModal = (plan: string) => {
+    setSubModal({ open: true, plan });
+    setSubForm({ email: "", name: "" });
+    setSubStatus("idle");
+    setSubError("");
+  };
+
+  const closeSubscribeModal = () => {
+    setSubModal({ open: false, plan: "" });
+  };
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subForm.email.trim()) return;
+    setSubStatus("loading");
+    setSubError("");
+    try {
+      const res = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: subForm.email,
+          name: subForm.name,
+          plan: subModal.plan,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSubStatus("error");
+        setSubError(data.error || "Something went wrong.");
+        return;
+      }
+      setSubStatus("success");
+    } catch {
+      setSubStatus("error");
+      setSubError("Network error. Please try again.");
+    }
+  };
 
   useGSAP(
     () => {
@@ -533,12 +583,13 @@ export default function Home() {
                     notifications
                   </li>
                 </ul>
-                <Link
-                  href="/signup"
-                  className="block w-full h-12 text-center leading-[3rem] rounded-full bg-[#6D5A60] text-[10px] font-semibold uppercase tracking-widest text-white shadow-[0_12px_24px_rgba(109,90,96,0.2)] transition hover:bg-[#8E7D82]"
+                <button
+                  type="button"
+                  onClick={() => openSubscribeModal("Luna Premium")}
+                  className="block w-full h-12 text-center leading-[3rem] rounded-full bg-[#6D5A60] text-[10px] font-semibold uppercase tracking-widest text-white shadow-[0_12px_24px_rgba(109,90,96,0.2)] transition hover:bg-[#8E7D82] cursor-pointer"
                 >
                   Start free trial
-                </Link>
+                </button>
               </div>
             </div>
 
@@ -581,12 +632,13 @@ export default function Home() {
                     access to features
                   </li>
                 </ul>
-                <Link
-                  href="/signup"
-                  className="block w-full h-12 text-center leading-[3rem] rounded-full border border-[#FBE6B6]/60 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] transition hover:bg-[#FBE6B6]/10"
+                <button
+                  type="button"
+                  onClick={() => openSubscribeModal("Luna Premium+")}
+                  className="block w-full h-12 text-center leading-[3rem] rounded-full border border-[#FBE6B6]/60 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] transition hover:bg-[#FBE6B6]/10 cursor-pointer"
                 >
                   Start free trial
-                </Link>
+                </button>
               </div>
             </div>
           </div>
@@ -618,9 +670,151 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="relative z-10 bg-[#FFF9F9] px-5 py-12 text-center text-xs font-semibold uppercase tracking-widest text-[#8E7D82]/50">
-        Luna, {new Date().getFullYear()}.
+      <footer className="relative z-10 bg-[#FFF9F9] px-5 py-12 text-center">
+        <p className="text-xs font-semibold uppercase tracking-widest text-[#8E7D82]/50">
+          Luna, {new Date().getFullYear()}.
+        </p>
+        <p className="mt-3 text-xs font-light text-[#8E7D82]/40">
+          Questions?{" "}
+          <a
+            href="mailto:akshatsingh14372@outlook.com"
+            className="underline decoration-[#FFB5C0]/40 underline-offset-2 transition hover:text-[#FFB5C0] hover:decoration-[#FFB5C0]"
+          >
+            akshatsingh14372@outlook.com
+          </a>
+        </p>
       </footer>
+
+      {/* ── Subscription Modal ── */}
+      {subModal.open && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <button
+            type="button"
+            className="absolute inset-0 bg-[#6D5A60]/20 backdrop-blur-sm cursor-default"
+            onClick={closeSubscribeModal}
+            aria-label="Close modal"
+          />
+
+          {/* Modal */}
+          <div className="relative w-full max-w-md overflow-hidden rounded-[2.5rem] border border-white/60 bg-white/90 px-8 py-10 shadow-[0_40px_80px_rgba(109,90,96,0.15)] backdrop-blur-2xl animate-[modalIn_0.35s_ease-out]">
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={closeSubscribeModal}
+              className="absolute right-6 top-6 flex h-8 w-8 items-center justify-center rounded-full text-[#8E7D82] transition hover:bg-[#FFDDE0]/30 hover:text-[#6D5A60] cursor-pointer"
+              aria-label="Close"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+
+            {subStatus === "success" ? (
+              /* Success state */
+              <div className="text-center py-6">
+                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[#FFDDE0]/30 text-3xl">
+                  ✨
+                </div>
+                <h3 className="font-serif text-2xl font-light text-[#6D5A60] mb-3">
+                  You&apos;re on the list!
+                </h3>
+                <p className="text-sm font-light text-[#8E7D82] leading-relaxed max-w-xs mx-auto">
+                  We&apos;ve sent a confirmation to your email. We&apos;ll reach out
+                  personally with next steps for {subModal.plan}.
+                </p>
+                <button
+                  type="button"
+                  onClick={closeSubscribeModal}
+                  className="mt-8 inline-flex h-11 items-center justify-center rounded-full border border-[#FFDDE0]/60 px-8 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] transition hover:bg-[#FFF5F7] cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              /* Form state */
+              <>
+                <div className="text-center mb-8">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#FFB5C0] mb-2">
+                    {subModal.plan}
+                  </p>
+                  <h3 className="font-serif text-2xl font-light text-[#6D5A60]">
+                    Get early access
+                  </h3>
+                  <p className="mt-3 text-sm font-light text-[#8E7D82] leading-relaxed">
+                    Leave your email and we&apos;ll set up your subscription
+                    personally.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSubscribe} className="space-y-4">
+                  <div>
+                    <label
+                      htmlFor="sub-email"
+                      className="block text-[10px] font-semibold uppercase tracking-widest text-[#8E7D82] mb-2"
+                    >
+                      Email
+                    </label>
+                    <input
+                      id="sub-email"
+                      type="email"
+                      required
+                      value={subForm.email}
+                      onChange={(e) =>
+                        setSubForm((f) => ({ ...f, email: e.target.value }))
+                      }
+                      placeholder="you@example.com"
+                      className="w-full h-12 rounded-2xl border border-[#FFDDE0]/40 bg-[#FFF9F9] px-5 text-sm font-light text-[#6D5A60] placeholder:text-[#8E7D82]/30 outline-none transition focus:border-[#FFB5C0]/50 focus:ring-2 focus:ring-[#FFB5C0]/20"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="sub-name"
+                      className="block text-[10px] font-semibold uppercase tracking-widest text-[#8E7D82] mb-2"
+                    >
+                      Name{" "}
+                      <span className="font-normal normal-case tracking-normal text-[#8E7D82]/40">
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      id="sub-name"
+                      type="text"
+                      value={subForm.name}
+                      onChange={(e) =>
+                        setSubForm((f) => ({ ...f, name: e.target.value }))
+                      }
+                      placeholder="Your name"
+                      className="w-full h-12 rounded-2xl border border-[#FFDDE0]/40 bg-[#FFF9F9] px-5 text-sm font-light text-[#6D5A60] placeholder:text-[#8E7D82]/30 outline-none transition focus:border-[#FFB5C0]/50 focus:ring-2 focus:ring-[#FFB5C0]/20"
+                    />
+                  </div>
+
+                  {subStatus === "error" && (
+                    <p className="text-xs text-red-400 font-light text-center">
+                      {subError}
+                    </p>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={subStatus === "loading"}
+                    className="w-full h-12 rounded-full bg-[#6D5A60] text-[10px] font-semibold uppercase tracking-widest text-white shadow-[0_12px_24px_rgba(109,90,96,0.2)] transition hover:bg-[#8E7D82] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {subStatus === "loading"
+                      ? "Sending..."
+                      : "Request subscription"}
+                  </button>
+                </form>
+
+                <p className="mt-6 text-center text-[11px] font-light text-[#8E7D82]/40 leading-relaxed">
+                  We handle subscriptions personally. You&apos;ll receive a
+                  confirmation email and we&apos;ll follow up within 24 hours.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
