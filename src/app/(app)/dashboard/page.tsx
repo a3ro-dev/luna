@@ -9,27 +9,6 @@ import DashboardClient from "./DashboardClient";
 // Prevent Next.js from caching the Neon HTTP fetch responses
 export const dynamic = "force-dynamic";
 
-/**
- * Normalise a value that may be a Date object (Neon driver) or a
- * YYYY-MM-DD string into a local-midnight Date for safe day arithmetic.
- *
- * The Neon serverless driver returns `date` columns as JavaScript Date
- * objects.  Neon creates `new Date("2025-01-28T00:00:00")` (no Z),
- * which JS parses in the server's local timezone.  In IST this gives
- * `2025-01-27T18:30:00.000Z`.  We read the *local* date parts to
- * recover the original date and build a stable local-midnight Date.
- */
-function toDate(val: Date | string): Date {
-  if (val instanceof Date) {
-    // The Date object holds the correct local date; extract it.
-    const y = val.getFullYear();
-    const m = String(val.getMonth() + 1).padStart(2, "0");
-    const d = String(val.getDate()).padStart(2, "0");
-    return new Date(`${y}-${m}-${d}T00:00:00`);
-  }
-  return new Date(val + "T00:00:00");
-}
-
 function addDays(date: Date, days: number): Date {
   const d = new Date(date.getTime());
   d.setDate(d.getDate() + days);
@@ -93,7 +72,10 @@ export default async function DashboardPage() {
 
   // Compute predictions from the most recent cycle
   const lastCycle = userCycles[0];
-  const lastPeriodStart = lastCycle ? toDate(lastCycle.mStart) : new Date();
+  // mStart is now always a "YYYY-MM-DD" string (pgDate custom type)
+  const lastPeriodStart = lastCycle
+    ? new Date(lastCycle.mStart + "T00:00:00")
+    : new Date();
 
   const nextPeriodDate = addDays(lastPeriodStart, avgCycleLength);
   const nextOvulationDate = addDays(lastPeriodStart, avgCycleLength - 14);
@@ -118,8 +100,10 @@ export default async function DashboardPage() {
   // Check actual cycle data for this month
   for (const c of allCyclesForCalendar) {
     if (!c.mStart) continue;
-    const start = toDate(c.mStart);
-    const end = c.mEnd ? toDate(c.mEnd) : addDays(start, avgPeriodLength);
+    const start = new Date(c.mStart + "T00:00:00");
+    const end = c.mEnd
+      ? new Date(c.mEnd + "T00:00:00")
+      : addDays(start, avgPeriodLength);
 
     // Mark period days
     for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
@@ -130,7 +114,7 @@ export default async function DashboardPage() {
 
     // Mark ovulation day
     if (c.ovulationDate) {
-      const ov = toDate(c.ovulationDate);
+      const ov = new Date(c.ovulationDate + "T00:00:00");
       if (ov.getMonth() === currentMonth && ov.getFullYear() === currentYear) {
         ovulationDays.add(ov.getDate());
       }
@@ -157,7 +141,7 @@ export default async function DashboardPage() {
   // Follicular: period end to ovulation
   // Luteal: ovulation to next period
   if (lastCycle?.mEnd) {
-    const follStart = addDays(toDate(lastCycle.mEnd), 1);
+    const follStart = addDays(new Date(lastCycle.mEnd + "T00:00:00"), 1);
     for (
       let d = new Date(follStart);
       d < nextOvulationDate;
@@ -207,28 +191,11 @@ export default async function DashboardPage() {
         : "Varied";
 
   // Map cycles for client component
-  // Serialise Date objects to YYYY-MM-DD strings so the client
-  // component receives a stable, timezone-safe representation.
-  // (The Neon driver returns Date objects at runtime even though the
-  // Drizzle column type says string.)
-  const serialise = (v: Date | string | null): string | null => {
-    if (v == null) return null;
-    if (v instanceof Date) {
-      const y = v.getFullYear();
-      const m = String(v.getMonth() + 1).padStart(2, "0");
-      const d = String(v.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
-    }
-    return v;
-  };
-
   const cyclesForClient = userCycles.map((c) => ({
     id: c.id,
-    mStart: serialise(c.mStart as unknown as Date | string) as string,
-    mEnd: serialise(c.mEnd as unknown as Date | string | null),
-    ovulationDate: serialise(
-      c.ovulationDate as unknown as Date | string | null,
-    ),
+    mStart: c.mStart,
+    mEnd: c.mEnd,
+    ovulationDate: c.ovulationDate,
     cycleLength: c.cycleLength,
     periodLength: c.periodLength,
     isAnomaly: c.isAnomaly,

@@ -63,7 +63,7 @@ export type CycleSummary = {
 
 type CycleRow = {
   id: string;
-  mStart: string; // normalised to YYYY-MM-DD
+  mStart: string; // YYYY-MM-DD (pgDate custom type ensures strings)
   mEnd: string | null;
   ovulationDate: string | null;
   cycleLength: number | null;
@@ -73,27 +73,6 @@ type CycleRow = {
   isAnomaly: boolean | null;
   notes: unknown;
 };
-
-/**
- * The Neon serverless driver returns `date` columns as JavaScript Date
- * objects.  Convert them to "YYYY-MM-DD" strings so all downstream code
- * can safely treat them as plain strings.
- *
- * Neon creates `new Date("2025-01-28T00:00:00")` (no Z suffix), which
- * the JS spec parses in the server's local timezone.  In IST this gives
- * `2025-01-27T18:30:00.000Z`.  We must read the *local* date parts
- * (getFullYear / getMonth / getDate) to recover the original date.
- */
-function normaliseDateCol(val: Date | string | null): string | null {
-  if (val == null) return null;
-  if (val instanceof Date) {
-    const y = val.getFullYear();
-    const m = String(val.getMonth() + 1).padStart(2, "0");
-    const d = String(val.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }
-  return val;
-}
 
 type PredictionParamRow = {
   paramName: PredictionParamName;
@@ -436,13 +415,13 @@ async function refreshPredictionParam(
 }
 
 async function refreshCycleAnalytics(userId: string): Promise<AnalyticsResult> {
-  const rawRows = (await db
+  const rows = (await db
     .select()
     .from(cycles)
     .where(eq(cycles.userId, userId))
     .orderBy(asc(cycles.mStart))) as CycleRow[];
 
-  if (rawRows.length === 0) {
+  if (rows.length === 0) {
     return {
       cycles: [],
       cycleLengths: [],
@@ -451,15 +430,6 @@ async function refreshCycleAnalytics(userId: string): Promise<AnalyticsResult> {
       lutealLengths: [],
     };
   }
-
-  // Normalise Date objects from the Neon driver into YYYY-MM-DD strings
-  const normalizedRows = rawRows.map((row) => ({
-    ...row,
-    mStart: normaliseDateCol(row.mStart) as string,
-    mEnd: normaliseDateCol(row.mEnd),
-    ovulationDate: normaliseDateCol(row.ovulationDate),
-    notes: row.notes,
-  }));
 
   const cycleLengths: number[] = [];
   const periodLengths: number[] = [];
@@ -476,10 +446,10 @@ async function refreshCycleAnalytics(userId: string): Promise<AnalyticsResult> {
     };
   }> = [];
 
-  for (let index = 0; index < normalizedRows.length; index += 1) {
-    const current = normalizedRows[index];
-    const previous = normalizedRows[index - 1];
-    const next = normalizedRows[index + 1];
+  for (let index = 0; index < rows.length; index += 1) {
+    const current = rows[index];
+    const previous = rows[index - 1];
+    const next = rows[index + 1];
 
     const nextCycleLength = previous
       ? diffInDays(previous.mStart, current.mStart)
@@ -496,7 +466,7 @@ async function refreshCycleAnalytics(userId: string): Promise<AnalyticsResult> {
         ? diffInDays(current.ovulationDate, next.mStart)
         : null;
 
-    normalizedRows[index] = {
+    rows[index] = {
       ...current,
       cycleLength: nextCycleLength,
       periodLength: nextPeriodLength,
@@ -549,7 +519,7 @@ async function refreshCycleAnalytics(userId: string): Promise<AnalyticsResult> {
   ]);
 
   return {
-    cycles: normalizedRows,
+    cycles: rows,
     cycleLengths,
     periodLengths,
     follicularLengths,

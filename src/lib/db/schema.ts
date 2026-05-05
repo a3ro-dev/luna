@@ -4,12 +4,38 @@ import {
   timestamp,
   integer,
   uuid,
-  date,
+  customType,
   boolean,
   jsonb,
   real,
   unique,
 } from "drizzle-orm/pg-core";
+
+/**
+ * Postgres `date` column that always returns a "YYYY-MM-DD" string.
+ *
+ * The Neon serverless HTTP driver returns `date` columns as JavaScript
+ * Date objects (e.g. `new Date("2025-01-28T00:00:00")` — no Z suffix,
+ * parsed as local midnight).  Every consumer in this codebase expects
+ * plain strings, so we convert at the ORM boundary, once and for all.
+ */
+const pgDate = customType<{ data: string; driverData: string | Date }>({
+  dataType() {
+    return "date";
+  },
+  fromDriver(value) {
+    if (value instanceof Date) {
+      const y = value.getFullYear();
+      const m = String(value.getMonth() + 1).padStart(2, "0");
+      const d = String(value.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+    return String(value);
+  },
+  toDriver(value) {
+    return value;
+  },
+});
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -19,7 +45,7 @@ export const users = pgTable("users", {
   image: text("image"),
   timezone: text("timezone").default("Asia/Kolkata"),
   weekStart: integer("week_start").default(1), // 0=Sun, 1=Mon
-  dateOfBirth: date("date_of_birth"),
+  dateOfBirth: pgDate("date_of_birth"),
   onboardingCompleted: boolean("onboarding_completed").default(false),
   onboardingVersion: integer("onboarding_version").default(0),
   dobEditCount: integer("dob_edit_count").default(0),
@@ -41,9 +67,9 @@ export const cycles = pgTable("cycles", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  mStart: date("m_start").notNull(),
-  mEnd: date("m_end"),
-  ovulationDate: date("ovulation_date"),
+  mStart: pgDate("m_start").notNull(),
+  mEnd: pgDate("m_end"),
+  ovulationDate: pgDate("ovulation_date"),
   cycleLength: integer("cycle_length"), // derived: this.mStart - prev.mStart
   periodLength: integer("period_length"), // derived: mEnd - mStart
   follicularLength: integer("follicular_length"), // derived: ovulation - mEnd
