@@ -589,7 +589,7 @@ export default function Home() {
                   onClick={() => openSubscribeModal("Luna Premium")}
                   className="block w-full h-12 text-center leading-[3rem] rounded-full bg-[#6D5A60] text-[10px] font-semibold uppercase tracking-widest text-white shadow-[0_12px_24px_rgba(109,90,96,0.2)] transition hover:bg-[#8E7D82] cursor-pointer"
                 >
-                  Start free trial
+                  Subscribe
                 </button>
               </div>
             </div>
@@ -638,7 +638,7 @@ export default function Home() {
                   onClick={() => openSubscribeModal("Luna Premium+")}
                   className="block w-full h-12 text-center leading-[3rem] rounded-full border border-[#FBE6B6]/60 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] transition hover:bg-[#FBE6B6]/10 cursor-pointer"
                 >
-                  Start free trial
+                  Subscribe
                 </button>
               </div>
             </div>
