@@ -525,8 +525,8 @@ export default function SettingsPage() {
                 }`}
               >
                 <span
-                  className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${
-                    pushEnabled ? "translate-x-5.5" : "translate-x-0.5"
+                  className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                    pushEnabled ? "translate-x-[20px]" : "translate-x-0"
                   }`}
                 />
               </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage, type FileUIPart } from "ai";
 import { signOut, useSession } from "next-auth/react";
@@ -506,7 +507,7 @@ export default function ChatPage() {
           return (
             <div
               key={session.id}
-              className={`group flex items-center gap-1 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+              className={`group flex items-center gap-1 rounded-xl px-3 py-2.5 text-sm transition-colors duration-150 active:scale-[0.99] will-change-transform cursor-pointer ${
                 isActive
                   ? "bg-[#FFEEF1] text-[#6D5A60]"
                   : "text-[#8E7D82] hover:bg-[#FFF5F7]"
@@ -515,7 +516,7 @@ export default function ChatPage() {
               <button
                 type="button"
                 onClick={() => handleSelectSession(session.id)}
-                className="flex-1 text-left truncate font-light"
+                className="flex-1 text-left truncate font-light cursor-pointer"
               >
                 {session.title || "Untitled chat"}
               </button>
@@ -524,7 +525,7 @@ export default function ChatPage() {
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-[#8E7D82] hover:text-[#6D5A60]"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-[#8E7D82] hover:text-[#6D5A60] cursor-pointer"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -578,7 +579,7 @@ export default function ChatPage() {
                     variant="ghost"
                     size="icon-sm"
                     onClick={handleNewSession}
-                    className="text-[#8E7D82] hover:text-[#6D5A60]"
+                    className="text-[#8E7D82] hover:text-[#6D5A60] active:scale-[0.95] will-change-transform transition-transform duration-100 cursor-pointer"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -607,20 +608,24 @@ export default function ChatPage() {
             {/* Header */}
             <header className="py-4 px-6 md:px-10 border-b border-[#FFDDE0]/30 bg-white/50 backdrop-blur-xl sticky top-0 z-10">
               <div className="flex items-center justify-between gap-3">
-                <div>
+                <motion.div
+                  initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  transition={{ type: "spring", duration: 0.45, bounce: 0 }}
+                >
                   <h1 className="font-serif text-2xl font-light text-[#6D5A60]">
                     Luna
                   </h1>
                   <p className="text-xs font-light text-[#8E7D82]">
                     Your caring health companion
                   </p>
-                </div>
+                </motion.div>
                 <div className="flex items-center gap-2">
                   <Link href="/dashboard">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7]"
+                      className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7] hover:-translate-y-px hover:shadow-sm active:translate-y-0 active:shadow-none will-change-transform transition-all duration-150 ease-out cursor-pointer"
                     >
                       Dashboard
                     </Button>
@@ -629,7 +634,7 @@ export default function ChatPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7]"
+                      className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7] hover:-translate-y-px hover:shadow-sm active:translate-y-0 active:shadow-none will-change-transform transition-all duration-150 ease-out cursor-pointer"
                     >
                       Settings
                     </Button>
@@ -639,7 +644,7 @@ export default function ChatPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => signOut({ callbackUrl: "/login" })}
-                      className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7]"
+                      className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7] hover:-translate-y-px hover:shadow-sm active:translate-y-0 active:shadow-none will-change-transform transition-all duration-150 ease-out cursor-pointer"
                     >
                       Sign out
                     </Button>
@@ -648,7 +653,7 @@ export default function ChatPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7]"
+                        className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7] hover:-translate-y-px hover:shadow-sm active:translate-y-0 active:shadow-none will-change-transform transition-all duration-150 ease-out cursor-pointer"
                       >
                         Log in
                       </Button>
@@ -658,7 +663,7 @@ export default function ChatPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setIsSessionsOpen(true)}
-                    className="md:hidden text-xs text-[#8E7D82] hover:text-[#6D5A60]"
+                    className="md:hidden text-xs text-[#8E7D82] hover:text-[#6D5A60] cursor-pointer"
                   >
                     Chats
                   </Button>
@@ -669,16 +674,69 @@ export default function ChatPage() {
             {/* Messages */}
             <Conversation className="flex-1">
               {messages.length === 0 ? (
-                <ConversationEmptyState
-                  title="Hi lovely, I'm Luna"
-                  description="Log your cycle, ask about symptoms, or just chat about how you're feeling."
-                  icon={
-                    <div className="w-14 h-14 rounded-full bg-[#FFB5C0] flex items-center justify-center text-white text-xl shadow-[0_10px_20px_rgba(255,181,192,0.2)]">
+                <ConversationEmptyState>
+                  <motion.div
+                    initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
+                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                    transition={{
+                      type: "spring",
+                      duration: 0.45,
+                      bounce: 0,
+                      delay: 0,
+                    }}
+                  >
+                    <motion.div
+                      className="w-14 h-14 rounded-full bg-[#FFB5C0] flex items-center justify-center text-white text-xl shadow-[0_10px_20px_rgba(255,181,192,0.2)]"
+                      animate={{ scale: [1, 1.05, 1] }}
+                      transition={{
+                        duration: 3,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                    >
                       ✨
-                    </div>
-                  }
-                >
-                  <div className="mt-2">
+                    </motion.div>
+                  </motion.div>
+                  <motion.div
+                    className="space-y-1"
+                    initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
+                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                    transition={{
+                      type: "spring",
+                      duration: 0.45,
+                      bounce: 0,
+                      delay: 0.06,
+                    }}
+                  >
+                    <h3 className="font-serif font-light text-lg text-[#6D5A60]">
+                      Hi lovely, I'm Luna
+                    </h3>
+                  </motion.div>
+                  <motion.p
+                    className="text-sm font-light text-[#8E7D82]"
+                    initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
+                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                    transition={{
+                      type: "spring",
+                      duration: 0.45,
+                      bounce: 0,
+                      delay: 0.12,
+                    }}
+                  >
+                    Log your cycle, ask about symptoms, or just chat about how
+                    you're feeling.
+                  </motion.p>
+                  <motion.div
+                    className="mt-2"
+                    initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
+                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                    transition={{
+                      type: "spring",
+                      duration: 0.45,
+                      bounce: 0,
+                      delay: 0.18,
+                    }}
+                  >
                     <Suggestions>
                       {starterSuggestions.map((s) => (
                         <Suggestion
@@ -687,10 +745,11 @@ export default function ChatPage() {
                           onClick={(text) => {
                             handlePromptSubmit({ text, files: [] });
                           }}
+                          className="active:scale-[0.97] will-change-transform transition-transform duration-100 cursor-pointer"
                         />
                       ))}
                     </Suggestions>
-                  </div>
+                  </motion.div>
                 </ConversationEmptyState>
               ) : (
                 <ConversationContent className="px-6 md:px-10 py-6 space-y-4">
@@ -780,14 +839,28 @@ export default function ChatPage() {
                   })}
 
                   {/* Streaming indicator */}
-                  {isBusy &&
-                    messages[messages.length - 1]?.role !== "assistant" && (
-                      <Message from="assistant">
-                        <MessageContent>
-                          <Shimmer>Thinking...</Shimmer>
-                        </MessageContent>
-                      </Message>
-                    )}
+                  <AnimatePresence>
+                    {isBusy &&
+                      messages[messages.length - 1]?.role !== "assistant" && (
+                        <motion.div
+                          key="shimmer-indicator"
+                          initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
+                          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                          exit={{ opacity: 0, y: 4 }}
+                          transition={{
+                            type: "spring",
+                            duration: 0.35,
+                            bounce: 0,
+                          }}
+                        >
+                          <Message from="assistant">
+                            <MessageContent>
+                              <Shimmer>Thinking...</Shimmer>
+                            </MessageContent>
+                          </Message>
+                        </motion.div>
+                      )}
+                  </AnimatePresence>
                 </ConversationContent>
               )}
               <ConversationScrollButton />
@@ -801,7 +874,7 @@ export default function ChatPage() {
                   accept="image/*"
                   multiple
                   maxFiles={4}
-                  className="bg-[#FFF9F9] border border-[#FFDDE0]/30 rounded-2xl shadow-[0_4px_12px_rgba(255,181,192,0.06)] focus-within:ring-2 focus-within:ring-[#FFB5C0]/30 focus-within:border-[#FFB5C0]/50 transition-all"
+                  className="bg-[#FFF9F9] border border-[#FFDDE0]/30 rounded-2xl shadow-[0_4px_12px_rgba(255,181,192,0.06)] focus-within:ring-2 focus-within:ring-[#FFB5C0]/30 focus-within:border-[#FFB5C0]/50 transition-all duration-200"
                 >
                   <PromptInputHeader>
                     <Attachments variant="inline" />
@@ -814,7 +887,11 @@ export default function ChatPage() {
                   </PromptInputBody>
                   <PromptInputFooter>
                     <PromptInputTools>
-                      <PromptInputSubmit status={status} onStop={stop} />
+                      <PromptInputSubmit
+                        status={status}
+                        onStop={stop}
+                        className="active:scale-[0.95] will-change-transform transition-transform duration-100 cursor-pointer"
+                      />
                     </PromptInputTools>
                   </PromptInputFooter>
                 </PromptInput>
@@ -828,31 +905,45 @@ export default function ChatPage() {
           </div>
 
           {/* --- Mobile Sidebar Overlay --- */}
-          {isSessionsOpen && (
-            <div className="fixed inset-0 z-40 md:hidden">
-              <button
-                type="button"
-                className="absolute inset-0 bg-[#6D5A60]/20"
-                onClick={() => setIsSessionsOpen(false)}
-                aria-label="Close chat list"
-              />
-              <div className="absolute right-0 top-0 h-full w-[78%] max-w-[320px] bg-white/90 backdrop-blur-xl border-l border-[#FFDDE0]/40 px-4 py-6 flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-serif text-base text-[#6D5A60]">Chats</h2>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleNewSession}
-                    className="text-xs text-[#8E7D82] hover:text-[#6D5A60]"
-                  >
-                    New
-                  </Button>
-                </div>
-                <Separator className="bg-[#FFDDE0]/40" />
-                {renderSessionsList()}
+          <AnimatePresence>
+            {isSessionsOpen && (
+              <div className="fixed inset-0 z-40 md:hidden">
+                <motion.button
+                  type="button"
+                  className="absolute inset-0 bg-[#6D5A60]/20"
+                  onClick={() => setIsSessionsOpen(false)}
+                  aria-label="Close chat list"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                />
+                <motion.div
+                  className="absolute right-0 top-0 h-full w-[78%] max-w-[320px] bg-white/90 backdrop-blur-xl border-l border-[#FFDDE0]/40 px-4 py-6 flex flex-col gap-4"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 40 }}
+                  transition={{ type: "spring", duration: 0.4, bounce: 0 }}
+                >
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-serif text-base text-[#6D5A60]">
+                      Chats
+                    </h2>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleNewSession}
+                      className="text-xs text-[#8E7D82] hover:text-[#6D5A60] active:scale-[0.95] will-change-transform transition-transform duration-100 cursor-pointer"
+                    >
+                      New
+                    </Button>
+                  </div>
+                  <Separator className="bg-[#FFDDE0]/40" />
+                  {renderSessionsList()}
+                </motion.div>
               </div>
-            </div>
-          )}
+            )}
+          </AnimatePresence>
 
           {/* --- Delete Confirmation Dialog --- */}
           <Dialog

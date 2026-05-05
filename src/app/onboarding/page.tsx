@@ -37,14 +37,14 @@ const TIMEZONES = [
 ];
 
 const CONDITIONS = [
-  { id: "pcos", label: "PCOS", emoji: "🩺" },
-  { id: "pcod", label: "PCOD", emoji: "🩺" },
-  { id: "endometriosis", label: "Endometriosis", emoji: "🎗️" },
-  { id: "thyroid", label: "Thyroid", emoji: "🦋" },
-  { id: "hormonal_bc", label: "On birth control", emoji: "💊" },
-  { id: "irregular", label: "Irregular cycles", emoji: "〰️" },
-  { id: "perimenopause", label: "Perimenopause", emoji: "🌸" },
-  { id: "none", label: "None of these", emoji: "✅" },
+  { id: "pcos", label: "PCOS" },
+  { id: "pcod", label: "PCOD" },
+  { id: "endometriosis", label: "Endometriosis" },
+  { id: "thyroid", label: "Thyroid" },
+  { id: "hormonal_bc", label: "On birth control" },
+  { id: "irregular", label: "Irregular cycles" },
+  { id: "perimenopause", label: "Perimenopause" },
+  { id: "none", label: "None of these" },
 ];
 
 /* ──────────────────────────────────────────────────────────────
@@ -312,7 +312,6 @@ export default function OnboardingPage() {
                             : "border-[#FFDDE0]/30 bg-[#FFF9F9] hover:border-[#FFDDE0]/50 active:scale-[0.98]"
                         }`}
                       >
-                        <span className="text-lg mb-1 block">{c.emoji}</span>
                         <p
                           className={`text-sm font-light leading-snug ${
                             isSelected ? "text-[#6D5A60]" : "text-[#8E7D82]"
@@ -332,7 +331,7 @@ export default function OnboardingPage() {
                       animate={{ opacity: 1, y: 0 }}
                       className="mt-4 text-[11px] font-light text-[#8E7D82]/50 text-center"
                     >
-                      Luna adapts to your unique rhythm over time 💕
+                      Luna adapts to your unique rhythm over time
                     </motion.p>
                   )}
               </motion.div>
