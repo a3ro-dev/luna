@@ -1,9 +1,31 @@
-import { convertToModelMessages, streamText, type UIMessage } from "ai"
+import {
+  convertToModelMessages,
+  isStepCount,
+  streamText,
+  tool,
+  type UIMessage,
+} from "ai"
 import { createOpenAI } from "@ai-sdk/openai"
 import { db } from "@/lib/db"
 import { aiTraces, chatMessages, chatSessions, chatSummaries } from "@/lib/db/schema"
 import { auth } from "@/auth"
 import { and, desc, eq, ilike, or } from "drizzle-orm"
+import { z } from "zod"
+import { openuiChatLibrary, openuiChatPromptOptions } from "@openuidev/react-ui"
+import {
+  addCycleNoteEntry,
+  fetchRecentCyclesEntry,
+  getCurrentIsoDate,
+  getCycleInsightsEntry,
+  logOvulationEntry,
+  logPeriodEndEntry,
+  logPeriodStartEntry,
+  resolveUserTimeZone,
+  sanitizeTimeZone,
+} from "@/lib/cycle-tools"
+import { looksLikeOpenUiLang } from "@/lib/chat/openui"
+
+export const maxDuration = 60
 
 // HackClub AI provider
 const hackClubAI = createOpenAI({
@@ -47,6 +69,21 @@ async function writeSupermemoryFact(userId: string, fact: string) {
 const RECENT_MESSAGE_LIMIT = 20
 const SUMMARY_TRIGGER_COUNT = 30
 const SUMMARY_MIN_DELTA = 12
+
+const baseOpenUiPrompt = openuiChatLibrary.prompt({
+  ...openuiChatPromptOptions,
+  preamble: "You are Luna, a warm, caring, bubbly menstrual cycle companion. You speak like a gentle best friend, mostly lowercase, with soft supportive language. Avoid clinical language and never give medical diagnosis. Ask one clear follow-up question when a date or cycle boundary is missing or ambiguous.",
+  additionalRules: [
+    ...(openuiChatPromptOptions.additionalRules ?? []),
+    "Only use OpenUI Lang for structured summaries, predictions, stats, or export responses.",
+    "Keep normal conversation, emotional support, and clarification questions in plain text.",
+    "Never wrap OpenUI Lang in markdown or code fences.",
+    "When OpenUI Lang is needed, start with root = Card(...). Use StatGroup and Table when they are the clearest fit.",
+    "If a tool result says responseMode = plain, answer in natural text.",
+    "If a tool result says responseMode = openui, answer with OpenUI Lang only.",
+    "Use the user's timezone and current date when normalizing dates.",
+  ],
+})
 
 const getTextFromParts = (parts: UIMessage["parts"]): string => {
   if (!Array.isArray(parts)) return ""
@@ -177,6 +214,139 @@ const getContextSnippets = async (sessionId: string, queryText: string) => {
     .filter((line) => line.trim().length > 0)
 }
 
+const buildSystemPrompt = ({
+  memoryContext,
+  latestSummary,
+  contextSnippets,
+  timeZone,
+}: {
+  memoryContext: string
+  latestSummary?: string
+  contextSnippets: string[]
+  timeZone: string
+}) => {
+  const summaryContext = latestSummary
+    ? `Conversation Summary:\n${latestSummary}\n\n`
+    : ""
+  const snippetContext = contextSnippets.length > 0
+    ? `Relevant Context Snippets:\n${contextSnippets.join("\n")}\n\n`
+    : ""
+
+  return `${baseOpenUiPrompt}\n\n${summaryContext}${snippetContext}User Context & Memory:\n${memoryContext}\n\nToday in the user's timezone (${timeZone}) is ${getCurrentIsoDate(timeZone)}.`
+}
+
+const createChatTools = ({
+  userId,
+  timeZone,
+}: {
+  userId: string
+  timeZone: string
+}) => ({
+  logPeriodStart: tool({
+    description: "Log the start date of a menstrual period.",
+    inputSchema: z.object({
+      date: z.string().describe("The period start date, ideally normalized to YYYY-MM-DD."),
+      timezone: z.string().optional().describe("Optional IANA timezone used to normalize the date."),
+      notes: z.string().optional().describe("Optional free-text note or symptom detail."),
+    }),
+    execute: async ({ date, timezone, notes }) =>
+      logPeriodStartEntry({
+        userId,
+        date,
+        timeZone: sanitizeTimeZone(timezone, timeZone),
+        notes,
+      }),
+  }),
+  logPeriodEnd: tool({
+    description: "Log the end date of a menstrual period.",
+    inputSchema: z.object({
+      date: z.string().describe("The period end date, ideally normalized to YYYY-MM-DD."),
+      timezone: z.string().optional().describe("Optional IANA timezone used to normalize the date."),
+      notes: z.string().optional().describe("Optional free-text note or symptom detail."),
+    }),
+    execute: async ({ date, timezone, notes }) =>
+      logPeriodEndEntry({
+        userId,
+        date,
+        timeZone: sanitizeTimeZone(timezone, timeZone),
+        notes,
+      }),
+  }),
+  logOvulation: tool({
+    description: "Log an ovulation date for the user's current or most recent cycle.",
+    inputSchema: z.object({
+      date: z.string().describe("The ovulation date, ideally normalized to YYYY-MM-DD."),
+      timezone: z.string().optional().describe("Optional IANA timezone used to normalize the date."),
+      notes: z.string().optional().describe("Optional free-text note or symptom detail."),
+    }),
+    execute: async ({ date, timezone, notes }) =>
+      logOvulationEntry({
+        userId,
+        date,
+        timeZone: sanitizeTimeZone(timezone, timeZone),
+        notes,
+      }),
+  }),
+  addNoteSymptom: tool({
+    description: "Add a free-text note or symptom to the closest matching cycle.",
+    inputSchema: z.object({
+      note: z.string().describe("Free-text note or symptom description."),
+      date: z.string().optional().describe("Optional date for the note, ideally normalized to YYYY-MM-DD."),
+      timezone: z.string().optional().describe("Optional IANA timezone used to normalize the date."),
+      symptoms: z.array(z.string()).optional().describe("Optional symptom phrases to include."),
+    }),
+    execute: async ({ note, date, timezone, symptoms }) =>
+      addCycleNoteEntry({
+        userId,
+        note,
+        date,
+        timeZone: sanitizeTimeZone(timezone, timeZone),
+        symptoms,
+      }),
+  }),
+  fetchRecentCycles: tool({
+    description: "Fetch the most recent menstrual cycles for the user.",
+    inputSchema: z.object({
+      limit: z.number().int().min(1).max(10).default(3),
+    }),
+    execute: async ({ limit }) => fetchRecentCyclesEntry({ userId, limit }),
+  }),
+  computePredictions: tool({
+    description: "Compute the next period and ovulation predictions from the user's cycle history.",
+    inputSchema: z.object({
+      timezone: z.string().optional().describe("Optional IANA timezone used for date calculations."),
+    }),
+    execute: async ({ timezone }) =>
+      getCycleInsightsEntry({
+        userId,
+        timeZone: sanitizeTimeZone(timezone, timeZone),
+        mode: "prediction",
+      }),
+  }),
+  fetchStats: tool({
+    description: "Fetch cycle statistics and compact prediction-ready insights.",
+    inputSchema: z.object({
+      timezone: z.string().optional().describe("Optional IANA timezone used for date calculations."),
+    }),
+    execute: async ({ timezone }) =>
+      getCycleInsightsEntry({
+        userId,
+        timeZone: sanitizeTimeZone(timezone, timeZone),
+        mode: "stats",
+      }),
+  }),
+  exportData: tool({
+    description: "Return the user's export link for their cycle data.",
+    inputSchema: z.object({}),
+    execute: async () => ({
+      responseMode: "plain" as const,
+      kind: "export" as const,
+      message: "Your export is ready. Open /api/data/export to download it.",
+      exportUrl: "/api/data/export",
+    }),
+  }),
+})
+
 const maybeSummarizeSession = async (
   sessionId: string,
   userId: string,
@@ -233,8 +403,14 @@ export async function POST(req: Request) {
     return new Response("Unauthorized", { status: 401 })
   }
 
-  const { messages, webSearchEnabled, sessionId: requestSessionId } = await req.json()
+  const {
+    messages,
+    webSearchEnabled,
+    sessionId: requestSessionId,
+    timezone: clientTimeZone,
+  } = await req.json()
   const userMessages = (Array.isArray(messages) ? messages : []) as UIMessage[]
+  const userTimeZone = await resolveUserTimeZone(userId, sanitizeTimeZone(clientTimeZone))
 
   const resolvedSession = requestSessionId
     ? await getSessionById(requestSessionId, userId)
@@ -263,28 +439,23 @@ export async function POST(req: Request) {
   const latestSummary = await getLatestSummary(sessionId)
   const lastUserText = getTextFromParts(lastIncoming?.parts ?? [])
   const contextSnippets = await getContextSnippets(sessionId, lastUserText)
-
-  const summaryContext = latestSummary?.summary
-    ? `Conversation Summary:\n${latestSummary.summary}\n\n`
-    : ""
-  const snippetContext = contextSnippets.length > 0
-    ? `Relevant Context Snippets:\n${contextSnippets.join("\n")}\n\n`
-    : ""
-
-  const systemPrompt = `You are Luna, a warm, caring, and bubbly health companion. You text like a bestie—super enthusiastic, mostly lowercase, using lots of cute emojis (like ✨, 🎀, 💕, 🥺) and a conversational, sweet texting style! You track menstrual cycles and provide supportive conversation. You are NOT a doctor; remind the user of this gently and sweetly if they ask for clinical advice.
-
-${summaryContext}${snippetContext}User Context & Memory:
-${memoryContext}
-
-Be soft, warm, and highly visual.`
+  const systemPrompt = buildSystemPrompt({
+    memoryContext,
+    latestSummary: latestSummary?.summary,
+    contextSnippets,
+    timeZone: userTimeZone,
+  })
 
   const startTime = Date.now()
   const modelName = "x-ai/grok-4.3"
+  const tools = createChatTools({ userId, timeZone: userTimeZone })
 
   const result = await streamText({
     model: hackClubAI.chat(modelName),
     system: systemPrompt,
     messages: await convertToModelMessages(recentMessages),
+    tools,
+    stopWhen: isStepCount(8),
     // Note: passing web_search plugin conceptually (may require provider-specific config in real environment)
     ...(webSearchEnabled ? {
       providerOptions: {
@@ -298,7 +469,7 @@ Be soft, warm, and highly visual.`
 
       // Simple heuristic: write key facts back if the AI gives a helpful answer about user state
       // Real implementation might use a tool call or secondary LLM pass to extract facts.
-      if (text.length > 50) {
+      if (text.length > 50 && !looksLikeOpenUiLang(text)) {
          // Background task to extract and write fact (simulated here)
         const lastUserText = getTextFromParts(lastIncoming?.parts ?? [])
          writeSupermemoryFact(userId, `User said: ${lastUserText}. Luna replied: ${text.substring(0, 50)}...`);

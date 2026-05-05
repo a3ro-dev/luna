@@ -4,12 +4,45 @@ import React, { useRef, useState, useEffect } from "react"
 import { useChat } from "@ai-sdk/react"
 import { signOut, useSession } from "next-auth/react"
 import Link from "next/link"
+import { Renderer } from "@openuidev/react-lang"
+import { openuiChatLibrary } from "@openuidev/react-ui"
+import { looksLikeOpenUiLang } from "@/lib/chat/openui"
 
 type ChatSession = {
   id: string
   title: string | null
   createdAt: string
   updatedAt: string
+}
+
+function AssistantMessageContent({
+  content,
+  isStreaming,
+}: {
+  content: string
+  isStreaming: boolean
+}) {
+  const [fallbackToText, setFallbackToText] = useState(false)
+  const trimmed = content.trim()
+
+  if (!looksLikeOpenUiLang(trimmed) || fallbackToText) {
+    return <p className="whitespace-pre-wrap leading-relaxed font-light">{content}</p>
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <Renderer
+        library={openuiChatLibrary}
+        response={content}
+        isStreaming={isStreaming}
+        onError={(errors) => {
+          if (!isStreaming && errors.length > 0) {
+            setFallbackToText(true)
+          }
+        }}
+      />
+    </div>
+  )
 }
 
 export default function ChatPage() {
@@ -162,6 +195,7 @@ export default function ChatPage() {
       {
         body: {
           sessionId,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }
       }
     )
@@ -343,18 +377,26 @@ export default function ChatPage() {
             .map((part) => part.text)
             .join("") || (typeof m.content === "string" ? m.content : "")
           const fallbackText = isStreaming && m.role === "assistant" ? "..." : ""
+          const assistantContent = messageText || fallbackText
+          const isOpenUiMessage = m.role === "assistant" && looksLikeOpenUiLang(assistantContent)
 
           return (
           <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div
-              className={`max-w-[80%] md:max-w-[60%] rounded-[1.5rem] p-5 ${
-                m.role === 'user'
-                  ? 'bg-[#6D5A60] text-white rounded-tr-lg shadow-[0_8px_16px_rgba(109,90,96,0.15)]'
-                  : 'bg-white/80 text-[#6D5A60] rounded-tl-lg border border-[#FFDDE0]/30 shadow-[0_8px_20px_rgba(255,181,192,0.06)] backdrop-blur-xl'
-              }`}
-            >
-              <p className="whitespace-pre-wrap leading-relaxed font-light">{messageText || fallbackText}</p>
-            </div>
+            {m.role === 'assistant' && isOpenUiMessage ? (
+              <div className="max-w-[88%] md:max-w-[72%]">
+                <AssistantMessageContent content={assistantContent} isStreaming={isStreaming} />
+              </div>
+            ) : (
+              <div
+                className={`max-w-[80%] md:max-w-[60%] rounded-[1.5rem] p-5 ${
+                  m.role === 'user'
+                    ? 'bg-[#6D5A60] text-white rounded-tr-lg shadow-[0_8px_16px_rgba(109,90,96,0.15)]'
+                    : 'bg-white/80 text-[#6D5A60] rounded-tl-lg border border-[#FFDDE0]/30 shadow-[0_8px_20px_rgba(255,181,192,0.06)] backdrop-blur-xl'
+                }`}
+              >
+                <p className="whitespace-pre-wrap leading-relaxed font-light">{assistantContent}</p>
+              </div>
+            )}
           </div>
           )
         })}
