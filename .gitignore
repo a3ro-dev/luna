@@ -1,5 +1,3 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 /node_modules
 /.pnp
@@ -22,16 +20,18 @@
 
 # misc
 .DS_Store
+Thumbs.db
 *.pem
 
 # debug
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — never commit secrets
+.env
+.env.*
+!.env.example
 
 # vercel
 .vercel
@@ -39,27 +39,41 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-import-data.ts
+
+# drizzle migrations (generated, not source)
 drizzle/
 
-# agent / skills
-.agents
-.github
-skills-lock.json
+# agent / AI tooling (local config)
+.agents/
+.github/copilot/
 
-# utility scripts
+# utility scripts (not part of the app)
 get-prompt.mjs
+import-data.ts
+fix-*.mjs
 
-# large media tracked via Git LFS (see .gitattributes)
+# duplicate / legacy docs
+Luna Rewrite — PRD & Technical Specification.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# temporary files
+*.tmp
+*.bak
+cookies.txt
+luna-logo-datauri.txt
 
 # default Next.js boilerplate assets
 public/file.svg
 public/globe.svg
-public/next.svg
-public/vercel.svg
 public/window.svg
-
-# duplicate docs (use luna_rewrite_prd_techspec.md as the source of truth)
-Luna Rewrite — PRD & Technical Specification.md
-
-.vercel

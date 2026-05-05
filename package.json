@@ -1,7 +1,18 @@
 {
-  "name": "luna-app",
-  "version": "1.0.0",
-  "private": true,
+  "name": "luna",
+  "version": "0.6.2",
+  "private": false,
+  "description": "A soft, supportive menstrual cycle companion — log, predict, and chat about your cycle",
+  "author": "Akshat Singh Kushwaha <akshatsingh14372@outlook.com> (https://a3ro.dev)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/a3ro-dev/luna.git"
+  },
+  "bugs": {
+    "url": "https://github.com/a3ro-dev/luna/issues"
+  },
+  "homepage": "https://github.com/a3ro-dev/luna#readme",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
