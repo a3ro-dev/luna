@@ -2,10 +2,11 @@
 
 import React, { useRef, useState, useEffect } from "react"
 import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport } from "ai"
 import { signOut, useSession } from "next-auth/react"
 import Link from "next/link"
 import { Renderer } from "@openuidev/react-lang"
-import { openuiChatLibrary } from "@openuidev/react-ui"
+import { openuiChatLibrary, ThemeProvider } from "@openuidev/react-ui"
 import { looksLikeOpenUiLang } from "@/lib/chat/openui"
 
 type ChatSession = {
@@ -48,7 +49,7 @@ function AssistantMessageContent({
 export default function ChatPage() {
   const { status: authStatus } = useSession()
   const { messages, sendMessage, status, setMessages } = useChat({
-    api: "/api/chat"
+    transport: new DefaultChatTransport({ api: "/api/chat" })
   })
 
   const isBusy = status === "streaming" || status === "submitted"
@@ -58,6 +59,7 @@ export default function ChatPage() {
   const [totalImagesInContext, setTotalImagesInContext] = useState(0)
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const isSubmitting = useRef(false)
   const [isLoadingSessions, setIsLoadingSessions] = useState(true)
   const [isSessionsOpen, setIsSessionsOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -152,19 +154,23 @@ export default function ChatPage() {
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const trimmedInput = input.trim()
-    if (trimmedInput.length === 0 && images.length === 0) {
-      return
-    }
-    let sessionId = activeSessionId
-    if (!sessionId) {
-      const created = await createSession()
-      if (!created) return
-      setSessions((prev) => [created, ...prev])
-      setActiveSessionId(created.id)
-      setMessages([])
-      sessionId = created.id
-    }
+    if (isSubmitting.current || isBusy) return
+    isSubmitting.current = true
+
+    try {
+      const trimmedInput = input.trim()
+      if (trimmedInput.length === 0 && images.length === 0) {
+        return
+      }
+      let sessionId = activeSessionId
+      if (!sessionId) {
+        const created = await createSession()
+        if (!created) return
+        setSessions((prev) => [created, ...prev])
+        setActiveSessionId(created.id)
+        setMessages([])
+        sessionId = created.id
+      }
     if (totalImagesInContext + images.length > 10) {
       alert("Maximum 10 images allowed per conversation context.")
       return
@@ -187,20 +193,25 @@ export default function ChatPage() {
         : [])
     ]
 
-    sendMessage(
-      {
-        role: "user",
-        parts,
-      },
-      {
-        body: {
-          sessionId,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      sendMessage(
+        {
+          role: "user",
+          parts,
+        },
+        {
+          body: {
+            sessionId,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          }
         }
-      }
-    )
-    setInput("")
-    setImages([])
+      )
+      setInput("")
+      setImages([])
+    } finally {
+      setTimeout(() => {
+        isSubmitting.current = false
+      }, 500)
+    }
   }
 
   const handleSelectSession = async (sessionId: string) => {
@@ -213,13 +224,20 @@ export default function ChatPage() {
   }
 
   const handleNewSession = async () => {
-    const created = await createSession()
-    if (!created) return
-    setSessions((prev) => [created, ...prev])
-    setActiveSessionId(created.id)
-    setMessages([])
-    setIsSessionsOpen(false)
+    if (isSubmitting.current) return
+    isSubmitting.current = true
+    try {
+      const created = await createSession()
+      if (!created) return
+      setSessions((prev) => [created, ...prev])
+      setActiveSessionId(created.id)
+      setMessages([])
+      setIsSessionsOpen(false)
+    } finally {
+      isSubmitting.current = false
+    }
   }
+
 
   const handleRenameSession = async (sessionId: string) => {
     const updated = await renameSession(sessionId)
@@ -307,7 +325,8 @@ export default function ChatPage() {
   )
 
   return (
-    <div className="min-h-screen bg-[#FFF9F9] flex font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
+    <ThemeProvider>
+      <div className="min-h-screen bg-[#FFF9F9] flex font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
       <aside className="w-[240px] shrink-0 border-r border-[#FFDDE0]/40 bg-white/60 backdrop-blur-xl px-4 py-6 hidden md:flex md:flex-col">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-serif text-base text-[#6D5A60]">Chats</h2>
@@ -472,5 +491,6 @@ export default function ChatPage() {
         </div>
       )}
     </div>
+    </ThemeProvider>
   )
 }
