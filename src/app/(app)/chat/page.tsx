@@ -167,6 +167,33 @@ function getReasoningText(parts: UIMessage["parts"]): string {
     .join("\n");
 }
 
+function isLikelyToolPayloadText(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) return false;
+
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown> | unknown[];
+    if (Array.isArray(parsed)) return parsed.length > 0;
+    if (!parsed || typeof parsed !== "object") return false;
+
+    const payloadKeys = [
+      "responseMode",
+      "kind",
+      "message",
+      "summary",
+      "recentCycles",
+      "predictions",
+      "averages",
+      "exportUrl",
+    ];
+
+    return payloadKeys.some((key) => key in parsed);
+  } catch {
+    return false;
+  }
+}
+
 // --- Main Chat Page ---
 export default function ChatPage() {
   const { status: authStatus } = useSession();
@@ -390,6 +417,7 @@ export default function ChatPage() {
       : [];
     const messageText = textParts.map((part) => part.text).join("");
     const content = messageText || (isStreaming ? "" : "");
+    const hasToolPayloadText = isLikelyToolPayloadText(content);
     const isOpenUi = looksLikeOpenUiLang(content);
 
     // Check for reasoning
@@ -462,14 +490,26 @@ export default function ChatPage() {
           })}
 
         {/* Main content */}
-        {isOpenUi ? (
+        {!hasToolPayloadText && isOpenUi ? (
           <OpenUIMessage content={content} isStreaming={isStreaming} />
+        ) : !hasToolPayloadText ? (
+          content ? (
+            <MessageResponse isAnimating={isStreaming}>{content}</MessageResponse>
+          ) : null
         ) : (
-          content && (
-            <MessageResponse isAnimating={isStreaming}>
-              {content}
-            </MessageResponse>
-          )
+          <Tool defaultOpen={false}>
+            <ToolHeader
+              type="dynamic-tool"
+              state="output-available"
+              toolName="assistant-data"
+              title="Tool data (collapsed)"
+            />
+            <ToolContent>
+              <pre className="max-h-64 overflow-auto rounded-md bg-muted/50 p-3 text-xs text-[#6D5A60]">
+                {content}
+              </pre>
+            </ToolContent>
+          </Tool>
         )}
 
         {/* Sources from web search */}
@@ -522,7 +562,7 @@ export default function ChatPage() {
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-[#8E7D82] hover:text-[#6D5A60] cursor-pointer"
+                    className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0 text-[#8E7D82] hover:text-[#6D5A60] cursor-pointer"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -565,7 +605,7 @@ export default function ChatPage() {
   return (
     <ThemeProvider>
       <TooltipProvider>
-        <div className="h-dvh overflow-hidden bg-[#FFF9F9] flex font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
+        <div className="h-dvh overflow-x-clip overflow-y-hidden bg-[#FFF9F9] flex font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
           {/* --- Desktop Sidebar --- */}
           <aside className="w-[260px] shrink-0 border-r border-[#FFDDE0]/40 bg-white/60 backdrop-blur-xl px-4 py-6 hidden md:flex md:flex-col gap-4">
             <div className="flex items-center justify-between">
@@ -624,12 +664,12 @@ export default function ChatPage() {
                 </motion.div>
 
                 {/* Mobile: icon-only nav */}
-                <div className="flex items-center gap-0.5 md:hidden">
+                <div className="flex items-center gap-1 rounded-full border border-[#FFDDE0]/50 bg-white/70 px-1 py-0.5 md:hidden">
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => setIsSessionsOpen(true)}
-                    className="text-[#8E7D82] hover:text-[#6D5A60] hover:bg-[#FFF5F7] cursor-pointer"
+                    className="size-9 text-[#8E7D82] hover:text-[#6D5A60] hover:bg-[#FFF5F7] cursor-pointer"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -649,7 +689,7 @@ export default function ChatPage() {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      className="text-[#8E7D82] hover:text-[#6D5A60] hover:bg-[#FFF5F7] cursor-pointer"
+                      className="size-9 text-[#8E7D82] hover:text-[#6D5A60] hover:bg-[#FFF5F7] cursor-pointer"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -673,7 +713,7 @@ export default function ChatPage() {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      className="text-[#8E7D82] hover:text-[#6D5A60] hover:bg-[#FFF5F7] cursor-pointer"
+                      className="size-9 text-[#8E7D82] hover:text-[#6D5A60] hover:bg-[#FFF5F7] cursor-pointer"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -822,7 +862,7 @@ export default function ChatPage() {
                   </motion.div>
                 </ConversationEmptyState>
               ) : (
-                <ConversationContent className="px-6 md:px-10 py-6 space-y-4">
+                <ConversationContent className="px-4 md:px-10 py-6 space-y-4">
                   {messages.map((m) => {
                     if (m.role === "user") {
                       return (
@@ -937,7 +977,7 @@ export default function ChatPage() {
             </Conversation>
 
             {/* Input area */}
-            <div className="p-4 bg-white/60 border-t border-[#FFDDE0]/20 backdrop-blur-xl">
+            <div className="px-3 py-3 sm:p-4 bg-white/60 border-t border-[#FFDDE0]/20 backdrop-blur-xl">
               <div className="max-w-3xl mx-auto">
                 <PromptInput
                   onSubmit={handlePromptSubmit}
@@ -965,8 +1005,8 @@ export default function ChatPage() {
                     </PromptInputTools>
                   </PromptInputFooter>
                 </PromptInput>
-                <div className="flex justify-between items-center mt-2 px-4">
-                  <span className="text-[10px] text-[#8E7D82]/50">
+                <div className="mt-2 px-1 sm:px-4">
+                  <span className="block text-[10px] leading-relaxed text-[#8E7D82]/50">
                     Luna can make mistakes. Verify important info.
                   </span>
                 </div>
