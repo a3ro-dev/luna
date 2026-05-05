@@ -1,13 +1,84 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type UIMessage, type FileUIPart } from "ai";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { Renderer } from "@openuidev/react-lang";
 import { openuiChatLibrary, ThemeProvider } from "@openuidev/react-ui";
 import { looksLikeOpenUiLang } from "@/lib/chat/openui";
+
+// AI Elements
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import {
+  Message,
+  MessageContent,
+  MessageResponse,
+  MessageActions,
+  MessageAction,
+} from "@/components/ai-elements/message";
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputSubmit,
+  PromptInputHeader,
+  type PromptInputMessage,
+} from "@/components/ai-elements/prompt-input";
+import {
+  Attachments,
+  Attachment,
+  AttachmentPreview,
+  AttachmentRemove,
+} from "@/components/ai-elements/attachments";
+import { Suggestions, Suggestion } from "@/components/ai-elements/suggestion";
+import { Shimmer } from "@/components/ai-elements/shimmer";
+import { Tool, ToolHeader, ToolContent } from "@/components/ai-elements/tool";
+import {
+  Sources,
+  SourcesTrigger,
+  SourcesContent,
+  Source,
+} from "@/components/ai-elements/sources";
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "@/components/ai-elements/reasoning";
+
+// UI Components
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 type ChatSession = {
   id: string;
@@ -16,7 +87,16 @@ type ChatSession = {
   updatedAt: string;
 };
 
-function AssistantMessageContent({
+// --- Suggestion prompts for empty state ---
+const starterSuggestions = [
+  "Log my period",
+  "When is my next period?",
+  "Show my cycle stats",
+  "I've been having cramps",
+];
+
+// --- OpenUI message renderer ---
+function OpenUIMessage({
   content,
   isStreaming,
 }: {
@@ -28,14 +108,12 @@ function AssistantMessageContent({
 
   if (!looksLikeOpenUiLang(trimmed) || fallbackToText) {
     return (
-      <p className="whitespace-pre-wrap leading-relaxed font-light">
-        {content}
-      </p>
+      <MessageResponse isAnimating={isStreaming}>{content}</MessageResponse>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-2xl">
       <Renderer
         library={openuiChatLibrary}
         response={content}
@@ -50,17 +128,54 @@ function AssistantMessageContent({
   );
 }
 
+// --- Extract sources from searchWeb tool results in message parts ---
+function extractSourcesFromParts(
+  parts: UIMessage["parts"],
+): Array<{ title: string; url: string }> {
+  if (!Array.isArray(parts)) return [];
+  const sources: Array<{ title: string; url: string }> = [];
+
+  for (const part of parts) {
+    if (part.type === "tool-searchWeb" && part.state === "output-available") {
+      const output = part.output as { message?: string } | undefined;
+      if (typeof output?.message === "string") {
+        // Parse markdown links like [Title](url)
+        const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+        let match;
+        while ((match = linkRegex.exec(output.message)) !== null) {
+          sources.push({ title: match[1], url: match[2] });
+        }
+      }
+    }
+  }
+
+  return sources;
+}
+
+// --- Check if message has reasoning/thinking parts ---
+function hasReasoningParts(parts: UIMessage["parts"]): boolean {
+  if (!Array.isArray(parts)) return false;
+  return parts.some((p) => p.type === "reasoning");
+}
+
+function getReasoningText(parts: UIMessage["parts"]): string {
+  if (!Array.isArray(parts)) return "";
+  return parts
+    .filter((p) => p.type === "reasoning")
+    .map((p) => (p as { type: "reasoning"; text: string }).text ?? "")
+    .join("\n");
+}
+
+// --- Main Chat Page ---
 export default function ChatPage() {
   const { status: authStatus } = useSession();
-  const { messages, sendMessage, status, setMessages } = useChat({
+  const { messages, sendMessage, status, setMessages, stop } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
 
   const isBusy = status === "streaming" || status === "submitted";
+  const isStreaming = status === "streaming";
 
-  const [input, setInput] = useState("");
-  const [images, setImages] = useState<File[]>([]);
-  const [totalImagesInContext, setTotalImagesInContext] = useState(0);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const hasRequestedRename = useRef<Set<string>>(new Set());
@@ -68,14 +183,9 @@ export default function ChatPage() {
   const isSubmitting = useRef(false);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [isSessionsOpen, setIsSessionsOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  // Auto-rename untitled sessions after the first AI response completes
+  // --- Auto-rename ---
   useEffect(() => {
     const wasBusy =
       prevStatusRef.current === "streaming" ||
@@ -102,6 +212,7 @@ export default function ChatPage() {
     }
   }, [status, isBusy, activeSessionId, sessions]);
 
+  // --- Session API helpers ---
   const loadSessions = async () => {
     const res = await fetch("/api/chat/sessions");
     if (!res.ok) return [];
@@ -135,6 +246,7 @@ export default function ChatPage() {
     return res.ok;
   };
 
+  // --- Bootstrap ---
   useEffect(() => {
     const bootstrap = async () => {
       setIsLoadingSessions(true);
@@ -156,26 +268,13 @@ export default function ChatPage() {
     bootstrap();
   }, [setMessages]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      const allowed = newFiles.slice(0, 4 - images.length);
-      setImages((prev) => [...prev, ...allowed]);
-    }
-  };
-
-  const removeImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const readFileAsBase64 = (file: File): Promise<string> => {
+  // --- Read file as data URL for FileUIPart ---
+  const readFileAsDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
-        const result = reader.result;
-        if (typeof result === "string") {
-          const base64 = result.split(",")[1] || "";
-          resolve(base64);
+        if (typeof reader.result === "string") {
+          resolve(reader.result);
         } else {
           reject(new Error("Failed to read file"));
         }
@@ -185,68 +284,56 @@ export default function ChatPage() {
     });
   };
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (isSubmitting.current || isBusy) return;
-    isSubmitting.current = true;
+  // --- PromptInput onSubmit handler ---
+  const handlePromptSubmit = useCallback(
+    async ({ text, files }: PromptInputMessage) => {
+      if (isSubmitting.current || isBusy) return;
+      isSubmitting.current = true;
 
-    try {
-      const trimmedInput = input.trim();
-      if (trimmedInput.length === 0 && images.length === 0) {
-        return;
-      }
-      let sessionId = activeSessionId;
-      if (!sessionId) {
-        const created = await createSession();
-        if (!created) return;
-        setSessions((prev) => [created, ...prev]);
-        setActiveSessionId(created.id);
-        setMessages([]);
-        sessionId = created.id;
-      }
-      if (totalImagesInContext + images.length > 10) {
-        alert("Maximum 10 images allowed per conversation context.");
-        return;
-      }
-      setTotalImagesInContext((prev) => prev + images.length);
+      try {
+        if (text.trim().length === 0 && files.length === 0) return;
 
-      const imageParts = await Promise.all(
-        images.map(async (file) => ({
-          type: "file" as const,
-          mediaType: file.type || "application/octet-stream",
-          url: `data:${file.type || "application/octet-stream"};base64,${await readFileAsBase64(file)}`,
-          filename: file.name,
-        })),
-      );
+        let sessionId = activeSessionId;
+        if (!sessionId) {
+          const created = await createSession();
+          if (!created) return;
+          setSessions((prev) => [created, ...prev]);
+          setActiveSessionId(created.id);
+          setMessages([]);
+          sessionId = created.id;
+        }
 
-      const parts = [
-        ...imageParts,
-        ...(trimmedInput.length > 0
-          ? [{ type: "text" as const, text: trimmedInput }]
-          : []),
-      ];
+        const parts: UIMessage["parts"] = [
+          ...files.map((f) => ({
+            type: "file" as const,
+            mediaType: f.mediaType,
+            url: f.url,
+            filename: f.filename,
+          })),
+          ...(text.trim().length > 0
+            ? [{ type: "text" as const, text: text.trim() }]
+            : []),
+        ];
 
-      sendMessage(
-        {
-          role: "user",
-          parts,
-        },
-        {
-          body: {
-            sessionId,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        sendMessage(
+          { role: "user", parts },
+          {
+            body: {
+              sessionId,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            },
           },
-        },
-      );
-      setInput("");
-      setImages([]);
-    } finally {
-      setTimeout(() => {
-        isSubmitting.current = false;
-      }, 500);
-    }
-  };
+        );
+      } finally {
+        setTimeout(() => {
+          isSubmitting.current = false;
+        }, 500);
+      }
+    },
+    [activeSessionId, isBusy, sendMessage, setMessages],
+  );
 
+  // --- Session actions ---
   const handleSelectSession = async (sessionId: string) => {
     if (sessionId === activeSessionId) return;
     setActiveSessionId(sessionId);
@@ -280,10 +367,6 @@ export default function ChatPage() {
   };
 
   const handleDeleteSession = async (sessionId: string) => {
-    const confirmed = window.confirm(
-      "Delete this chat? This cannot be undone.",
-    );
-    if (!confirmed) return;
     const ok = await deleteSession(sessionId);
     if (!ok) return;
 
@@ -306,306 +389,496 @@ export default function ChatPage() {
         setMessages([]);
       }
     }
+    setDeleteTarget(null);
   };
 
-  const isStreaming = status === "streaming";
+  // --- Render assistant message content ---
+  const renderAssistantContent = (m: UIMessage) => {
+    const textParts = Array.isArray(m.parts)
+      ? m.parts.filter((part) => part.type === "text")
+      : [];
+    const messageText = textParts.map((part) => part.text).join("");
+    const content = messageText || (isStreaming ? "" : "");
+    const isOpenUi = looksLikeOpenUiLang(content);
 
+    // Check for reasoning
+    const reasoning = getReasoningText(m.parts);
+    const hasReasoning = reasoning.length > 0;
+
+    // Check for sources (from searchWeb tool)
+    const sources = extractSourcesFromParts(m.parts);
+
+    // Check for tool calls
+    const toolParts = Array.isArray(m.parts)
+      ? m.parts.filter(
+          (p) =>
+            p.type.startsWith("tool-") &&
+            p.type !== "tool-searchWeb" &&
+            !["tool-invocation"].includes(p.type),
+        )
+      : [];
+
+    return (
+      <div className="space-y-3">
+        {/* Reasoning */}
+        {hasReasoning && (
+          <Reasoning isStreaming={isStreaming} defaultOpen={isStreaming}>
+            <ReasoningTrigger />
+            <ReasoningContent>{reasoning}</ReasoningContent>
+          </Reasoning>
+        )}
+
+        {/* Tool calls */}
+        {toolParts.length > 0 &&
+          toolParts.map((part, i) => {
+            const toolPart = part as {
+              type: string;
+              state: string;
+              toolName?: string;
+              input?: unknown;
+              output?: unknown;
+            };
+            return (
+              <Tool
+                key={`tool-${i}`}
+                defaultOpen={toolPart.state === "input-streaming"}
+              >
+                <ToolHeader
+                  type="dynamic-tool"
+                  state={
+                    toolPart.state as
+                      | "input-streaming"
+                      | "input-available"
+                      | "output-available"
+                  }
+                  toolName={
+                    toolPart.toolName ?? toolPart.type.replace("tool-", "")
+                  }
+                />
+                <ToolContent>
+                  {toolPart.input && (
+                    <pre className="text-xs text-[#8E7D82] overflow-x-auto">
+                      {JSON.stringify(toolPart.input, null, 2)}
+                    </pre>
+                  )}
+                  {toolPart.output && toolPart.state === "output-available" && (
+                    <div className="text-xs text-[#6D5A60]">
+                      {typeof toolPart.output === "string"
+                        ? toolPart.output
+                        : JSON.stringify(toolPart.output, null, 2)}
+                    </div>
+                  )}
+                </ToolContent>
+              </Tool>
+            );
+          })}
+
+        {/* Main content */}
+        {isOpenUi ? (
+          <OpenUIMessage content={content} isStreaming={isStreaming} />
+        ) : (
+          content && (
+            <MessageResponse isAnimating={isStreaming}>
+              {content}
+            </MessageResponse>
+          )
+        )}
+
+        {/* Sources from web search */}
+        {sources.length > 0 && (
+          <Sources>
+            <SourcesTrigger count={sources.length} />
+            <SourcesContent>
+              {sources.map((s, i) => (
+                <Source key={i} href={s.url} title={s.title} />
+              ))}
+            </SourcesContent>
+          </Sources>
+        )}
+      </div>
+    );
+  };
+
+  // --- Sidebar session list ---
   const renderSessionsList = () => (
-    <div className="space-y-2 overflow-y-auto">
-      {isLoadingSessions && (
-        <div className="text-xs text-[#8E7D82]/60">Loading...</div>
-      )}
-      {!isLoadingSessions && sessions.length === 0 && (
-        <div className="text-xs text-[#8E7D82]/60">No chats yet</div>
-      )}
-      {sessions.map((session) => {
-        const isActive = session.id === activeSessionId;
-        return (
-          <div
-            key={session.id}
-            className={`w-full rounded-xl px-3 py-2 text-sm transition-colors ${
-              isActive
-                ? "bg-[#FFEEF1] text-[#6D5A60]"
-                : "text-[#8E7D82] hover:bg-[#FFF5F7]"
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => handleSelectSession(session.id)}
-              className="w-full text-left"
-            >
-              {session.title || "Untitled chat"}
-            </button>
-            <div className="flex items-center justify-end gap-2 mt-2 text-[10px]">
-              <button
-                type="button"
-                onClick={() => handleRenameSession(session.id)}
-                className="text-[#8E7D82] hover:text-[#6D5A60]"
-              >
-                Rename
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDeleteSession(session.id)}
-                className="text-[#B08C92] hover:text-[#6D5A60]"
-              >
-                Delete
-              </button>
-            </div>
+    <ScrollArea className="flex-1">
+      <div className="space-y-1 pr-2">
+        {isLoadingSessions && (
+          <div className="px-3 py-2 text-xs text-[#8E7D82]/60">Loading...</div>
+        )}
+        {!isLoadingSessions && sessions.length === 0 && (
+          <div className="px-3 py-2 text-xs text-[#8E7D82]/60">
+            No chats yet
           </div>
-        );
-      })}
-    </div>
+        )}
+        {sessions.map((session) => {
+          const isActive = session.id === activeSessionId;
+          return (
+            <div
+              key={session.id}
+              className={`group flex items-center gap-1 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                isActive
+                  ? "bg-[#FFEEF1] text-[#6D5A60]"
+                  : "text-[#8E7D82] hover:bg-[#FFF5F7]"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => handleSelectSession(session.id)}
+                className="flex-1 text-left truncate font-light"
+              >
+                {session.title || "Untitled chat"}
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-[#8E7D82] hover:text-[#6D5A60]"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="1" />
+                      <circle cx="19" cy="12" r="1" />
+                      <circle cx="5" cy="12" r="1" />
+                    </svg>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-36">
+                  <DropdownMenuItem
+                    onClick={() => handleRenameSession(session.id)}
+                  >
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setDeleteTarget(session.id)}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        })}
+      </div>
+    </ScrollArea>
   );
 
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-[#FFF9F9] flex font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
-        <aside className="w-[240px] shrink-0 border-r border-[#FFDDE0]/40 bg-white/60 backdrop-blur-xl px-4 py-6 hidden md:flex md:flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-serif text-base text-[#6D5A60]">Chats</h2>
-            <button
-              type="button"
-              onClick={handleNewSession}
-              className="text-xs text-[#8E7D82] hover:text-[#6D5A60] transition-colors"
-            >
-              New
-            </button>
-          </div>
-          {renderSessionsList()}
-        </aside>
-
-        <div className="flex-1 flex flex-col">
-          <header className="py-5 px-6 md:px-10 border-b border-[#FFDDE0]/30 bg-white/50 backdrop-blur-xl sticky top-0 z-10">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h1 className="font-serif text-2xl font-light text-[#6D5A60]">
-                  Luna
-                </h1>
-                <p className="text-xs font-light text-[#8E7D82]">
-                  Your caring health companion
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                {authStatus === "authenticated" ? (
-                  <button
-                    type="button"
-                    onClick={() => signOut({ callbackUrl: "/login" })}
-                    className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border border-[#FFDDE0]/60 rounded-full px-4 py-2 hover:bg-[#FFF5F7] transition"
+      <TooltipProvider>
+        <div className="min-h-screen bg-[#FFF9F9] flex font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
+          {/* --- Desktop Sidebar --- */}
+          <aside className="w-[260px] shrink-0 border-r border-[#FFDDE0]/40 bg-white/60 backdrop-blur-xl px-4 py-6 hidden md:flex md:flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-serif text-base text-[#6D5A60]">Chats</h2>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={handleNewSession}
+                    className="text-[#8E7D82] hover:text-[#6D5A60]"
                   >
-                    Sign out
-                  </button>
-                ) : (
-                  <Link
-                    href="/login"
-                    className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border border-[#FFDDE0]/60 rounded-full px-4 py-2 hover:bg-[#FFF5F7] transition"
-                  >
-                    Log in
-                  </Link>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setIsSessionsOpen(true)}
-                  className="md:hidden text-xs text-[#8E7D82] hover:text-[#6D5A60] transition-colors"
-                >
-                  Chats
-                </button>
-              </div>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>New chat</TooltipContent>
+              </Tooltip>
             </div>
-          </header>
+            <Separator className="bg-[#FFDDE0]/40" />
+            {renderSessionsList()}
+          </aside>
 
-          <main className="flex-1 overflow-y-auto p-6 md:p-10 space-y-5">
-            {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-center space-y-5 opacity-70 mt-24">
-                <div className="w-14 h-14 rounded-full bg-[#FFB5C0] flex items-center justify-center text-white text-xl shadow-[0_10px_20px_rgba(255,181,192,0.2)]">
-                  ✨
+          {/* --- Main Chat Area --- */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Header */}
+            <header className="py-4 px-6 md:px-10 border-b border-[#FFDDE0]/30 bg-white/50 backdrop-blur-xl sticky top-0 z-10">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h1 className="font-serif text-2xl font-light text-[#6D5A60]">
+                    Luna
+                  </h1>
+                  <p className="text-xs font-light text-[#8E7D82]">
+                    Your caring health companion
+                  </p>
                 </div>
-                <p className="text-[#8E7D82] max-w-md font-light leading-relaxed">
-                  Hi lovely, I&apos;m Luna. You can log your cycle, ask about
-                  symptoms, or just chat about how you&apos;re feeling today.
-                </p>
-              </div>
-            )}
-
-            {messages.map((m) => {
-              const textParts = Array.isArray(m.parts)
-                ? m.parts.filter((part) => part.type === "text")
-                : [];
-              const messageText = textParts.map((part) => part.text).join("");
-              const fallbackText =
-                isStreaming && m.role === "assistant" ? "..." : "";
-              const assistantContent = messageText || fallbackText;
-              const isOpenUiMessage =
-                m.role === "assistant" && looksLikeOpenUiLang(assistantContent);
-
-              return (
-                <div
-                  key={m.id}
-                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  {m.role === "assistant" && isOpenUiMessage ? (
-                    <div className="max-w-[88%] md:max-w-[72%]">
-                      <AssistantMessageContent
-                        content={assistantContent}
-                        isStreaming={isStreaming}
-                      />
-                    </div>
+                <div className="flex items-center gap-2">
+                  {authStatus === "authenticated" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => signOut({ callbackUrl: "/login" })}
+                      className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7]"
+                    >
+                      Sign out
+                    </Button>
                   ) : (
-                    <div
-                      className={`max-w-[80%] md:max-w-[60%] rounded-[1.5rem] p-5 ${
-                        m.role === "user"
-                          ? "bg-[#6D5A60] text-white rounded-tr-lg shadow-[0_8px_16px_rgba(109,90,96,0.15)]"
-                          : "bg-white/80 text-[#6D5A60] rounded-tl-lg border border-[#FFDDE0]/30 shadow-[0_8px_20px_rgba(255,181,192,0.06)] backdrop-blur-xl"
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap leading-relaxed font-light">
-                        {assistantContent}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {isBusy && messages[messages.length - 1]?.role !== "assistant" && (
-              <div className="flex justify-start">
-                <div className="bg-white/80 text-[#6D5A60] rounded-[1.5rem] p-5 rounded-tl-lg border border-[#FFDDE0]/30 shadow-sm flex space-x-2 items-center backdrop-blur-xl">
-                  <span className="w-2 h-2 rounded-full bg-[#FFB5C0] animate-bounce" />
-                  <span
-                    className="w-2 h-2 rounded-full bg-[#FFB5C0] animate-bounce"
-                    style={{ animationDelay: "0.2s" }}
-                  />
-                  <span
-                    className="w-2 h-2 rounded-full bg-[#FFB5C0] animate-bounce"
-                    style={{ animationDelay: "0.4s" }}
-                  />
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </main>
-
-          <div className="p-5 bg-white/60 border-t border-[#FFDDE0]/20 backdrop-blur-xl">
-            <form onSubmit={onSubmit} className="max-w-3xl mx-auto">
-              {images.length > 0 && (
-                <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
-                  {images.map((file, i) => (
-                    <div
-                      key={i}
-                      className="relative w-14 h-14 rounded-xl overflow-hidden border border-[#FFDDE0]/40 shrink-0"
-                    >
-                      <img
-                        src={URL.createObjectURL(file)}
-                        alt="upload"
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(i)}
-                        className="absolute top-0.5 right-0.5 bg-black/40 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px]"
+                    <Link href="/login">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7]"
                       >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+                        Log in
+                      </Button>
+                    </Link>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsSessionsOpen(true)}
+                    className="md:hidden text-xs text-[#8E7D82] hover:text-[#6D5A60]"
+                  >
+                    Chats
+                  </Button>
                 </div>
-              )}
+              </div>
+            </header>
 
-              <div className="relative flex items-center bg-[#FFF9F9] border border-[#FFDDE0]/30 rounded-full shadow-[0_4px_12px_rgba(255,181,192,0.06)] focus-within:ring-2 focus-within:ring-[#FFB5C0]/30 focus-within:border-[#FFB5C0]/50 transition-all">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={images.length >= 4 || totalImagesInContext >= 10}
-                  className="p-3 ml-2 text-[#8E7D82] hover:text-[#FFB5C0] transition-colors disabled:opacity-40"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                    <circle cx="9" cy="9" r="2" />
-                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                  </svg>
-                </button>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  className="hidden"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                />
-                <input
-                  className="flex-1 bg-transparent border-none py-4 px-2 text-[#6D5A60] font-light placeholder:text-[#8E7D82]/40 focus:outline-none focus:ring-0"
-                  value={input}
-                  placeholder="How are you feeling today?"
-                  onChange={(e) => setInput(e.target.value)}
-                />
-                <button
-                  type="submit"
-                  disabled={
-                    isBusy || (input.trim().length === 0 && images.length === 0)
+            {/* Messages */}
+            <Conversation className="flex-1">
+              {messages.length === 0 ? (
+                <ConversationEmptyState
+                  title="Hi lovely, I'm Luna"
+                  description="Log your cycle, ask about symptoms, or just chat about how you're feeling."
+                  icon={
+                    <div className="w-14 h-14 rounded-full bg-[#FFB5C0] flex items-center justify-center text-white text-xl shadow-[0_10px_20px_rgba(255,181,192,0.2)]">
+                      ✨
+                    </div>
                   }
-                  className="mr-2 bg-[#6D5A60] hover:bg-[#8E7D82] text-white p-2.5 rounded-full transition-colors disabled:opacity-40"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m22 2-7 20-4-9-9-4Z" />
-                    <path d="M22 2 11 13" />
-                  </svg>
-                </button>
-              </div>
-              <div className="flex justify-between items-center mt-2 px-4">
-                <span className="text-[10px] text-[#8E7D82]/50">
-                  {totalImagesInContext}/10 images this session
-                </span>
-                <span className="text-[10px] text-[#8E7D82]/30">
-                  Luna can make mistakes. Verify important info.
-                </span>
-              </div>
-            </form>
-          </div>
-        </div>
+                  <div className="mt-2">
+                    <Suggestions>
+                      {starterSuggestions.map((s) => (
+                        <Suggestion
+                          key={s}
+                          suggestion={s}
+                          onClick={(text) => {
+                            handlePromptSubmit({ text, files: [] });
+                          }}
+                        />
+                      ))}
+                    </Suggestions>
+                  </div>
+                </ConversationEmptyState>
+              ) : (
+                <ConversationContent className="px-6 md:px-10 py-6 space-y-4">
+                  {messages.map((m) => {
+                    if (m.role === "user") {
+                      return (
+                        <Message key={m.id} from="user">
+                          <MessageContent>
+                            {Array.isArray(m.parts)
+                              ? m.parts
+                                  .filter((p) => p.type === "text")
+                                  .map((p) => p.text)
+                                  .join("")
+                              : ""}
+                            {/* File attachments */}
+                            {Array.isArray(m.parts) &&
+                              m.parts.some((p) => p.type === "file") && (
+                                <Attachments variant="grid" className="mt-2">
+                                  {m.parts
+                                    .filter((p) => p.type === "file")
+                                    .map((p, i) => (
+                                      <Attachment
+                                        key={i}
+                                        data={{
+                                          id: `${m.id}-file-${i}`,
+                                          type: "file",
+                                          mediaType: (p as FileUIPart)
+                                            .mediaType,
+                                          url: (p as FileUIPart).url,
+                                          filename: (p as FileUIPart).filename,
+                                        }}
+                                      >
+                                        <AttachmentPreview />
+                                      </Attachment>
+                                    ))}
+                                </Attachments>
+                              )}
+                          </MessageContent>
+                        </Message>
+                      );
+                    }
 
-        {isSessionsOpen && (
-          <div className="fixed inset-0 z-40 md:hidden">
-            <button
-              type="button"
-              className="absolute inset-0 bg-[#6D5A60]/20"
-              onClick={() => setIsSessionsOpen(false)}
-              aria-label="Close chat list"
-            />
-            <div className="absolute right-0 top-0 h-full w-[78%] max-w-[320px] bg-white/90 backdrop-blur-xl border-l border-[#FFDDE0]/40 px-4 py-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-serif text-base text-[#6D5A60]">Chats</h2>
-                <button
-                  type="button"
-                  onClick={handleNewSession}
-                  className="text-xs text-[#8E7D82] hover:text-[#6D5A60] transition-colors"
+                    // Assistant message
+                    return (
+                      <Message key={m.id} from="assistant">
+                        <MessageContent>
+                          {renderAssistantContent(m)}
+                        </MessageContent>
+                        <MessageActions>
+                          <MessageAction
+                            tooltip="Copy"
+                            onClick={() => {
+                              const text = Array.isArray(m.parts)
+                                ? m.parts
+                                    .filter((p) => p.type === "text")
+                                    .map((p) => p.text)
+                                    .join("")
+                                : "";
+                              navigator.clipboard.writeText(text);
+                            }}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <rect
+                                width="14"
+                                height="14"
+                                x="8"
+                                y="8"
+                                rx="2"
+                                ry="2"
+                              />
+                              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                            </svg>
+                          </MessageAction>
+                        </MessageActions>
+                      </Message>
+                    );
+                  })}
+
+                  {/* Streaming indicator */}
+                  {isBusy &&
+                    messages[messages.length - 1]?.role !== "assistant" && (
+                      <Message from="assistant">
+                        <MessageContent>
+                          <Shimmer>Thinking...</Shimmer>
+                        </MessageContent>
+                      </Message>
+                    )}
+                </ConversationContent>
+              )}
+              <ConversationScrollButton />
+            </Conversation>
+
+            {/* Input area */}
+            <div className="p-4 bg-white/60 border-t border-[#FFDDE0]/20 backdrop-blur-xl">
+              <div className="max-w-3xl mx-auto">
+                <PromptInput
+                  onSubmit={handlePromptSubmit}
+                  accept="image/*"
+                  multiple
+                  maxFiles={4}
+                  className="bg-[#FFF9F9] border border-[#FFDDE0]/30 rounded-2xl shadow-[0_4px_12px_rgba(255,181,192,0.06)] focus-within:ring-2 focus-within:ring-[#FFB5C0]/30 focus-within:border-[#FFB5C0]/50 transition-all"
                 >
-                  New
-                </button>
+                  <PromptInputHeader>
+                    <Attachments variant="inline" />
+                  </PromptInputHeader>
+                  <PromptInputBody>
+                    <PromptInputTextarea
+                      placeholder="How are you feeling today?"
+                      className="text-[#6D5A60] font-light placeholder:text-[#8E7D82]/40"
+                    />
+                  </PromptInputBody>
+                  <PromptInputFooter>
+                    <PromptInputTools>
+                      <PromptInputSubmit status={status} onStop={stop} />
+                    </PromptInputTools>
+                  </PromptInputFooter>
+                </PromptInput>
+                <div className="flex justify-between items-center mt-2 px-4">
+                  <span className="text-[10px] text-[#8E7D82]/50">
+                    Luna can make mistakes. Verify important info.
+                  </span>
+                </div>
               </div>
-              {renderSessionsList()}
             </div>
           </div>
-        )}
-      </div>
+
+          {/* --- Mobile Sidebar Overlay --- */}
+          {isSessionsOpen && (
+            <div className="fixed inset-0 z-40 md:hidden">
+              <button
+                type="button"
+                className="absolute inset-0 bg-[#6D5A60]/20"
+                onClick={() => setIsSessionsOpen(false)}
+                aria-label="Close chat list"
+              />
+              <div className="absolute right-0 top-0 h-full w-[78%] max-w-[320px] bg-white/90 backdrop-blur-xl border-l border-[#FFDDE0]/40 px-4 py-6 flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-serif text-base text-[#6D5A60]">Chats</h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleNewSession}
+                    className="text-xs text-[#8E7D82] hover:text-[#6D5A60]"
+                  >
+                    New
+                  </Button>
+                </div>
+                <Separator className="bg-[#FFDDE0]/40" />
+                {renderSessionsList()}
+              </div>
+            </div>
+          )}
+
+          {/* --- Delete Confirmation Dialog --- */}
+          <Dialog
+            open={deleteTarget !== null}
+            onOpenChange={(open) => !open && setDeleteTarget(null)}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete chat?</DialogTitle>
+                <DialogDescription>
+                  This cannot be undone. All messages in this chat will be
+                  permanently deleted.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline" className="rounded-full">
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button
+                  variant="destructive"
+                  className="rounded-full"
+                  onClick={() =>
+                    deleteTarget && handleDeleteSession(deleteTarget)
+                  }
+                >
+                  Delete
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </TooltipProvider>
     </ThemeProvider>
   );
 }
