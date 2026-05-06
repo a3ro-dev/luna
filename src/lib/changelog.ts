@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.7.0",
+    date: "2026-05-06",
+    type: "feat",
+    title: "Condition-aware prediction engine & Luna responses",
+    description:
+      "Added 7 condition-specific population priors (PCOS, PCOD, endometriosis, thyroid, hormonal BC, irregular cycles, perimenopause) based on clinical research. Adaptive skip thresholds per condition (e.g. 120d for PCOS vs 45d for general population). Updated general population prior with better evidence. Luna now adapts her language and prediction confidence based on the user's health conditions. Ovulation predictions suppressed for hormonal BC users. Fixed Grok-4.3 token pricing.",
+  },
+  {
     version: "0.6.2",
     date: "2026-05-05",
     type: "fix",
