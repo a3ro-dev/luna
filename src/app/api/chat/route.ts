@@ -699,11 +699,10 @@ export async function POST(req: Request) {
 
       await maybeSummarizeSession(sessionId, userId, modelName);
 
-      // HackClub API cost approximation (very rough) or actual cost if available
+      // Grok-4.3 pricing: $1.25 per 1M input tokens, $2.50 per 1M output tokens
       const costUsd =
-        ((usage.inputTokens ?? 0) * 0.0001 +
-          (usage.outputTokens ?? 0) * 0.0002) /
-        1000;
+        (usage.inputTokens ?? 0) * (1.25 / 1_000_000) +
+        (usage.outputTokens ?? 0) * (2.5 / 1_000_000);
 
       // Track AI usage
       await db.insert(aiTraces).values({

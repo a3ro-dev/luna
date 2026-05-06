@@ -400,7 +400,7 @@ Every AI call is logged to the `ai_traces` table in the `onFinish` callback:
 | `model` | `"x-ai/grok-4.3"` (hardcoded) |
 | `inputTokens` | `usage.inputTokens ?? 0` |
 | `outputTokens` | `usage.outputTokens ?? 0` |
-| `costUsd` | Rough: `(input × 0.0001 + output × 0.0002) / 1000` |
+| `costUsd` | `(input × 1.25 + output × 2.50) / 1_000_000` (Grok-4.3 pricing) |
 | `latencyMs` | Wall-clock: `Date.now() - startTime` |
 | `feature` | `"chat"` (hardcoded) |
 | `hasImages` | `true` if any user message has a `file`-type part |
