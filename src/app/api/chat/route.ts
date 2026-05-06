@@ -20,6 +20,7 @@ import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { z } from "zod";
 import { logError } from "@/lib/utils";
 import { baseOpenUiPrompt } from "@/lib/chat/prompt";
+import { resolveEffectivePrior } from "@/lib/prediction/engine";
 import {
   addCycleNoteEntry,
   fetchRecentCyclesEntry,
@@ -233,11 +234,13 @@ const buildSystemPrompt = ({
   latestSummary,
   contextSnippets,
   timeZone,
+  conditions = [],
 }: {
   memoryContext: string;
   latestSummary?: string;
   contextSnippets: string[];
   timeZone: string;
+  conditions?: string[];
 }) => {
   const summaryContext = latestSummary
     ? `Conversation Summary:\n${latestSummary}\n\n`
@@ -247,15 +250,66 @@ const buildSystemPrompt = ({
       ? `Relevant Context Snippets:\n${contextSnippets.join("\n")}\n\n`
       : "";
 
-  return `${baseOpenUiPrompt}\n\n${summaryContext}${snippetContext}User Context & Memory:\n${memoryContext}\n\nToday in the user's timezone (${timeZone}) is ${getCurrentIsoDate(timeZone)}.`;
+  // Build condition-aware context for the AI
+  const conditionSection =
+    conditions.length > 0 && !conditions.includes("none")
+      ? buildConditionContext(conditions)
+      : "";
+
+  return `${baseOpenUiPrompt}\n\n${summaryContext}${snippetContext}${conditionSection}User Context & Memory:\n${memoryContext}\n\nToday in the user's timezone (${timeZone}) is ${getCurrentIsoDate(timeZone)}.`;
+};
+
+// Build condition-aware context section for the system prompt
+const buildConditionContext = (conditions: string[]): string => {
+  const prior = resolveEffectivePrior(conditions);
+  const conditionLabels: Record<string, string> = {
+    pcos: "PCOS (Polycystic Ovary Syndrome)",
+    pcod: "PCOD (Polycystic Ovarian Disease)",
+    endometriosis: "Endometriosis",
+    thyroid: "Thyroid condition",
+    hormonal_bc: "On hormonal birth control",
+    irregular: "Irregular cycles (unexplained)",
+    perimenopause: "Perimenopause",
+  };
+  const labels = conditions
+    .filter((c) => c !== "none")
+    .map((c) => conditionLabels[c] ?? c)
+    .join(", ");
+
+  let section = `## User Health Conditions\nThis user has: ${labels}.\n\n`;
+  section += `${prior.note}\n\n`;
+
+  if (prior.anovulatoryCommon) {
+    section +=
+      "Because anovulatory cycles are common for this user, ovulation predictions may be unreliable. " +
+      "Be transparent about uncertainty when predicting ovulation or fertile windows. " +
+      "If the user asks about ovulation, acknowledge the lower confidence and explain why.\n\n";
+  }
+
+  if (conditions.includes("hormonal_bc")) {
+    section +=
+      "This user is on hormonal birth control. Their bleeds are withdrawal bleeds, not true menstrual periods. " +
+      "Do NOT predict ovulation or refer to follicular/luteal phases. " +
+      "Focus on bleed tracking and any symptoms they report.\n\n";
+  }
+
+  section +=
+    `Prediction engine configuration for this user:\n` +
+    `- Expected cycle length: ~${Math.round(prior.cycleLength.mean)} days (σ≈${Math.round(Math.sqrt(prior.cycleLength.variance))}d)\n` +
+    `- Expected period length: ~${prior.periodLength.mean} days (σ≈${Math.round(Math.sqrt(prior.periodLength.variance))}d)\n` +
+    `- Maximum realistic cycle length before flagging as missed log: ${prior.maxCycleLength} days\n`;
+
+  return section;
 };
 
 const createChatTools = ({
   userId,
   timeZone,
+  conditions = [],
 }: {
   userId: string;
   timeZone: string;
+  conditions?: string[];
 }) => ({
   logPeriodStart: tool({
     description: "Log the start date of a menstrual period.",
@@ -278,6 +332,7 @@ const createChatTools = ({
         date,
         timeZone: sanitizeTimeZone(timezone, timeZone),
         notes,
+        conditions,
       }),
   }),
   logPeriodEnd: tool({
@@ -301,6 +356,7 @@ const createChatTools = ({
         date,
         timeZone: sanitizeTimeZone(timezone, timeZone),
         notes,
+        conditions,
       }),
   }),
   logOvulation: tool({
@@ -325,6 +381,7 @@ const createChatTools = ({
         date,
         timeZone: sanitizeTimeZone(timezone, timeZone),
         notes,
+        conditions,
       }),
   }),
   addNoteSymptom: tool({
@@ -354,6 +411,7 @@ const createChatTools = ({
         date,
         timeZone: sanitizeTimeZone(timezone, timeZone),
         symptoms,
+        conditions,
       }),
   }),
   fetchRecentCycles: tool({
@@ -361,7 +419,8 @@ const createChatTools = ({
     inputSchema: z.object({
       limit: z.number().int().min(1).max(10).default(3),
     }),
-    execute: async ({ limit }) => fetchRecentCyclesEntry({ userId, limit }),
+    execute: async ({ limit }) =>
+      fetchRecentCyclesEntry({ userId, limit, conditions }),
   }),
   computePredictions: tool({
     description:
@@ -377,6 +436,7 @@ const createChatTools = ({
         userId,
         timeZone: sanitizeTimeZone(timezone, timeZone),
         mode: "prediction",
+        conditions,
       }),
   }),
   fetchStats: tool({
@@ -393,6 +453,7 @@ const createChatTools = ({
         userId,
         timeZone: sanitizeTimeZone(timezone, timeZone),
         mode: "stats",
+        conditions,
       }),
   }),
   exportData: tool({
@@ -647,12 +708,15 @@ export async function POST(req: Request) {
     }
   }
 
-  // --- Resolve user's plan tier for model selection ---
+  // --- Resolve user's plan tier and conditions ---
   const userRow = await db.query.users.findFirst({
     where: eq(users.id, userId),
-    columns: { plan: true },
+    columns: { plan: true, conditions: true },
   });
   const modelConfig = getModelConfig(userRow?.plan);
+  const userConditions: string[] = Array.isArray(userRow?.conditions)
+    ? (userRow.conditions as string[])
+    : [];
 
   const lastUserText = getTextFromParts(lastIncoming?.parts ?? []);
   const memoryContext = await recallMemory(userId, lastUserText);
@@ -660,20 +724,25 @@ export async function POST(req: Request) {
   const latestSummary = await getLatestSummary(sessionId);
   const contextSnippets = await getContextSnippets(sessionId, lastUserText);
 
-  // Append plan-specific persona to the system prompt
+  // Append plan-specific persona + condition context to the system prompt
   const systemPrompt =
     buildSystemPrompt({
       memoryContext,
       latestSummary: latestSummary?.summary,
       contextSnippets,
       timeZone: userTimeZone,
+      conditions: userConditions,
     }) +
     "\n\n" +
     modelConfig.personaPrompt;
 
   const startTime = Date.now();
   const modelName = modelConfig.modelId;
-  const tools = createChatTools({ userId, timeZone: userTimeZone });
+  const tools = createChatTools({
+    userId,
+    timeZone: userTimeZone,
+    conditions: userConditions,
+  });
 
   const result = await streamText({
     model: hackClubAI.chat(modelName),

@@ -4,6 +4,7 @@ import {
   blendWithPrior,
   predictNextCycle,
   exponentialSmooth,
+  resolveEffectivePrior,
 } from "@/lib/prediction/engine";
 import { asc, desc, eq, and } from "drizzle-orm";
 
@@ -372,16 +373,18 @@ async function refreshPredictionParam(
   userId: string,
   paramName: PredictionParamName,
   observations: number[],
+  conditions: string[] = [],
 ) {
   if (observations.length === 0) return;
 
   const metricName = PARAM_TO_METRIC[paramName];
-  const { smoothed, variance } = exponentialSmooth(observations);
+  const { smoothed, variance } = exponentialSmooth(observations, conditions);
   const blended = blendWithPrior(
     smoothed,
     variance,
     observations.length,
     metricName,
+    conditions,
   );
 
   const existing = await db
@@ -414,7 +417,10 @@ async function refreshPredictionParam(
   }
 }
 
-async function refreshCycleAnalytics(userId: string): Promise<AnalyticsResult> {
+async function refreshCycleAnalytics(
+  userId: string,
+  conditions: string[] = [],
+): Promise<AnalyticsResult> {
   const rows = (await db
     .select()
     .from(cycles)
@@ -512,10 +518,10 @@ async function refreshCycleAnalytics(userId: string): Promise<AnalyticsResult> {
   }
 
   await Promise.all([
-    refreshPredictionParam(userId, "cycle_length", cycleLengths),
-    refreshPredictionParam(userId, "period_length", periodLengths),
-    refreshPredictionParam(userId, "follicular", follicularLengths),
-    refreshPredictionParam(userId, "luteal", lutealLengths),
+    refreshPredictionParam(userId, "cycle_length", cycleLengths, conditions),
+    refreshPredictionParam(userId, "period_length", periodLengths, conditions),
+    refreshPredictionParam(userId, "follicular", follicularLengths, conditions),
+    refreshPredictionParam(userId, "luteal", lutealLengths, conditions),
   ]);
 
   return {
@@ -542,19 +548,30 @@ async function getPredictionParamMap(userId: string) {
   );
 }
 
-function buildPredictionPayload(analytics: AnalyticsResult) {
+function buildPredictionPayload(
+  analytics: AnalyticsResult,
+  conditions: string[] = [],
+) {
   const cyclePrediction = predictNextCycle(
     analytics.cycleLengths,
     "cycleLength",
+    conditions,
   );
   const periodPrediction = predictNextCycle(
     analytics.periodLengths,
     "periodLength",
+    conditions,
   );
   const lutealPrediction = predictNextCycle(
     analytics.lutealLengths,
     "lutealLength",
+    conditions,
   );
+
+  // For hormonal BC users, don't predict ovulation (it's suppressed)
+  const effectivePrior = resolveEffectivePrior(conditions);
+  const ovulationSuppressed =
+    effectivePrior.anovulatoryCommon && conditions.includes("hormonal_bc");
 
   const lastCycle = analytics.cycles.at(-1);
   const nextPeriodStart = lastCycle
@@ -566,12 +583,14 @@ function buildPredictionPayload(analytics: AnalyticsResult) {
         Math.max(0, Math.round(periodPrediction.predicted)),
       )
     : null;
-  const nextOvulationDate = nextPeriodStart
-    ? addDaysToIsoDate(
-        nextPeriodStart,
-        -Math.max(1, Math.round(lutealPrediction.predicted || 14)),
-      )
-    : null;
+  const nextOvulationDate = ovulationSuppressed
+    ? null // No ovulation on hormonal BC
+    : nextPeriodStart
+      ? addDaysToIsoDate(
+          nextPeriodStart,
+          -Math.max(1, Math.round(lutealPrediction.predicted || 14)),
+        )
+      : null;
 
   return {
     cycleLength: cyclePrediction,
@@ -586,21 +605,28 @@ function buildPredictionPayload(analytics: AnalyticsResult) {
 function buildAveragesFromParams(
   paramMap: Partial<Record<PredictionParamName, PredictionParamRow>>,
   analytics: AnalyticsResult,
+  conditions: string[] = [],
 ) {
   return {
     cycleLength:
       paramMap.cycle_length?.smoothedValue ??
-      predictNextCycle(analytics.cycleLengths, "cycleLength").predicted,
+      predictNextCycle(analytics.cycleLengths, "cycleLength", conditions)
+        .predicted,
     periodLength:
       paramMap.period_length?.smoothedValue ??
-      predictNextCycle(analytics.periodLengths, "periodLength").predicted,
+      predictNextCycle(analytics.periodLengths, "periodLength", conditions)
+        .predicted,
     follicularLength:
       paramMap.follicular?.smoothedValue ??
-      predictNextCycle(analytics.follicularLengths, "follicularLength")
-        .predicted,
+      predictNextCycle(
+        analytics.follicularLengths,
+        "follicularLength",
+        conditions,
+      ).predicted,
     lutealLength:
       paramMap.luteal?.smoothedValue ??
-      predictNextCycle(analytics.lutealLengths, "lutealLength").predicted,
+      predictNextCycle(analytics.lutealLengths, "lutealLength", conditions)
+        .predicted,
   };
 }
 
@@ -609,6 +635,7 @@ export async function logPeriodStartEntry(args: {
   date: string;
   timeZone: string;
   notes?: string;
+  conditions?: string[];
 }) {
   const normalized = normalizeDateInput(args.date, args.timeZone);
   if (!normalized.isoDate) {
@@ -622,7 +649,10 @@ export async function logPeriodStartEntry(args: {
     };
   }
 
-  const analytics = await refreshCycleAnalytics(args.userId);
+  const analytics = await refreshCycleAnalytics(
+    args.userId,
+    args.conditions ?? [],
+  );
   const existing = analytics.cycles.find(
     (row) => row.mStart === normalized.isoDate,
   );
@@ -639,7 +669,10 @@ export async function logPeriodStartEntry(args: {
       .set({ notes: mergedNotes })
       .where(eq(cycles.id, existing.id));
 
-    const refreshed = await refreshCycleAnalytics(args.userId);
+    const refreshed = await refreshCycleAnalytics(
+      args.userId,
+      args.conditions ?? [],
+    );
     const cycle =
       refreshed.cycles.find((row) => row.id === existing.id) ?? existing;
 
@@ -668,7 +701,10 @@ export async function logPeriodStartEntry(args: {
     })
     .returning();
 
-  const refreshed = await refreshCycleAnalytics(args.userId);
+  const refreshed = await refreshCycleAnalytics(
+    args.userId,
+    args.conditions ?? [],
+  );
   const cycle =
     refreshed.cycles.find((row) => row.id === inserted[0].id) ??
     refreshed.cycles.find((row) => row.mStart === normalized.isoDate) ??
@@ -690,6 +726,7 @@ export async function logPeriodEndEntry(args: {
   date: string;
   timeZone: string;
   notes?: string;
+  conditions?: string[];
 }) {
   const normalized = normalizeDateInput(args.date, args.timeZone);
   if (!normalized.isoDate) {
@@ -703,7 +740,10 @@ export async function logPeriodEndEntry(args: {
     };
   }
 
-  const analytics = await refreshCycleAnalytics(args.userId);
+  const analytics = await refreshCycleAnalytics(
+    args.userId,
+    args.conditions ?? [],
+  );
   const target = analytics.cycles
     .slice()
     .reverse()
@@ -738,7 +778,10 @@ export async function logPeriodEndEntry(args: {
     })
     .where(eq(cycles.id, target.id));
 
-  const refreshed = await refreshCycleAnalytics(args.userId);
+  const refreshed = await refreshCycleAnalytics(
+    args.userId,
+    args.conditions ?? [],
+  );
   const cycle = refreshed.cycles.find((row) => row.id === target.id) ?? target;
 
   return {
@@ -757,6 +800,7 @@ export async function logOvulationEntry(args: {
   date: string;
   timeZone: string;
   notes?: string;
+  conditions?: string[];
 }) {
   const normalized = normalizeDateInput(args.date, args.timeZone);
   if (!normalized.isoDate) {
@@ -770,7 +814,10 @@ export async function logOvulationEntry(args: {
     };
   }
 
-  const analytics = await refreshCycleAnalytics(args.userId);
+  const analytics = await refreshCycleAnalytics(
+    args.userId,
+    args.conditions ?? [],
+  );
   const target = analytics.cycles
     .slice()
     .reverse()
@@ -805,7 +852,10 @@ export async function logOvulationEntry(args: {
     })
     .where(eq(cycles.id, target.id));
 
-  const refreshed = await refreshCycleAnalytics(args.userId);
+  const refreshed = await refreshCycleAnalytics(
+    args.userId,
+    args.conditions ?? [],
+  );
   const cycle = refreshed.cycles.find((row) => row.id === target.id) ?? target;
 
   return {
@@ -825,6 +875,7 @@ export async function addCycleNoteEntry(args: {
   note: string;
   date?: string;
   symptoms?: string[];
+  conditions?: string[];
 }) {
   const noteText = args.note.trim();
   const symptoms = (args.symptoms ?? [])
@@ -855,7 +906,10 @@ export async function addCycleNoteEntry(args: {
     };
   }
 
-  const analytics = await refreshCycleAnalytics(args.userId);
+  const analytics = await refreshCycleAnalytics(
+    args.userId,
+    args.conditions ?? [],
+  );
   const target =
     analytics.cycles
       .slice()
@@ -892,7 +946,10 @@ export async function addCycleNoteEntry(args: {
     .set({ notes: mergedNotes })
     .where(eq(cycles.id, target.id));
 
-  const refreshed = await refreshCycleAnalytics(args.userId);
+  const refreshed = await refreshCycleAnalytics(
+    args.userId,
+    args.conditions ?? [],
+  );
   const cycle = refreshed.cycles.find((row) => row.id === target.id) ?? target;
 
   return {
@@ -906,8 +963,12 @@ export async function addCycleNoteEntry(args: {
 export async function fetchRecentCyclesEntry(args: {
   userId: string;
   limit: number;
+  conditions?: string[];
 }) {
-  const analytics = await refreshCycleAnalytics(args.userId);
+  const analytics = await refreshCycleAnalytics(
+    args.userId,
+    args.conditions ?? [],
+  );
   const recentCycles = analytics.cycles
     .slice(-args.limit)
     .reverse()
@@ -934,8 +995,12 @@ export async function getCycleInsightsEntry(args: {
   userId: string;
   timeZone: string;
   mode: "stats" | "prediction";
+  conditions?: string[];
 }) {
-  const analytics = await refreshCycleAnalytics(args.userId);
+  const analytics = await refreshCycleAnalytics(
+    args.userId,
+    args.conditions ?? [],
+  );
   const paramMap = await getPredictionParamMap(args.userId);
   const hasCycles = analytics.cycles.length > 0;
   const recentCycles = analytics.cycles.slice(-3).reverse().map(summarizeCycle);
@@ -943,8 +1008,12 @@ export async function getCycleInsightsEntry(args: {
     ? summarizeCycle(analytics.cycles.at(-1) as CycleRow)
     : null;
 
-  const predictions = buildPredictionPayload(analytics);
-  const averages = buildAveragesFromParams(paramMap, analytics);
+  const predictions = buildPredictionPayload(analytics, args.conditions ?? []);
+  const averages = buildAveragesFromParams(
+    paramMap,
+    analytics,
+    args.conditions ?? [],
+  );
 
   if (!hasCycles) {
     return {
