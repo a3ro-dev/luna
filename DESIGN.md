@@ -178,36 +178,36 @@ bans:
   - "Modal as first thought (exhaust inline alternatives first)"
   - "Decorative motion that doesn't convey state"
   - "Display fonts in UI labels, buttons, or data"
-  - "Generic emojis as UI elements (the ✨ orb is the only brand emoji)"
+  - "Generic emojis as UI elements (the sparkle orb is the only brand emoji)"
   - "Bounce animations in product UI (bounce: 0 always)"
 ---
 
-# Design Overview
+# Design overview
 
-Luna is soft, airy, and calming. The UI leans into blush and warm neutrals with gentle contrast, never harsh white or black. Surfaces feel like frosted glass on a pale background, with subtle shadows and large rounded corners. Typography is delicate but readable, with a serif display for emotion and a light sans-serif for body.
+Luna is soft, airy, and calming. The UI leans into blush and warm neutrals with gentle contrast -- never harsh white or black. Surfaces feel like frosted glass on a pale background, with subtle shadows and large rounded corners. Typography is delicate but readable: a serif display for emotion, a light sans-serif for body.
 
-The interface is spacious with slow, gentle rhythm in spacing and hierarchy. The palette is primarily muted pinks and dusty mauves, with honey and lavender used as soft accent highlights. Shadows are light and diffused, creating depth without heaviness.
+The interface is spacious. Slow, gentle rhythm in spacing and hierarchy. The palette is mostly muted pinks and dusty mauves, with honey and lavender as soft accent highlights. Shadows are light and diffused. They add depth without heaviness.
 
-Buttons and inputs are rounded and tactile. The overall tone is caring and supportive, with copy that feels human and warm. The product should feel like a quiet, beautiful personal space rather than a dashboard.
+Buttons and inputs are rounded and tactile. The overall tone is caring and supportive, with copy that feels human and warm. The product should feel like a quiet personal space, not a dashboard.
 
-## Motion Philosophy
+## Motion philosophy
 
-Motion conveys state, not decoration. Every animation answers the question "what changed?" not "look at this." Inspired by Jakub Krehel's production polish: the best animation goes unnoticed. If users comment on the animation itself, it's too much.
+Motion conveys state, not decoration. Every animation answers "what changed?" rather than "look at this." Jakub Krehel got this right: the best animation goes unnoticed. If users comment on the animation itself, it's too much.
 
-Enter animations use opacity + translateY + blur to create a "materializing" effect. Exit animations are always subtler than enters. Spring transitions with bounce: 0 for professional feel. Staggered children create natural reading rhythm. Hover lifts and active presses provide tactile feedback without being playful.
+Enter animations use opacity + translateY + blur for a materializing effect. Exit animations are always subtler than enters. Spring transitions with bounce: 0 for a professional feel. Staggered children create natural reading rhythm. Hover lifts and active presses give tactile feedback without being playful.
 
-The breathing animation on today's calendar cell and the shimmer on the "Ask Luna" button are the only decorative motions, and they serve a purpose: drawing attention to the current day and the primary action.
+The breathing animation on today's calendar cell and the shimmer on the "Ask Luna" button are the only decorative motions, and they earn their place: drawing attention to the current day and the primary action.
 
 Reduced motion is not an afterthought. Every animated component checks `prefers-reduced-motion` and falls back to opacity-only transitions with CSS animations disabled.
 
-## Color Strategy
+## Color strategy
 
-Restrained. One accent (rose #FFB5C0) used for labels, state indicators, and primary actions only. Honey and lavender are supporting accents for secondary categories (ovulation, follicular phase). The mauve (#6D5A60) carries buttons and headings. Neutral tint is toward the brand hue, never pure gray.
+Restrained. One accent (rose #FFB5C0) for labels, state indicators, and primary actions only. Honey and lavender support secondary categories (ovulation, follicular phase). Mauve (#6D5A60) carries buttons and headings. Neutral tint goes toward the brand hue, never pure gray.
 
 ## Typography
 
 Serif (Instrument Serif) for headings and emotional moments. Sans (DM Sans) for body, labels, buttons, and data. One family per role, no mixing within a single element. Scale ratio is tight (1.125-1.2) for product UI consistency. Tabular nums for any numerical data that aligns.
 
-## Shadows over Borders
+## Shadows over borders
 
-In light mode, prefer multi-layer box-shadows over solid borders where surfaces overlap varied backgrounds. Borders are acceptable for cards on cream backgrounds and in dark mode. Shadows transition smoothly on hover; borders don't.
+In light mode, prefer multi-layer box-shadows over solid borders where surfaces overlap varied backgrounds. Borders work for cards on cream backgrounds and in dark mode. Shadows transition smoothly on hover; borders don't.

@@ -1,36 +1,36 @@
 # Luna
 
-**A soft, supportive menstrual cycle companion.**
+A soft, supportive menstrual cycle companion.
 
-Log your cycle, receive gentle predictions, and chat about symptoms and feelings — without clinical tone. Luna uses adaptive exponential smoothing with population priors to learn your body's rhythm over time, and an AI companion that remembers your details and answers questions in plain language.
+Log your cycle and get predictions. Chat about symptoms and feelings -- without clinical tone. Luna uses adaptive exponential smoothing with population priors to learn your body's rhythm over time, and an AI companion that remembers your details and answers in plain language.
 
 ---
 
-## ✨ Features
+## Features
 
-- **Natural language cycle logging** — "My period started today" or "Log period start Jan 28"
-- **Adaptive predictions** — Cycle and ovulation predictions that improve with each log, using ACOG population priors for cold starts
-- **AI companion chat** — Ask questions, get cycle insights, log symptoms conversationally
-- **Calendar view** — Monthly calendar with phase color-coding (period, follicular, ovulation, luteal)
-- **Stats dashboard** — Average cycle/period length, consistency score, recent cycle history
-- **Data import/export** — Import from Period Calendar, Clue, Flo, Apple Health, or Luna's own format
-- **Persistent memory** — AI remembers personal facts across sessions via Supermemory
-- **Web search** — AI can search the web for health information when needed
+- Natural language cycle logging -- "My period started today" or "Log period start Jan 28"
+- Adaptive predictions that improve with each log, using ACOG population priors for cold starts
+- AI companion chat -- log symptoms, ask questions, or get insights through conversation
+- Calendar view with phase color-coding (period, follicular, ovulation, luteal)
+- Stats dashboard with average cycle/period length, consistency score, and recent cycle history
+- Data import/export from Period Calendar, Clue, Flo, Apple Health, or Luna's own format
+- Persistent memory -- AI remembers personal facts across sessions via Supermemory
+- Web search -- AI can search the web for health information when needed
 
-## 🛠 Stack
+## Stack
 
 | Layer | Tech |
 |---|---|
 | Framework | Next.js 15 (App Router) |
 | UI | Tailwind v4, Framer Motion, AI Elements, OpenUI, shadcn |
-| Auth | Auth.js v5 — email + password (JWT strategy) |
+| Auth | Auth.js v5 -- email + password (JWT strategy) |
 | Database | Neon PostgreSQL + Drizzle ORM |
 | AI | Vercel AI SDK v6 + HackClub AI proxy |
 | Memory | Supermemory v4 API |
 | Search | HackClub Search API |
 | Email | Resend |
 
-## 🚀 Getting Started
+## Getting started
 
 ### Prerequisites
 
@@ -51,7 +51,7 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Environment Variables
+### Environment variables
 
 Create a `.env` file from `.env.example` and fill in:
 
@@ -73,7 +73,7 @@ pnpm drizzle-kit migrate    # apply migrations
 
 8 tables: `users`, `cycles`, `prediction_params`, `ai_traces`, `chat_sessions`, `chat_messages`, `chat_summaries`, `uploaded_images`.
 
-## 📁 Project Structure
+## Project structure
 
 ```
 src/
@@ -110,25 +110,19 @@ src/
         └── accent.ts        # Plan-based accent colors
 ```
 
-## 🧠 Prediction Engine
+## Prediction engine
 
-Luna uses adaptive exponential smoothing with population priors from ACOG data:
+Luna uses adaptive exponential smoothing with population priors from ACOG data. When you have 5 cycles or fewer (cold start), it blends your data with population averages. The learning rate adapts based on recent residual MAD. Cycles over 45 days get flagged as missed logs rather than real cycles, so they stay out of the smoothing. Outlier soft-clamp pulls values beyond 2.5σ toward the mean, and confidence intervals come from jackknife resampling once you have 6+ observations.
 
-- **Cold start** (≤5 cycles): Blends user data with population averages
-- **Adaptive alpha**: Learning rate adjusts based on recent residual MAD
-- **Skip gate**: Cycles >45 days are flagged as missed logs, not used for smoothing
-- **Outlier soft-clamp**: Values beyond 2.5σ are pulled toward the mean
-- **Jackknife CI**: Confidence intervals via jackknife resampling (6+ observations)
+## Contributing
 
-## 🤝 Contributing
+See [CONTRIBUTING.md](./CONTRIBUTING.md). PRs welcome.
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines. PRs welcome!
+## License
 
-## 📄 License
+MIT -- see [LICENSE](./LICENSE).
 
-This project is licensed under the MIT License — see [LICENSE](./LICENSE).
-
-## 🙏 Credits
+## Credits
 
 Built by [Akshat Singh Kushwaha](https://a3ro.dev) ([akshatsingh14372@outlook.com](mailto:akshatsingh14372@outlook.com)).
 

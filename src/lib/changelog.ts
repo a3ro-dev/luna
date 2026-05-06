@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.7.1",
+        date: "06-05-2026",
+    type: "docs",
+    title: "Humanize all papers and project docs",
+    description:
+      "Rewrote all papers (technical, nontechnical, references, research notes) and project docs (README, PRODUCT, DESIGN, CONTRIBUTING) to remove AI writing patterns: sentence-case headings, no em dashes (use --), active voice, added voice and opinions. Fixed all source code citations to be clickable markdown links with line-number fragments. Added changelog and paper-sync conventions to AGENTS.md.",
+  },
+  {
     version: "0.7.0",
     date: "2026-05-06",
     type: "feat",

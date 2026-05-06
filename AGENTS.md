@@ -22,6 +22,22 @@ impeccable ~\.agents\skills\impeccable
 - Web Search: HackClub Search API (`GET https://search.hackclub.com/res/v1/web/search`)
 - UI: Tailwind v4 + AI Elements + OpenUI + shadcn components
 
+## Changelog Convention
+- Always add an entry to `src/lib/changelog.ts` when making changes (feat, fix, refactor, docs, or chore)
+- Follow the existing format: version, date, type, title, description
+- Increment version appropriately (patch for fixes, minor for features)
+- Update `package.json` version to match
+
+## Keeping papers in sync
+- The files in `papers/` describe the current state of the system. When you change code, update the relevant paper to match.
+- `papers/luna-technical.md` -- update when: prediction engine changes, new priors added, algorithm params change, schema changes, new API routes added, bug fixes that affect behavior described in the paper
+- `papers/luna-nontechnical.md` -- update when: user-facing behavior changes (new features, changed predictions, new conditions, UI flow changes)
+- `papers/references.md` -- update when: new source files are created, existing files are renamed or their line counts change significantly, new external sources are cited
+- `papers/research-notes.md` -- update when: bugs are found or fixed, algorithm audit findings change, new open questions arise, evidence chains shift
+- When updating papers, also fix any new `[filename, L1-N]` citations to be clickable markdown links using the format `[filename, L1-N](../src/path/to/file#L1-N)` (relative from `papers/`)
+- Use `--` instead of em dashes in all paper prose
+- Keep headings in sentence case
+
 ## Important Conventions
 - Chat API expects `UIMessage` parts (text/file). Avoid `content`-only payloads.
 - Use `convertToModelMessages` before calling `streamText`.
