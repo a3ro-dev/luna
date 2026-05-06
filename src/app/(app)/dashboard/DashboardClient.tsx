@@ -35,9 +35,9 @@ interface CalendarDay {
 interface DashboardClientProps {
   userName: string;
   nextPeriodDate: string;
-  nextOvulationDate: string;
+  nextOvulationDate: string | null;
   daysToNextPeriod: number;
-  daysToOvulation: number;
+  daysToOvulation: number | null;
   avgCycleLength: number;
   avgPeriodLength: number;
   cyclesTracked: number;
@@ -620,13 +620,23 @@ export default function DashboardClient(props: DashboardClientProps) {
             subtitle={formatSubtext(daysToNextPeriod, "Due now", "Tomorrow")}
             index={0}
           />
-          <PredictionCard
-            label="Estimated Ovulation"
-            labelColor="text-[#FBE6B6]"
-            date={nextOvulationDate}
-            subtitle={formatSubtext(daysToOvulation, "Passed", "Tomorrow")}
-            index={1}
-          />
+          {nextOvulationDate != null && daysToOvulation != null ? (
+            <PredictionCard
+              label="Estimated Ovulation"
+              labelColor="text-[#FBE6B6]"
+              date={nextOvulationDate}
+              subtitle={formatSubtext(daysToOvulation, "Passed", "Tomorrow")}
+              index={1}
+            />
+          ) : (
+            <PredictionCard
+              label="Ovulation"
+              labelColor="text-[#FBE6B6]"
+              date="Suppressed"
+              subtitle="Hormonal birth control suppresses ovulation"
+              index={1}
+            />
+          )}
           <AskLunaCard index={2} />
         </div>
 

@@ -5,8 +5,10 @@ import {
   predictNextCycle,
   exponentialSmooth,
   resolveEffectivePrior,
+  getSkipThreshold,
+  OUTLIER_SIGMA,
 } from "@/lib/prediction/engine";
-import { asc, desc, eq, and } from "drizzle-orm";
+import { asc, eq, and } from "drizzle-orm";
 
 const DAY_MS = 86_400_000;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -45,7 +47,6 @@ const PARAM_TO_METRIC = {
 } as const;
 
 export type PredictionParamName = keyof typeof PARAM_TO_METRIC;
-type PredictionMetricName = (typeof PARAM_TO_METRIC)[PredictionParamName];
 
 export type CycleNotes = Record<string, string[]>;
 
@@ -417,7 +418,7 @@ async function refreshPredictionParam(
   }
 }
 
-async function refreshCycleAnalytics(
+export async function refreshCycleAnalytics(
   userId: string,
   conditions: string[] = [],
 ): Promise<AnalyticsResult> {
@@ -449,6 +450,7 @@ async function refreshCycleAnalytics(
       periodLength?: number | null;
       follicularLength?: number | null;
       lutealLength?: number | null;
+      isAnomaly?: boolean;
     };
   }> = [];
 
@@ -472,12 +474,23 @@ async function refreshCycleAnalytics(
         ? diffInDays(current.ovulationDate, next.mStart)
         : null;
 
+    // Anomaly detection — skip threshold
+    let nextIsAnomaly = false;
+    if (typeof nextCycleLength === "number") {
+      const threshold =
+        conditions.length > 0 ? getSkipThreshold(conditions) : 45;
+      if (nextCycleLength > threshold) {
+        nextIsAnomaly = true;
+      }
+    }
+
     rows[index] = {
       ...current,
       cycleLength: nextCycleLength,
       periodLength: nextPeriodLength,
       follicularLength: nextFollicularLength,
       lutealLength: nextLutealLength,
+      isAnomaly: nextIsAnomaly || false,
     };
 
     if (typeof nextCycleLength === "number") cycleLengths.push(nextCycleLength);
@@ -493,6 +506,7 @@ async function refreshCycleAnalytics(
       periodLength?: number | null;
       follicularLength?: number | null;
       lutealLength?: number | null;
+      isAnomaly?: boolean;
     } = {};
 
     if (current.cycleLength !== nextCycleLength)
@@ -503,9 +517,36 @@ async function refreshCycleAnalytics(
       changes.follicularLength = nextFollicularLength;
     if (current.lutealLength !== nextLutealLength)
       changes.lutealLength = nextLutealLength;
+    if (current.isAnomaly !== nextIsAnomaly) changes.isAnomaly = nextIsAnomaly;
 
     if (Object.keys(changes).length > 0) {
       updates.push({ id: current.id, changes });
+    }
+  }
+
+  // Second pass: mark statistical outliers beyond OUTLIER_SIGMA
+  if (cycleLengths.length >= 3) {
+    const mean = cycleLengths.reduce((a, b) => a + b, 0) / cycleLengths.length;
+    const variance =
+      cycleLengths.reduce((a, b) => a + (b - mean) ** 2, 0) /
+      cycleLengths.length;
+    const sigma = Math.sqrt(Math.max(variance, 4.0));
+
+    for (let i = 0; i < rows.length; i++) {
+      const cl = rows[i].cycleLength;
+      if (
+        typeof cl === "number" &&
+        Math.abs(cl - mean) > OUTLIER_SIGMA * sigma
+      ) {
+        rows[i] = { ...rows[i], isAnomaly: true };
+        // Upsert anomaly flag into updates
+        const existing = updates.find((u) => u.id === rows[i].id);
+        if (existing) {
+          existing.changes.isAnomaly = true;
+        } else {
+          updates.push({ id: rows[i].id, changes: { isAnomaly: true } });
+        }
+      }
     }
   }
 

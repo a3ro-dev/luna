@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { cycles } from "@/lib/db/schema";
+import { cycles, users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
+import { refreshCycleAnalytics } from "@/lib/cycle-tools";
 
 // ─── Supported formats ───────────────────────────────────────────────
 // 1. "luna"              — Luna's own JSON export
@@ -416,7 +418,7 @@ export async function POST(req: Request) {
     }
 
     // Insert all cycles
-    const inserted = await db.insert(cycles).values(
+    await db.insert(cycles).values(
       parsed.map((c) => ({
         userId: session.user!.id!,
         mStart: c.mStart,
@@ -427,6 +429,17 @@ export async function POST(req: Request) {
         notes: c.notes || {},
       })),
     );
+
+    // Refresh derived columns and prediction parameters so the
+    // prediction engine immediately "sees" the imported data.
+    const userRow = await db.query.users.findFirst({
+      where: eq(users.id, session.user.id!),
+      columns: { conditions: true },
+    });
+    const conditions: string[] = Array.isArray(userRow?.conditions)
+      ? (userRow.conditions as string[])
+      : [];
+    await refreshCycleAnalytics(session.user.id!, conditions);
 
     return NextResponse.json(
       {

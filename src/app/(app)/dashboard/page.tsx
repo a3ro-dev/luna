@@ -2,8 +2,12 @@ import React from "react";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { cycles, predictionParams } from "@/lib/db/schema";
+import { cycles, predictionParams, users } from "@/lib/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
+import {
+  predictNextCycle,
+  resolveEffectivePrior,
+} from "@/lib/prediction/engine";
 import DashboardClient from "./DashboardClient";
 
 // Prevent Next.js from caching the Neon HTTP fetch responses
@@ -35,6 +39,20 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  // Fetch user record (for conditions)
+  const [userRow] = await db
+    .select({
+      conditions: users.conditions,
+    })
+    .from(users)
+    .where(eq(users.id, session.user.id!))
+    .limit(1);
+
+  const conditions: string[] = Array.isArray(userRow?.conditions)
+    ? userRow.conditions
+    : [];
+  const onHormonalBC = conditions.includes("hormonal_bc");
+
   // Count total cycles
   const [{ count: totalCycles }] = await db
     .select({ count: sql<number>`count(*)` })
@@ -48,11 +66,10 @@ export default async function DashboardPage() {
     limit: 6,
   });
 
-  // Fetch all cycles for calendar (slim columns)
-  const allCyclesForCalendar = await db.query.cycles.findMany({
+  // Fetch ALL cycles for prediction engine + calendar
+  const allCycles = await db.query.cycles.findMany({
     where: eq(cycles.userId, session.user.id!),
     orderBy: [desc(cycles.mStart)],
-    columns: { mStart: true, mEnd: true, ovulationDate: true },
   });
 
   // Fetch prediction params
@@ -63,12 +80,37 @@ export default async function DashboardPage() {
   const cycleLengthParam = params.find((p) => p.paramName === "cycle_length");
   const periodLengthParam = params.find((p) => p.paramName === "period_length");
 
-  const avgCycleLength = cycleLengthParam
-    ? Math.round(cycleLengthParam.smoothedValue)
-    : 28;
-  const avgPeriodLength = periodLengthParam
-    ? Math.round(periodLengthParam.smoothedValue)
-    : 5;
+  // ── Build observation arrays for predictNextCycle ────────────────
+  const cycleLengths: number[] = [];
+  const periodLengths: number[] = [];
+  const lutealLengths: number[] = [];
+
+  for (const c of allCycles) {
+    if (c.cycleLength != null) cycleLengths.push(c.cycleLength);
+    if (c.periodLength != null) periodLengths.push(c.periodLength);
+    if (c.lutealLength != null) lutealLengths.push(c.lutealLength);
+  }
+
+  // ── Condition-aware predictions using predictNextCycle ───────────
+  const cyclePrediction = predictNextCycle(
+    cycleLengths,
+    "cycleLength",
+    conditions,
+  );
+  const periodPrediction = predictNextCycle(
+    periodLengths,
+    "periodLength",
+    conditions,
+  );
+  const lutealPrediction = predictNextCycle(
+    lutealLengths,
+    "lutealLength",
+    conditions,
+  );
+
+  const avgCycleLength = Math.round(cyclePrediction.predicted);
+  const avgPeriodLength = Math.round(periodPrediction.predicted);
+  const lutealLength = lutealPrediction.predicted;
 
   // Compute predictions from the most recent cycle
   const lastCycle = userCycles[0];
@@ -78,10 +120,23 @@ export default async function DashboardPage() {
     : new Date();
 
   const nextPeriodDate = addDays(lastPeriodStart, avgCycleLength);
-  const nextOvulationDate = addDays(lastPeriodStart, avgCycleLength - 14);
+
+  // Bug 1 fix: ovulation = next period - luteal length (not hardcoded -14)
+  // For hormonal BC users, ovulation is suppressed
+  let nextOvulationDate: Date | null = null;
+  let daysToOvulation: number | null = null;
+  let nextOvulationDateStr: string | null = null;
+
+  if (!onHormonalBC) {
+    nextOvulationDate = addDays(
+      nextPeriodDate,
+      -Math.round(lutealLength || 14),
+    );
+    daysToOvulation = daysUntil(nextOvulationDate);
+    nextOvulationDateStr = formatDate(nextOvulationDate);
+  }
 
   const daysToNextPeriod = daysUntil(nextPeriodDate);
-  const daysToOvulation = daysUntil(nextOvulationDate);
 
   // Build calendar for current month
   const today = new Date();
@@ -97,9 +152,15 @@ export default async function DashboardPage() {
   const follicularDays = new Set<number>();
   const lutealDays = new Set<number>();
 
-  // Check actual cycle data for this month
-  for (const c of allCyclesForCalendar) {
-    if (!c.mStart) continue;
+  // Sort cycles chronologically for phase computation
+  const sortedCycles = [...allCycles]
+    .filter((c) => c.mStart)
+    .sort((a, b) => a.mStart.localeCompare(b.mStart));
+
+  // Check actual cycle data for this month and compute phases from data
+  for (let ci = 0; ci < sortedCycles.length; ci++) {
+    const c = sortedCycles[ci];
+    const next = sortedCycles[ci + 1]; // chronologically next cycle
     const start = new Date(c.mStart + "T00:00:00");
     const end = c.mEnd
       ? new Date(c.mEnd + "T00:00:00")
@@ -118,6 +179,32 @@ export default async function DashboardPage() {
       if (ov.getMonth() === currentMonth && ov.getFullYear() === currentYear) {
         ovulationDays.add(ov.getDate());
       }
+
+      // Follicular phase: period end → ovulation
+      if (c.mEnd) {
+        const follStart = addDays(end, 1);
+        for (let d = new Date(follStart); d < ov; d = addDays(d, 1)) {
+          if (
+            d.getMonth() === currentMonth &&
+            d.getFullYear() === currentYear
+          ) {
+            follicularDays.add(d.getDate());
+          }
+        }
+      }
+
+      // Luteal phase: ovulation → next period start (if known)
+      if (next) {
+        const nextStart = new Date(next.mStart + "T00:00:00");
+        for (let d = addDays(ov, 1); d < nextStart; d = addDays(d, 1)) {
+          if (
+            d.getMonth() === currentMonth &&
+            d.getFullYear() === currentYear
+          ) {
+            lutealDays.add(d.getDate());
+          }
+        }
+      }
     }
   }
 
@@ -130,33 +217,52 @@ export default async function DashboardPage() {
     }
   }
 
-  // Mark predicted ovulation
+  // Mark predicted ovulation (only if not on hormonal BC)
   if (
+    nextOvulationDate &&
     nextOvulationDate.getMonth() === currentMonth &&
     nextOvulationDate.getFullYear() === currentYear
   ) {
     ovulationDays.add(nextOvulationDate.getDate());
   }
 
-  // Follicular: period end to ovulation
-  // Luteal: ovulation to next period
-  if (lastCycle?.mEnd) {
-    const follStart = addDays(new Date(lastCycle.mEnd + "T00:00:00"), 1);
+  // Fill predicted phases only for the gap after the last known cycle
+  // up to the predicted next period. This avoids overlap with actual
+  // phases already computed from real cycle data above.
+  if (lastCycle?.mEnd && nextOvulationDate && !onHormonalBC) {
+    const lastEnd = new Date(lastCycle.mEnd + "T00:00:00");
+    // Follicular: last period end → predicted ovulation
+    // Only fill days NOT already assigned to a phase
     for (
-      let d = new Date(follStart);
+      let d = addDays(lastEnd, 1);
       d < nextOvulationDate;
       d = addDays(d, 1)
     ) {
-      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+      if (
+        d.getMonth() === currentMonth &&
+        d.getFullYear() === currentYear &&
+        !periodDays.has(d.getDate()) &&
+        !ovulationDays.has(d.getDate()) &&
+        !follicularDays.has(d.getDate()) &&
+        !lutealDays.has(d.getDate())
+      ) {
         follicularDays.add(d.getDate());
       }
     }
+    // Luteal: predicted ovulation → predicted next period
     for (
       let d = addDays(nextOvulationDate, 1);
       d < nextPeriodDate;
       d = addDays(d, 1)
     ) {
-      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+      if (
+        d.getMonth() === currentMonth &&
+        d.getFullYear() === currentYear &&
+        !periodDays.has(d.getDate()) &&
+        !ovulationDays.has(d.getDate()) &&
+        !follicularDays.has(d.getDate()) &&
+        !lutealDays.has(d.getDate())
+      ) {
         lutealDays.add(d.getDate());
       }
     }
@@ -181,12 +287,16 @@ export default async function DashboardPage() {
     year: "numeric",
   });
 
-  // Compute consistency
+  // Bug 3 fix: Condition-aware consistency thresholds
+  // Use resolveEffectivePrior to get the baseline variance for the user's conditions.
+  // < 0.5× prior variance → "High", < 1.5× → "Moderate", else "Varied"
   const consistencyVariance = cycleLengthParam?.variance ?? 999;
+  const priorCycleVariance =
+    resolveEffectivePrior(conditions).cycleLength.variance;
   const consistency: "High" | "Moderate" | "Varied" =
-    cycleLengthParam && consistencyVariance < 3
+    cycleLengthParam && consistencyVariance < 0.5 * priorCycleVariance
       ? "High"
-      : cycleLengthParam && consistencyVariance < 8
+      : cycleLengthParam && consistencyVariance < 1.5 * priorCycleVariance
         ? "Moderate"
         : "Varied";
 
@@ -207,7 +317,7 @@ export default async function DashboardPage() {
         session.user.name || session.user.email?.split("@")[0] || "lovely"
       }
       nextPeriodDate={formatDate(nextPeriodDate)}
-      nextOvulationDate={formatDate(nextOvulationDate)}
+      nextOvulationDate={nextOvulationDateStr}
       daysToNextPeriod={daysToNextPeriod}
       daysToOvulation={daysToOvulation}
       avgCycleLength={avgCycleLength}

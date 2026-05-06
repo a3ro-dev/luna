@@ -223,7 +223,7 @@ const ALPHA_MIN = 0.1;
 const ALPHA_MAX = 0.5;
 const KAPPA = 5.0; // MAD scale for adaptive alpha
 const DEFAULT_SKIP_THRESHOLD = 45; // fallback when no conditions
-const OUTLIER_SIGMA = 2.5; // soft-clamp gate width
+export const OUTLIER_SIGMA = 2.5; // soft-clamp gate width
 
 // Adaptive alpha based on recent residual MAD
 function computeAdaptiveAlpha(residuals: number[]): number {
@@ -310,7 +310,7 @@ export function exponentialSmooth(
     const rawVal = observations[i];
 
     // Apply skip gate (condition-aware)
-    const { value: gatedVal } = skipGate(
+    const { value: gatedVal, isAnomaly } = skipGate(
       rawVal,
       smoothed,
       variance,
@@ -327,8 +327,14 @@ export function exponentialSmooth(
     // Update smoothed value
     smoothed = smoothed + alpha * diff;
 
-    // Store residual for MAD computation next iteration
-    residuals.push(diff);
+    // Store residual for MAD computation next iteration.
+    // Only push non-zero residuals from non-gated observations.
+    // Gated anomalies produce diff≈0, which would artificially deflate
+    // MAD and lock alpha low, making the smoother unresponsive to
+    // genuine regime changes.
+    if (!isAnomaly) {
+      residuals.push(diff);
+    }
   }
 
   return { smoothed, variance };
@@ -382,7 +388,7 @@ export function predictNextCycle(
 ): { predicted: number; ciLower: number; ciUpper: number; n: number } {
   const n = observations.length;
 
-  // Use condition-specific prior for cold start
+  // Cold start: use condition-specific prior
   if (n === 0) {
     const conditionPrior = resolveEffectivePrior(conditions);
     const conditionMetricMap: Record<
@@ -411,28 +417,26 @@ export function predictNextCycle(
   }
 
   const { smoothed, variance } = exponentialSmooth(observations, conditions);
-  const blended = blendWithPrior(smoothed, variance, n, metric, conditions);
 
-  let ciLower: number;
-  let ciUpper: number;
-
+  // For n >= 6, use jackknife CI (more robust than parametric)
+  // The point estimate is the smoothed value (prior fades out at n>=6)
   if (n >= 6) {
     const jackknife = calculateJackknifeCI(observations, conditions);
-    ciLower = jackknife.lower;
-    ciUpper = jackknife.upper;
-    blended.mean = smoothed;
-    blended.variance = jackknife.variance;
-  } else {
-    // For n < 6, use the blended variance
-    const stdDev = Math.sqrt(blended.variance);
-    ciLower = blended.mean - 1.96 * stdDev;
-    ciUpper = blended.mean + 1.96 * stdDev;
+    return {
+      predicted: smoothed,
+      ciLower: jackknife.lower,
+      ciUpper: jackknife.upper,
+      n,
+    };
   }
 
+  // For n < 6, blend with population prior and use parametric CI
+  const blended = blendWithPrior(smoothed, variance, n, metric, conditions);
+  const stdDev = Math.sqrt(blended.variance);
   return {
     predicted: blended.mean,
-    ciLower,
-    ciUpper,
+    ciLower: blended.mean - 1.96 * stdDev,
+    ciUpper: blended.mean + 1.96 * stdDev,
     n,
   };
 }

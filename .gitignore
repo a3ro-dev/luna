@@ -55,6 +55,9 @@ fix-*.mjs
 # duplicate / legacy docs
 Luna Rewrite — PRD & Technical Specification.md
 
+# deep research drafts (not for publication)
+research/
+
 # IDE
 .vscode/
 .idea/
