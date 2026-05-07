@@ -524,22 +524,39 @@ export async function refreshCycleAnalytics(
     }
   }
 
-  // Second pass: mark statistical outliers beyond OUTLIER_SIGMA
-  if (cycleLengths.length >= 3) {
-    const mean = cycleLengths.reduce((a, b) => a + b, 0) / cycleLengths.length;
-    const variance =
-      cycleLengths.reduce((a, b) => a + (b - mean) ** 2, 0) /
-      cycleLengths.length;
-    const sigma = Math.sqrt(Math.max(variance, 4.0));
+  // Second pass: use the prediction engine's skipGate() as the authoritative
+  // anomaly detector. This replaces the old sample-mean ± 2.5σ approach, which
+  // could flag different observations than the engine's running-variance skip gate,
+  // creating inconsistent state between DB isAnomaly flags and what the model uses.
+  //
+  // We run skipGate() over cycles in chronological order, feeding each cycle's
+  // length through the gate with the running smoothed value and variance from the
+  // engine's exponentialSmooth. This ensures the DB anomaly flags are always
+  // derived from the same logic the prediction engine uses.
+  if (cycleLengths.length >= 2) {
+    // Build a running smoothed value and variance to mirror what exponentialSmooth
+    // would compute at each point. We iterate the same cycle-length sequence the
+    // engine would see.
+    let smoothed = cycleLengths[0];
+    let variance = 0;
+    const residuals: number[] = [];
+    let cycleIdx = 0;
 
     for (let i = 0; i < rows.length; i++) {
       const cl = rows[i].cycleLength;
-      if (
-        typeof cl === "number" &&
-        Math.abs(cl - mean) > OUTLIER_SIGMA * sigma
-      ) {
+      if (typeof cl !== "number") continue;
+
+      if (cycleIdx === 0) {
+        // First cycle -- no previous to compare against, just seed
+        cycleIdx++;
+        continue;
+      }
+
+      // Run the same skip gate the prediction engine uses
+      const { isAnomaly } = skipGate(cl, smoothed, variance, conditions);
+
+      if (isAnomaly && !rows[i].isAnomaly) {
         rows[i] = { ...rows[i], isAnomaly: true };
-        // Upsert anomaly flag into updates
         const existing = updates.find((u) => u.id === rows[i].id);
         if (existing) {
           existing.changes.isAnomaly = true;
@@ -547,6 +564,22 @@ export async function refreshCycleAnalytics(
           updates.push({ id: rows[i].id, changes: { isAnomaly: true } });
         }
       }
+
+      // Mirror exponentialSmooth's update logic so smoothed/variance stay in sync
+      const alpha = computeAdaptiveAlphaFromResiduals(residuals.slice(-5));
+      const { value: gatedVal, isAnomaly: wasAnomaly } = skipGate(
+        cl,
+        smoothed,
+        variance,
+        conditions,
+      );
+      const diff = gatedVal - smoothed;
+      variance = (1 - alpha) * (variance + alpha * diff * diff);
+      smoothed = smoothed + alpha * diff;
+      if (!wasAnomaly) {
+        residuals.push(diff);
+      }
+      cycleIdx++;
     }
   }
 
