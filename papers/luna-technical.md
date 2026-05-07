@@ -8,15 +8,15 @@ akshatsingh14372@outlook.com · a3ro.dev
 
 ## Abstract
 
-I present Luna, a web-based menstrual cycle tracking and prediction application that uses adaptive exponential smoothing with condition-specific population priors. Unlike conventional trackers that apply a fixed 28-day default or simple rolling averages, Luna adjusts its smoothing parameters, anomaly thresholds, prior blending, and uncertainty estimates based on the user's self-reported health conditions (PCOS, endometriosis, thyroid disorders, hormonal contraception, perimenopause, among others). The prediction engine computes point estimates and confidence intervals through three regimes: a pure-prior cold start for zero observations, inverse-variance blending for 1-5 observations, and jackknife confidence intervals from exponential smoothing for 6+ observations. Anomaly detection uses a two-stage skip gate: a condition-aware maximum-cycle-length threshold followed by a 2.5σ outlier soft-clamp. The system has not been validated on real-world data. There is no automated test suite and no published accuracy metrics. This paper describes the algorithm and architecture with full transparency about what remains unverified.
+I present Luna, a web-based menstrual cycle tracking and prediction application that uses adaptive exponential smoothing with condition-specific population priors. Unlike conventional trackers that apply a fixed 28-day default or simple rolling averages, Luna adjusts its smoothing parameters, anomaly thresholds, prior blending, and uncertainty estimates based on the user's self-reported health conditions (PCOS, endometriosis, thyroid disorders, hormonal contraception, perimenopause, among others). The prediction engine computes point estimates and confidence intervals through three regimes: a pure-prior cold start for zero observations, inverse-variance blending for 1-5 observations, and jackknife confidence intervals from exponential smoothing for 6+ observations. Anomaly detection uses a two-stage skip gate: a condition-aware maximum-cycle-length threshold followed by a 2.5σ outlier soft-clamp. A vitest unit test suite covers the five core prediction functions (40+ tests), but the system has not been validated on real-world data and no published accuracy metrics exist. This paper describes the algorithm and architecture with full transparency about what remains unverified.
 
 ## 1. Introduction
 
 Menstrual cycle tracking is a widespread practice, with dozens of mobile applications serving hundreds of millions of users. Despite this scale, most trackers employ simple predictive strategies--rolling averages of the last *N* cycles, fixed 28-day defaults, or undisclosed proprietary models--that fail to account for the substantial heterogeneity in cycle patterns across different health conditions [1][2]. A user with polycystic ovary syndrome (PCOS), whose cycle length may range from 21 to 111 days [3], receives the same predictive framework as a user with regular 28-day cycles.
 
-This paper describes Luna (v0.7.0), an open-source menstrual cycle tracker that takes a different approach: condition-aware adaptive exponential smoothing. The system adjusts its core parameters--smoothing rate, anomaly thresholds, population priors, uncertainty estimates--based on the user's self-reported health conditions. The algorithm is fully deterministic and inspectable: all parameters and decision boundaries are specified in a single source file ([engine.ts, L1-442](../src/lib/prediction/engine.ts#L1-L442)).
+This paper describes Luna (v0.7.3), an open-source menstrual cycle tracker that takes a different approach: condition-aware adaptive exponential smoothing. The system adjusts its core parameters--smoothing rate, anomaly thresholds, population priors, uncertainty estimates--based on the user's self-reported health conditions. The algorithm is fully deterministic and inspectable: all parameters and decision boundaries are specified in a single source file ([engine.ts, L1-700](../src/lib/prediction/engine.ts#L1-L700)).
 
-Luna is a functional web application built on Next.js 16.2.4 with a conversational AI interface. It has not undergone clinical validation, has no automated test suite, and has no published accuracy benchmarks. I present the system as-is, documenting what it does and the evidence behind its design choices, with full transparency about what remains unverified.
+Luna is a functional web application built on Next.js 16.2.4 with a conversational AI interface. It has not undergone clinical validation and has no published accuracy benchmarks. A unit test suite (vitest, 40+ tests) covers the core prediction functions but does not substitute for empirical validation. I present the system as-is, documenting what it does and the evidence behind its design choices, with full transparency about what remains unverified.
 
 ## 2. Background and related work
 
@@ -34,7 +34,7 @@ Luna is a functional web application built on Next.js 16.2.4 with a conversation
 
 ### 2.2 Academic methods
 
-Fukaya et al. proposed a state-space BBT model using Bayesian filtering for menstrual cycle phase estimation [8]. Hidden semi-Markov models (HSMMs) have been explored for phase-based duration modeling [9]. These approaches offer richer probabilistic frameworks but nobody has adopted them in consumer applications--likely because they're harder to implement and need more data than most users have.
+Fukaya et al. proposed a state-space BBT model using Bayesian filtering for menstrual cycle phase estimation [8]. Hidden semi-Markov models (HSMMs) have been explored for phase-based duration modeling [9]. These approaches offer richer probabilistic frameworks but nobody has adopted them in consumer applications -- likely because they are harder to implement and need more data than most users have, though no published analysis of this adoption gap exists.
 
 Adaptive exponential smoothing--the method Luna uses--has a long history in time-series forecasting [10] but is surprisingly underexplored for menstrual cycle prediction. That's odd, because the domain is a natural fit: small sample sizes, non-stationary distributions, and a need for graceful handling of outliers and missing data.
 
@@ -115,6 +115,10 @@ When a user has multiple conditions, `resolveEffectivePrior()` ([engine.ts, L332
    - `blended_mean = Σ(w_i * μ_i) / Σ(w_i)`, where `w_i = 1/σ²_i`
    - `blended_variance = 1 / Σ(w_i) + Σ(w_i * (μ_i - blended_mean)²) / Σ(w_i)` (accounts for between-condition spread)
 
+   Note: the first term `1/Σ(w_i)` is the posterior precision from inverse-variance combination, which equals the pooled within-condition variance only when all σ²_i are equal. For unequal variances, it underestimates the true pooled variance. A fully consistent mixture would use `Σ(w_i * σ²_i) / Σ(w_i)` for the within-condition term instead. The current formula is retained because it matches the variance produced by `blendWithPrior()` for the warm-start regime (1-5 observations), ensuring internal consistency at the cost of slight underestimation of multi-condition variance. A log-normal reparameterization would be a principled next step for conditions with known right-skew, but has not been implemented [unverified].
+
+   **Perimenopause dual pathway:** Users can encode their perimenopause stage through two mechanisms: (1) selecting `perimenopause_early` or `perimenopause_late` directly in the `conditions` array, or (2) selecting the legacy `perimenopause` condition plus a separate `perimenoStage` field ("early"/"late"/"unknown"). In `resolveEffectivePrior()`, `perimenopause_early`/`perimenopause_late` are resolved directly; the legacy `perimenopause` key is resolved via `resolvePerimenopausePrior(perimenoStage)`, which maps to `PERIMENOPAUSE_EARLY` for "early", `PERIMENOPAUSE_LATE` for "late", or the general `perimenopause` prior for "unknown". A user with `conditions: ["perimenopause"]` and `perimenoStage: "late"` receives the same prior as `conditions: ["perimenopause_late"]`. The two pathways are equivalent and there is no precedence conflict -- they resolve to the same prior.
+
 3. `maxCycleLength` = MAX across all active conditions (widest safe gate).
 4. `anovulatoryCommon` = OR across all active conditions.
 
@@ -152,7 +156,7 @@ where $d_i = \tilde{x}_i - \hat{x}_{i-1}$.
 
 4. Only non-anomaly observations contribute residuals to the MAD computation. Anomaly-gated observations produce $d_i \approx 0$, which would artificially deflate MAD and lock α low, making the smoother unresponsive to genuine regime changes ([engine.ts, L331-338](../src/lib/prediction/engine.ts#L331-L338)).
 
-Adaptive α lets the smoother respond quickly when recent observations are highly variable (large MAD → α approaches 0.5) and stabilize when observations are consistent (small MAD → α approaches 0.1). The MAD window of 5 observations balances responsiveness and smoothness. I chose exponential smoothing over richer probabilistic models because it's simple, interpretable, and works well with small samples. Bayesian approaches might perform better with enough data, but they'd be harder to debug--and debugging is already a challenge given the lack of automated tests.
+Adaptive α lets the smoother respond quickly when recent observations are highly variable (large MAD → α approaches 0.5) and stabilize when observations are consistent (small MAD → α approaches 0.1). The MAD window of 5 observations balances responsiveness and smoothness. I chose exponential smoothing over richer probabilistic models because it's simple, interpretable, and works well with small samples. Bayesian approaches might perform better with enough data, but they'd be harder to debug.
 
 ### 4.4 Skip gate and anomaly detection
 
@@ -400,9 +404,7 @@ The fundamental tension: Luna is an open-source app that stores health-adjacent 
 
 **No experiments have been conducted.** The Luna repository contains:
 
-- No test files (no `*.test.*` files exist)
-
-- No test framework configuration (no Jest, Vitest, or similar in dependencies)
+- A vitest unit test suite covering the five core prediction functions (`skipGate`, `exponentialSmooth`, `blendWithPrior`, `resolveEffectivePrior`, `predictNextCycle`) with 40+ test cases ([engine.test.ts](../src/lib/prediction/__tests__/engine.test.ts))
 
 - No benchmark datasets
 
@@ -414,7 +416,7 @@ The fundamental tension: Luna is an open-source app that stores health-adjacent 
 
 - No prediction accuracy measurement of any kind
 
-The system has been manually tested through my own interaction with the running application, but no structured evaluation has been performed. The following specific claims are **unverified**:
+The unit tests verify internal consistency (e.g., that the skip gate correctly flags anomalies, that blending interpolates between prior and user data, that the jackknife CI produces reasonable bounds) but do not constitute empirical validation. They test that the algorithm does what its specification says, not that what it does is correct for real-world data. The following specific claims are **unverified**:
 
 - That adaptive exponential smoothing produces more accurate predictions than simple rolling averages for any population
 
@@ -428,7 +430,7 @@ The system has been manually tested through my own interaction with the running 
 
 - That the n≥6 blending cutoff is optimal
 
-- That the "highest variance wins" prior resolution strategy is superior to alternatives
+- That the inverse-variance mixture prior resolution is superior to alternatives
 
 - That the system produces clinically useful predictions for any condition
 
@@ -484,9 +486,9 @@ Real-world usage: The application has no known users beyond the developer. No da
 
 ### 8.1 Algorithmic limitations
 
-1. The inverse-variance blending and parametric CI assume approximately Gaussian distributions. Menstrual cycle lengths--especially for PCOS and perimenopause--are typically right-skewed [14]. The 1.96σ CI will be asymmetric in reality but is presented symmetrically.
+1. The inverse-variance blending and parametric CI assume approximately Gaussian distributions. Menstrual cycle lengths--especially for PCOS and perimenopause--are typically right-skewed [14]. The 1.96σ CI will be asymmetric in reality but is presented symmetrically. A log-normal reparameterization would be a principled next step for conditions with known right-skew, but has not been implemented [unverified].
 
-2. The perimenopause sub-priors (`perimenopause_early` μ=30d and `perimenopause_late` μ=80d) better capture the temporal evolution described by Holman [11], but the user must self-select which stage they are in. Users who select incorrectly get a poor prior. The legacy `perimenopause` fallback (μ=45d) still lacks this temporal structure.
+2. The perimenopause sub-priors (`perimenopause_early` μ=30d and `perimenopause_late` μ=80d) better capture the temporal evolution described by Holman [11], but the user must self-select which stage they are in. Users who select incorrectly get a poor prior. The legacy `perimenopause` fallback (μ=45d) still lacks this temporal structure. Additionally, `perimenopause_early` has maxCycleLength=60, which is only a ~2σ cap above the mean (30 + 2×8=46). Early perimenopause users may still have occasional long cycles approaching 60-70d; this threshold may generate false anomalies for this group [unverified].
 
 3. The inverse-variance mixture for multi-condition users assumes approximate Gaussianity and may underestimate tails for heavily right-skewed conditions like PCOS, where the true distribution has a long right tail. Users with bimodal condition combinations (e.g. endometriosis + thyroid) receive a blended mean between the two modes, which may not match either well.
 
@@ -498,7 +500,7 @@ Real-world usage: The application has no known users beyond the developer. No da
 
 ### 8.2 Engineering limitations
 
-1. Zero automated tests exist. Any regression in the prediction engine would go undetected.
+1. A unit test suite exists (40+ vitest tests covering core prediction functions), but integration tests, regression tests, and end-to-end tests do not. Any regression in the AI chat pipeline, data import, or cycle analytics integration would go undetected.
 
 2. In serverless deployments, the in-memory rate limiter ([rate-limit.ts](../src/lib/rate-limit.ts)) does not share state across instances, allowing rate limit bypass.
 
@@ -540,7 +542,7 @@ The biggest limitation of this work is the absence of any empirical evaluation. 
 
 - Does the jackknife CI achieve 95% coverage? I don't know.
 
-- Does the "highest variance wins" rule produce good predictions for multi-condition users? I don't know.
+- Does the inverse-variance mixture produce good predictions for multi-condition users? I don't know.
 
 A proper evaluation would require: (a) a labeled dataset of menstrual cycles with ground-truth condition labels, (b) a defined evaluation protocol (e.g., leave-one-cycle-out prediction), (c) comparison against baselines (rolling average, fixed prior, condition-agnostic exponential smoothing), and (d) calibration analysis of confidence intervals. None of this exists.
 
@@ -566,15 +568,15 @@ Despite the validation gap, several design choices are defensible on theoretical
 
 ## 10. Conclusion
 
-Luna takes a condition-aware approach to menstrual cycle prediction using adaptive exponential smoothing with population priors. The system adjusts its prediction parameters--smoothing behavior, anomaly thresholds, prior blending, uncertainty estimates--based on seven health conditions (plus a general-population default), addressing a gap in existing consumer trackers that apply condition-agnostic models.
+Luna takes a condition-aware approach to menstrual cycle prediction using adaptive exponential smoothing with population priors. The system adjusts its prediction parameters--smoothing behavior, anomaly thresholds, prior blending, uncertainty estimates--based on ten health condition priors (including perimenopause early/late sub-stages, plus a general-population default), addressing a gap in existing consumer trackers that apply condition-agnostic models.
 
-The algorithm is fully specified and inspectable. Its design choices are defensible on theoretical grounds: inverse-variance blending for cold start, adaptive smoothing rates for non-stationary data, soft-clamping for outlier handling, and condition-aware anomaly thresholds. But none of these choices have been empirically validated. The system has no automated tests, no benchmark results, no calibration analysis, and no real-world usage data.
+The algorithm is fully specified and inspectable. Its design choices are defensible on theoretical grounds: inverse-variance blending for cold start, adaptive smoothing rates for non-stationary data, soft-clamping for outlier handling, and condition-aware anomaly thresholds. A unit test suite (40+ vitest tests) verifies internal consistency of the core prediction functions. But none of these choices have been empirically validated. The system has no benchmark results, no calibration analysis, and no real-world usage data.
 
 The contribution of this work is not a validated prediction system. It is a concrete, open-source specification of how condition-aware menstrual cycle prediction could work. The gap between this specification and a validated system remains substantial. I am documenting the algorithm and its limitations transparently so that future work can evaluate and improve on these ideas rather than starting from scratch.
 
 ## References
 
-[1] Najmabadi et al. Pooled analysis of 3 prospective cohorts: 581 eumenorrheic women, 3,324 cycles. Cycle length mean 30.3d (SD 6.7), period 6.2d (SD 1.5), follicular 18.5d (SD 6.5), luteal 11.7d (SD 2.8). Cited in Luna source code ([engine.ts, L30-38](../src/lib/prediction/engine.ts#L30-L38)). Source: Perplexity Deep Research [17]; cross-referenced with ChatGPT [15] and Gemini [16] deep research.
+[1] Najmabadi, S., et al. Menstrual cycle characteristics: a cross-sectional analysis of three prospective cohorts. *Paediatric and Perinatal Epidemiology*, 34(3):318-327, 2020. Pooled 581 eumenorrheic women, 3,324 cycles. Cycle length mean 30.3d (SD 6.7), period 6.2d (SD 1.5), follicular 18.5d (SD 6.5), luteal 11.7d (SD 2.8). Values extracted via Perplexity Deep Research [17] and cross-referenced with ChatGPT [15] and Gemini [16] deep research.
 
 [2] Bull, J.R., et al. Real-world menstrual cycle characteristics of more than 600,000 menstrual cycles. *NPJ Digital Medicine*, 2:83, 2019.
 
@@ -594,7 +596,7 @@ The contribution of this work is not a validated prediction system. It is a conc
 
 [10] Hyndman, R.J., et al. *Forecasting: Principles and Practice*. 3rd edition, OTexts, 2021.
 
-[11] Holman, D.J. The re-analysis of the Treloar/Tremin dataset: age at menopause and cycle length changes. Perimenopause cycle lengths: -4yr: 30.48d, -3yr: 35.02d, -2yr: 45.15d, -1yr: 80.22d. Cited in Luna source code ([engine.ts, L166-182](../src/lib/prediction/engine.ts#L166-L182)).
+[11] Holman, D.J. The re-analysis of the Treloar/Tremin dataset: age at menopause and cycle length changes. Perimenopause cycle lengths: -4yr: 30.48d, -3yr: 35.02d, -2yr: 45.15d, -1yr: 80.22d. Values extracted via Perplexity Deep Research [17]. Cited in Luna source code ([engine.ts, L166-182](../src/lib/prediction/engine.ts#L166-182)).
 
 [12] Parazzini, F., et al. Short cycles and endometriosis: meta-analysis of 11 case-control studies. Short cycles ≤27d OR 1.22. Cited in Luna source code ([engine.ts, L97-110](../src/lib/prediction/engine.ts#L97-L110)).
 
@@ -626,7 +628,7 @@ The contribution of this work is not a validated prediction system. It is a conc
 
 | Condition | Cycle μ | Cycle σ² | Period μ | Period σ² | Follicular μ | Follicular σ² | Luteal μ | Luteal σ² | maxCL | Anov |
 |---|---|---|---|---|---|---|---|---|---|---|
-| none | 30.3 | 44.89 | 6.2 | 2.25 | 18.5 | 42.25 | 12.0 | 7.84 | 45 | No |
+| none | 30.3 | 44.89 | 6.2 | 2.25 | 18.5 | 42.25 | 11.7 | 7.84 | 45 | No |
 | pcos | 51 | 225 | 7 | 4 | 26 | 100 | 13 | 4 | 120 | Yes |
 | pcod | 45 | 169 | 6 | 4 | 24 | 81 | 13 | 4 | 120 | Yes |
 | endometriosis | 27 | 16 | 7.5 | 4 | 14 | 9 | 12 | 4 | 45 | No |
@@ -634,8 +636,10 @@ The contribution of this work is not a validated prediction system. It is a conc
 | hormonal_bc | 28 | 1 | 4.5 | 2.25 | — | — | — | — | 35 | Yes |
 | irregular | 30 | 225 | 5.5 | 4 | 18 | 100 | 12 | 9 | 90 | Yes |
 | perimenopause | 45 | 400 | 6 | 4 | 31 | 225 | 13 | 9 | 120 | Yes |
+| perimenopause_early | 30 | 64 | 6 | 4 | 17 | 64 | 13 | 9 | 60 | No |
+| perimenopause_late | 80 | 900 | 6 | 9 | 60 | 625 | 13 | 9 | 180 | Yes |
 
-*Table B1: Full condition prior parameters as defined in [engine.ts, L52-184](../src/lib/prediction/engine.ts#L52-L184). "--" indicates null (not applicable). maxCL = maxCycleLength. Anov = anovulatoryCommon.*
+*Table B1: Full condition prior parameters as defined in [engine.ts, L52-230](../src/lib/prediction/engine.ts#L52-L230). "--" indicates null (not applicable). maxCL = maxCycleLength. Anov = anovulatoryCommon. The `perimenopause` key is a backward-compatibility alias resolved via `perimenoStage` metadata; new users should select `perimenopause_early` or `perimenopause_late` directly.*
 
 ## Appendix C: Implementation gaps found and fixed
 
@@ -680,5 +684,8 @@ The changelog ([changelog.ts](../src/lib/changelog.ts)) documents 18 versions sp
 | 0.6.1 | 2026-05-05 | fix | Landing page auth redirect for signed-in users |
 | 0.6.2 | 2026-05-05 | fix | Period length off-by-one, dashboard count & favicon |
 | 0.7.0 | 2026-05-06 | feat | Condition-aware prediction engine & Luna responses |
+| 0.7.1 | 2026-05-06 | docs | Humanize all papers and project docs |
+| 0.7.2 | 2026-05-07 | fix | Peer-review fixes: unified anomaly detection, mixture priors, CI reliability, perimenopause sub-priors, tests |
+| 0.7.3 | 2026-05-07 | fix | Unified skipGate anomaly, inverse-variance spread mixture, perimenopause early/late conditions, luteal 11.7d, 40+ vitest tests |
 
-*Note: package.json reports version 0.6.2; the 0.7.0 changelog entry exists but the package version was not updated.*
+*Note: Version numbers in package.json are kept in sync with changelog.ts from v0.7.0 onward.*
