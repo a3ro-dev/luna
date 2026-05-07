@@ -5,8 +5,9 @@ import {
   predictNextCycle,
   exponentialSmooth,
   resolveEffectivePrior,
-  getSkipThreshold,
-  OUTLIER_SIGMA,
+  skipGate,
+  computeAdaptiveAlpha,
+  type PerimenoStage,
 } from "@/lib/prediction/engine";
 import { asc, eq, and } from "drizzle-orm";
 
@@ -421,6 +422,7 @@ async function refreshPredictionParam(
 export async function refreshCycleAnalytics(
   userId: string,
   conditions: string[] = [],
+  perimenoStage?: PerimenoStage,
 ): Promise<AnalyticsResult> {
   const rows = (await db
     .select()
@@ -474,23 +476,16 @@ export async function refreshCycleAnalytics(
         ? diffInDays(current.ovulationDate, next.mStart)
         : null;
 
-    // Anomaly detection — skip threshold
-    let nextIsAnomaly = false;
-    if (typeof nextCycleLength === "number") {
-      const threshold =
-        conditions.length > 0 ? getSkipThreshold(conditions) : 45;
-      if (nextCycleLength > threshold) {
-        nextIsAnomaly = true;
-      }
-    }
-
+    // Anomaly detection is deferred to the second pass below, which uses
+    // the prediction engine's skipGate() as the single source of truth.
+    // The first pass computes derived columns only.
     rows[index] = {
       ...current,
       cycleLength: nextCycleLength,
       periodLength: nextPeriodLength,
       follicularLength: nextFollicularLength,
       lutealLength: nextLutealLength,
-      isAnomaly: nextIsAnomaly || false,
+      isAnomaly: false, // will be set by skipGate() in second pass
     };
 
     if (typeof nextCycleLength === "number") cycleLengths.push(nextCycleLength);
@@ -517,26 +512,23 @@ export async function refreshCycleAnalytics(
       changes.follicularLength = nextFollicularLength;
     if (current.lutealLength !== nextLutealLength)
       changes.lutealLength = nextLutealLength;
-    if (current.isAnomaly !== nextIsAnomaly) changes.isAnomaly = nextIsAnomaly;
+    // Note: isAnomaly change is handled by the second pass below.
 
     if (Object.keys(changes).length > 0) {
       updates.push({ id: current.id, changes });
     }
   }
 
-  // Second pass: use the prediction engine's skipGate() as the authoritative
-  // anomaly detector. This replaces the old sample-mean ± 2.5σ approach, which
-  // could flag different observations than the engine's running-variance skip gate,
-  // creating inconsistent state between DB isAnomaly flags and what the model uses.
+  // Second pass: use the prediction engine's skipGate() as the SOLE anomaly
+  // detector. skipGate() is the single source of truth for what counts as
+  // anomalous — it uses running variance from exponential smoothing, which
+  // may flag different observations than a simple sample-mean ± kσ approach.
   //
   // We run skipGate() over cycles in chronological order, feeding each cycle's
-  // length through the gate with the running smoothed value and variance from the
-  // engine's exponentialSmooth. This ensures the DB anomaly flags are always
-  // derived from the same logic the prediction engine uses.
+  // length through the gate with the running smoothed value and variance from
+  // the engine's exponentialSmooth. This ensures the DB isAnomaly flags match
+  // exactly what the prediction engine used when computing smoothed values.
   if (cycleLengths.length >= 2) {
-    // Build a running smoothed value and variance to mirror what exponentialSmooth
-    // would compute at each point. We iterate the same cycle-length sequence the
-    // engine would see.
     let smoothed = cycleLengths[0];
     let variance = 0;
     const residuals: number[] = [];
@@ -553,25 +545,35 @@ export async function refreshCycleAnalytics(
       }
 
       // Run the same skip gate the prediction engine uses
-      const { isAnomaly } = skipGate(cl, smoothed, variance, conditions);
+      const { isAnomaly } = skipGate(
+        cl,
+        smoothed,
+        variance,
+        conditions,
+        perimenoStage,
+      );
 
-      if (isAnomaly && !rows[i].isAnomaly) {
-        rows[i] = { ...rows[i], isAnomaly: true };
+      // Update anomaly flag: set if skipGate says so, clear if it doesn't
+      const prevAnomaly = rows[i].isAnomaly;
+      rows[i] = { ...rows[i], isAnomaly };
+
+      if (prevAnomaly !== isAnomaly) {
         const existing = updates.find((u) => u.id === rows[i].id);
         if (existing) {
-          existing.changes.isAnomaly = true;
+          existing.changes.isAnomaly = isAnomaly;
         } else {
-          updates.push({ id: rows[i].id, changes: { isAnomaly: true } });
+          updates.push({ id: rows[i].id, changes: { isAnomaly } });
         }
       }
 
       // Mirror exponentialSmooth's update logic so smoothed/variance stay in sync
-      const alpha = computeAdaptiveAlphaFromResiduals(residuals.slice(-5));
+      const alpha = computeAdaptiveAlpha(residuals.slice(-5));
       const { value: gatedVal, isAnomaly: wasAnomaly } = skipGate(
         cl,
         smoothed,
         variance,
         conditions,
+        perimenoStage,
       );
       const diff = gatedVal - smoothed;
       variance = (1 - alpha) * (variance + alpha * diff * diff);
@@ -625,25 +627,29 @@ async function getPredictionParamMap(userId: string) {
 function buildPredictionPayload(
   analytics: AnalyticsResult,
   conditions: string[] = [],
+  perimenoStage?: "early" | "late" | "unknown",
 ) {
   const cyclePrediction = predictNextCycle(
     analytics.cycleLengths,
     "cycleLength",
     conditions,
+    perimenoStage,
   );
   const periodPrediction = predictNextCycle(
     analytics.periodLengths,
     "periodLength",
     conditions,
+    perimenoStage,
   );
   const lutealPrediction = predictNextCycle(
     analytics.lutealLengths,
     "lutealLength",
     conditions,
+    perimenoStage,
   );
 
   // For hormonal BC users, don't predict ovulation (it's suppressed)
-  const effectivePrior = resolveEffectivePrior(conditions);
+  const effectivePrior = resolveEffectivePrior({ conditions, perimenoStage });
   const ovulationSuppressed =
     effectivePrior.anovulatoryCommon && conditions.includes("hormonal_bc");
 
@@ -680,27 +686,41 @@ function buildAveragesFromParams(
   paramMap: Partial<Record<PredictionParamName, PredictionParamRow>>,
   analytics: AnalyticsResult,
   conditions: string[] = [],
+  perimenoStage?: "early" | "late" | "unknown",
 ) {
   return {
     cycleLength:
       paramMap.cycle_length?.smoothedValue ??
-      predictNextCycle(analytics.cycleLengths, "cycleLength", conditions)
-        .predicted,
+      predictNextCycle(
+        analytics.cycleLengths,
+        "cycleLength",
+        conditions,
+        perimenoStage,
+      ).predicted,
     periodLength:
       paramMap.period_length?.smoothedValue ??
-      predictNextCycle(analytics.periodLengths, "periodLength", conditions)
-        .predicted,
+      predictNextCycle(
+        analytics.periodLengths,
+        "periodLength",
+        conditions,
+        perimenoStage,
+      ).predicted,
     follicularLength:
       paramMap.follicular?.smoothedValue ??
       predictNextCycle(
         analytics.follicularLengths,
         "follicularLength",
         conditions,
+        perimenoStage,
       ).predicted,
     lutealLength:
       paramMap.luteal?.smoothedValue ??
-      predictNextCycle(analytics.lutealLengths, "lutealLength", conditions)
-        .predicted,
+      predictNextCycle(
+        analytics.lutealLengths,
+        "lutealLength",
+        conditions,
+        perimenoStage,
+      ).predicted,
   };
 }
 
@@ -710,6 +730,7 @@ export async function logPeriodStartEntry(args: {
   timeZone: string;
   notes?: string;
   conditions?: string[];
+  perimenoStage?: PerimenoStage;
 }) {
   const normalized = normalizeDateInput(args.date, args.timeZone);
   if (!normalized.isoDate) {
@@ -726,6 +747,7 @@ export async function logPeriodStartEntry(args: {
   const analytics = await refreshCycleAnalytics(
     args.userId,
     args.conditions ?? [],
+    args.perimenoStage,
   );
   const existing = analytics.cycles.find(
     (row) => row.mStart === normalized.isoDate,
@@ -746,6 +768,7 @@ export async function logPeriodStartEntry(args: {
     const refreshed = await refreshCycleAnalytics(
       args.userId,
       args.conditions ?? [],
+      args.perimenoStage,
     );
     const cycle =
       refreshed.cycles.find((row) => row.id === existing.id) ?? existing;
@@ -778,6 +801,7 @@ export async function logPeriodStartEntry(args: {
   const refreshed = await refreshCycleAnalytics(
     args.userId,
     args.conditions ?? [],
+    args.perimenoStage,
   );
   const cycle =
     refreshed.cycles.find((row) => row.id === inserted[0].id) ??
@@ -801,6 +825,7 @@ export async function logPeriodEndEntry(args: {
   timeZone: string;
   notes?: string;
   conditions?: string[];
+  perimenoStage?: PerimenoStage;
 }) {
   const normalized = normalizeDateInput(args.date, args.timeZone);
   if (!normalized.isoDate) {
@@ -817,6 +842,7 @@ export async function logPeriodEndEntry(args: {
   const analytics = await refreshCycleAnalytics(
     args.userId,
     args.conditions ?? [],
+    args.perimenoStage,
   );
   const target = analytics.cycles
     .slice()
@@ -855,6 +881,7 @@ export async function logPeriodEndEntry(args: {
   const refreshed = await refreshCycleAnalytics(
     args.userId,
     args.conditions ?? [],
+    args.perimenoStage,
   );
   const cycle = refreshed.cycles.find((row) => row.id === target.id) ?? target;
 
@@ -875,6 +902,7 @@ export async function logOvulationEntry(args: {
   timeZone: string;
   notes?: string;
   conditions?: string[];
+  perimenoStage?: PerimenoStage;
 }) {
   const normalized = normalizeDateInput(args.date, args.timeZone);
   if (!normalized.isoDate) {
@@ -891,6 +919,7 @@ export async function logOvulationEntry(args: {
   const analytics = await refreshCycleAnalytics(
     args.userId,
     args.conditions ?? [],
+    args.perimenoStage,
   );
   const target = analytics.cycles
     .slice()
@@ -929,6 +958,7 @@ export async function logOvulationEntry(args: {
   const refreshed = await refreshCycleAnalytics(
     args.userId,
     args.conditions ?? [],
+    args.perimenoStage,
   );
   const cycle = refreshed.cycles.find((row) => row.id === target.id) ?? target;
 
@@ -950,6 +980,7 @@ export async function addCycleNoteEntry(args: {
   date?: string;
   symptoms?: string[];
   conditions?: string[];
+  perimenoStage?: PerimenoStage;
 }) {
   const noteText = args.note.trim();
   const symptoms = (args.symptoms ?? [])
@@ -983,6 +1014,7 @@ export async function addCycleNoteEntry(args: {
   const analytics = await refreshCycleAnalytics(
     args.userId,
     args.conditions ?? [],
+    args.perimenoStage,
   );
   const target =
     analytics.cycles
@@ -1023,6 +1055,7 @@ export async function addCycleNoteEntry(args: {
   const refreshed = await refreshCycleAnalytics(
     args.userId,
     args.conditions ?? [],
+    args.perimenoStage,
   );
   const cycle = refreshed.cycles.find((row) => row.id === target.id) ?? target;
 
@@ -1038,10 +1071,12 @@ export async function fetchRecentCyclesEntry(args: {
   userId: string;
   limit: number;
   conditions?: string[];
+  perimenoStage?: PerimenoStage;
 }) {
   const analytics = await refreshCycleAnalytics(
     args.userId,
     args.conditions ?? [],
+    args.perimenoStage,
   );
   const recentCycles = analytics.cycles
     .slice(-args.limit)
@@ -1070,10 +1105,12 @@ export async function getCycleInsightsEntry(args: {
   timeZone: string;
   mode: "stats" | "prediction";
   conditions?: string[];
+  perimenoStage?: PerimenoStage;
 }) {
   const analytics = await refreshCycleAnalytics(
     args.userId,
     args.conditions ?? [],
+    args.perimenoStage,
   );
   const paramMap = await getPredictionParamMap(args.userId);
   const hasCycles = analytics.cycles.length > 0;
@@ -1082,11 +1119,16 @@ export async function getCycleInsightsEntry(args: {
     ? summarizeCycle(analytics.cycles.at(-1) as CycleRow)
     : null;
 
-  const predictions = buildPredictionPayload(analytics, args.conditions ?? []);
+  const predictions = buildPredictionPayload(
+    analytics,
+    args.conditions ?? [],
+    args.perimenoStage,
+  );
   const averages = buildAveragesFromParams(
     paramMap,
     analytics,
     args.conditions ?? [],
+    args.perimenoStage,
   );
 
   if (!hasCycles) {

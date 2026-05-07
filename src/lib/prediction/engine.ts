@@ -8,6 +8,8 @@ export type ConditionId =
   | "hormonal_bc"
   | "irregular"
   | "perimenopause"
+  | "perimenopause_early"
+  | "perimenopause_late"
   | "none";
 
 export interface ConditionPrior {
@@ -30,16 +32,18 @@ export interface ConditionPrior {
 // ─── Reference (general population) prior ─────────────────────────
 // Updated with better evidence: Najmabadi et al. pooled 3 prospective
 // cohorts of 581 eumenorrheic women, 3,324 cycles (Perplexity research).
-const POPULATION_PRIOR = {
+export const POPULATION_PRIOR = {
   cycleLength: { mean: 30.3, variance: 44.89 }, // σ≈6.7d
   periodLength: { mean: 6.2, variance: 2.25 }, // σ≈1.5d
   follicularLength: { mean: 18.5, variance: 42.25 }, // σ≈6.5d
-  lutealLength: { mean: 12.0, variance: 7.84 }, // σ≈2.8d
+  // Najmabadi et al. pooled cohort: 11.7d mean (SD 2.8).
+  // Source: Najmabadi S, et al. Paediatric Perinatal Epidemiol. 2020;34(3):318-327.
+  lutealLength: { mean: 11.7, variance: 7.84 }, // σ≈2.8d
 };
 
 // ─── Condition-specific priors ─────────────────────────────────────
-// Sources: ChatGPT Deep Research, Gemini Deep Research, Perplexity Deep Research.
-// See /research/ directory for full citations.
+// Sources: primary literature cited below. See /research/ directory for
+// the AI-assisted research documents that originally surfaced these sources.
 //
 // Key references:
 // - PCOS cycle length: Nutrients 2026 hypocaloric-diet trial (MCL 51±15d in PCOS vs 30±2 in controls)
@@ -54,7 +58,9 @@ export const CONDITION_PRIORS: Record<ConditionId, ConditionPrior> = {
     cycleLength: { mean: 30.3, variance: 44.89 },
     periodLength: { mean: 6.2, variance: 2.25 },
     follicularLength: { mean: 18.5, variance: 42.25 },
-    lutealLength: { mean: 12.0, variance: 7.84 },
+    // Najmabadi et al. pooled cohort: 11.7d mean (SD 2.8).
+    // Source: Najmabadi S, et al. Paediatric Perinatal Epidemiol. 2020;34(3):318-327.
+    lutealLength: { mean: 11.7, variance: 7.84 },
     maxCycleLength: 45,
     anovulatoryCommon: false,
     note: "Regular ovulatory cycles with typical population variance.",
@@ -169,6 +175,8 @@ export const CONDITION_PRIORS: Record<ConditionId, ConditionPrior> = {
     // Wide variance, increasing over time. Many anovulatory cycles.
     // Luteal ~14d when ovulation occurs, but ovulation often skips.
     // This is the "unknown" stage fallback — moderate mean, wide variance.
+    // NOTE: This key is a backward-compatibility alias for perimenopause_early.
+    // New users should select perimenopause_early or perimenopause_late instead.
     cycleLength: { mean: 45, variance: 400 }, // σ=20d — very wide, age-dependent
     periodLength: { mean: 6, variance: 4 }, // σ=2d — often heavier/longer
     follicularLength: { mean: 31, variance: 225 }, // σ=15d — highly variable
@@ -182,6 +190,43 @@ export const CONDITION_PRIORS: Record<ConditionId, ConditionPrior> = {
       "Do NOT flag cycles under 120 days as missed logs. " +
       "Ovulation predictions are unreliable; be transparent about high uncertainty.",
   },
+
+  /**
+   * Early perimenopause sub-condition.
+   * Corresponds to ~-4yr to -2yr before final menstrual period (Holman 2006).
+   * Cycles still close to normal but increasing variance.
+   */
+  perimenopause_early: {
+    cycleLength: { mean: 30, variance: 64 }, // σ≈8d, ~-4yr to -2yr (Holman 2006)
+    periodLength: { mean: 6, variance: 4 },
+    follicularLength: { mean: 17, variance: 64 },
+    lutealLength: { mean: 13, variance: 9 },
+    maxCycleLength: 60,
+    anovulatoryCommon: false,
+    note:
+      "Early perimenopause: cycles still close to normal but becoming irregular. " +
+      "Some anovulatory cycles. Cycle length around 30d but variance increasing. " +
+      "Do NOT flag cycles under 60 days as missed logs.",
+  },
+
+  /**
+   * Late perimenopause sub-condition.
+   * Corresponds to ~-2yr to -1yr before final menstrual period (Holman 2006).
+   * Very long, irregular cycles. Ovulation rare.
+   */
+  perimenopause_late: {
+    cycleLength: { mean: 80, variance: 900 }, // σ=30d, ~-2yr to -1yr (Holman 2006)
+    periodLength: { mean: 6, variance: 9 },
+    follicularLength: { mean: 60, variance: 625 },
+    lutealLength: { mean: 13, variance: 9 },
+    maxCycleLength: 180,
+    anovulatoryCommon: true,
+    note:
+      "Late perimenopause: very long, irregular cycles near menopause. " +
+      "Ovulation rare. Cycle length around 80d with extreme variance. " +
+      "Do NOT flag cycles under 180 days as missed logs. " +
+      "Ovulation predictions are highly unreliable.",
+  },
 };
 
 // ─── Perimenopause sub-priors (Holman 2006) ────────────────────────
@@ -189,20 +234,20 @@ export const CONDITION_PRIORS: Record<ConditionId, ConditionPrior> = {
 // transition with dramatically shifting parameters. These sub-priors
 // capture early (~-4yr) and late (~-1yr) stages.
 
-/** Early perimenopause: cycles still close to normal but increasing variance. ~-4yr before menopause. */
+/** Early perimenopause: cycles still close to normal but increasing variance. ~-4yr to -2yr before menopause (Holman 2006). */
 export const PERIMENOPAUSE_EARLY: ConditionPrior = {
-  cycleLength: { mean: 30, variance: 100 }, // σ=10d, ~-4yr
+  cycleLength: { mean: 30, variance: 64 }, // σ≈8d, ~-4yr to -2yr (Holman 2006)
   periodLength: { mean: 6, variance: 4 },
   follicularLength: { mean: 17, variance: 64 },
   lutealLength: { mean: 13, variance: 9 },
   maxCycleLength: 60,
-  anovulatoryCommon: true,
+  anovulatoryCommon: false,
   note: "Early perimenopause: cycles still close to normal but increasing variance.",
 };
 
-/** Late perimenopause: very long, irregular cycles near menopause. Ovulation rare. ~-1yr before menopause. */
+/** Late perimenopause: very long, irregular cycles near menopause. Ovulation rare. ~-2yr to -1yr before menopause (Holman 2006). */
 export const PERIMENOPAUSE_LATE: ConditionPrior = {
-  cycleLength: { mean: 75, variance: 900 }, // σ=30d, ~-1yr
+  cycleLength: { mean: 80, variance: 900 }, // σ=30d, ~-2yr to -1yr (Holman 2006)
   periodLength: { mean: 6, variance: 9 },
   follicularLength: { mean: 60, variance: 625 },
   lutealLength: { mean: 13, variance: 9 },
@@ -238,8 +283,15 @@ export interface ResolvePriorOptions {
 }
 
 /**
- * Compute inverse-variance weighted blend of two metric distributions.
- * Returns the blended mean and combined inverse-variance.
+ * Compute inverse-variance weighted blend of metric distributions.
+ *
+ * For multiple conditions, the blended variance accounts for both
+ * within-condition uncertainty and between-condition spread:
+ *   blended_mean = Σ(w_i * μ_i) / Σ(w_i), where w_i = 1/σ²_i
+ *   blended_variance = 1 / Σ(w_i) + Σ(w_i * (μ_i - blended_mean)²) / Σ(w_i)
+ *
+ * The second term captures the spread between condition means, which a
+ * simple inverse-variance pool would underestimate.
  */
 function blendMetric(
   distributions: Array<{ mean: number; variance: number }>,
@@ -261,7 +313,19 @@ function blendMetric(
   }
 
   const blendedMean = sumWeightedMean / sumInverseVariance;
-  const blendedVariance = 1 / sumInverseVariance;
+
+  // Between-condition spread term: Σ(w_i * (μ_i - blended_mean)²) / Σ(w_i)
+  // This ensures the blended variance reflects not just the pooled uncertainty
+  // but also how far apart the condition means are from each other.
+  let spreadSum = 0;
+  for (const d of distributions) {
+    const invVar = 1 / Math.max(d.variance, 0.001);
+    spreadSum += invVar * Math.pow(d.mean - blendedMean, 2);
+  }
+  const betweenSpread = spreadSum / sumInverseVariance;
+
+  // Total variance = inverse-variance pool + between-condition spread
+  const blendedVariance = 1 / sumInverseVariance + betweenSpread;
 
   return { mean: blendedMean, variance: blendedVariance };
 }
@@ -270,13 +334,27 @@ function blendMetric(
  * Resolve the effective prior for a user's condition set using
  * inverse-variance weighted mixture blending.
  *
+ * When a user has multiple conditions (excluding `hormonal_bc` override),
+ * this computes a blended prior as an inverse-variance weighted mixture
+ * of all active condition priors:
+ *   blended_mean = Σ(w_i * μ_i) / Σ(w_i), where w_i = 1/σ²_i
+ *   blended_variance = 1 / Σ(w_i) + Σ(w_i * (μ_i - blended_mean)²) / Σ(w_i)
+ *
+ * The second variance term accounts for between-condition spread, which
+ * a simple inverse-variance pool would underestimate.
+ *
+ * NOTE: This mixture still assumes approximate Gaussianity and may
+ * underestimate tails for heavily right-skewed conditions like PCOS,
+ * where the true distribution has a long right tail. Users with
+ * bimodal condition combinations (e.g. endometriosis + thyroid) will
+ * get a mean between the two modes, which may not match either well.
+ *
  * - Hormonal BC overrides everything (cycle mechanics fundamentally different).
- * - For multiple conditions, blends their priors using inverse-variance weighting
- *   for each metric independently.
  * - maxCycleLength: MAX across all active conditions (widest safe gate).
  * - anovulatoryCommon: OR across all active conditions.
  * - note: concatenated from all conditions, separated by newline.
- * - Perimenopause sub-priors are used based on perimenoStage metadata.
+ * - Perimenopause sub-priors are resolved based on perimenoStage metadata
+ *   or direct condition ID (perimenopause_early / perimenopause_late).
  */
 export function resolveEffectivePrior(
   conditionsOrOptions: string[] | ResolvePriorOptions,
@@ -302,7 +380,12 @@ export function resolveEffectivePrior(
   for (const id of conditions) {
     if (id === "none") continue;
     if (id === "perimenopause") {
+      // Legacy "perimenopause" key — resolve via stage metadata or fallback
       activePriors.push(resolvePerimenopausePrior(perimenoStage));
+    } else if (id === "perimenopause_early") {
+      activePriors.push(PERIMENOPAUSE_EARLY);
+    } else if (id === "perimenopause_late") {
+      activePriors.push(PERIMENOPAUSE_LATE);
     } else {
       const prior = CONDITION_PRIORS[id as ConditionId];
       if (prior) activePriors.push(prior);
@@ -363,14 +446,17 @@ export function getSkipThreshold(
 }
 
 // ─── Smoothing constants ──────────────────────────────────────────
-const ALPHA_MIN = 0.1;
-const ALPHA_MAX = 0.5;
-const KAPPA = 5.0; // MAD scale for adaptive alpha
+export const ALPHA_MIN = 0.1;
+export const ALPHA_MAX = 0.5;
+export const KAPPA = 5.0; // MAD scale for adaptive alpha
 const DEFAULT_SKIP_THRESHOLD = 45; // fallback when no conditions
 export const OUTLIER_SIGMA = 2.5; // soft-clamp gate width
 
-// Adaptive alpha based on recent residual MAD
-function computeAdaptiveAlpha(residuals: number[]): number {
+/**
+ * Compute adaptive smoothing alpha based on recent residual mean absolute deviation.
+ * Higher MAD → higher alpha (faster adaptation). Lower MAD → lower alpha (smoother).
+ */
+export function computeAdaptiveAlpha(residuals: number[]): number {
   if (residuals.length === 0) return 0.3; // cold start default
   const mad = residuals.reduce((a, b) => a + Math.abs(b), 0) / residuals.length;
   return ALPHA_MIN + (ALPHA_MAX - ALPHA_MIN) * (mad / (mad + KAPPA));
