@@ -50,6 +50,7 @@ export const users = pgTable("users", {
   onboardingVersion: integer("onboarding_version").default(0),
   dobEditCount: integer("dob_edit_count").default(0),
   conditions: jsonb("conditions").default([]), // e.g. ["pcos", "endometriosis"]
+  perimenoStage: text("perimeno_stage"), // "early" | "late" | "unknown" — only when perimenopause is in conditions
   pushNotificationsEnabled: boolean("push_notifications_enabled").default(
     false,
   ),
@@ -150,6 +151,9 @@ export const chatSummaries = pgTable("chat_summaries", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
+// NOTE: Images are stored as base64 in PostgreSQL. This works for low volume
+// but becomes a performance bottleneck at scale. Consider migrating to
+// object storage (e.g., Vercel Blob, Cloudflare R2, S3) for production use.
 export const uploadedImages = pgTable("uploaded_images", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: text("user_id")
