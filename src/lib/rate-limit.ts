@@ -1,10 +1,11 @@
 /**
- * In-memory rate limiter — no Redis required.
- * Uses a sliding-window counter per key.
+ * WARNING: This rate limiter is in-memory and per-process only.
+ * In serverless or multi-instance deployments (e.g., Vercel), each
+ * instance maintains its own counter. Limits can be bypassed by
+ * distributing requests across instances.
  *
- * Note: This rate limiting is per-process. In a serverless environment
- * with multiple instances, limits apply per-instance. This is still
- * effective at preventing basic brute-force and abuse attacks.
+ * For production rate limiting, replace with a Redis-backed solution
+ * (e.g., Upstash Redis with sliding window) that shares state across instances.
  */
 
 interface RateLimitEntry {
@@ -15,14 +16,17 @@ interface RateLimitEntry {
 const store = new Map<string, RateLimitEntry>();
 
 // Cleanup expired entries every 5 minutes to prevent memory leaks
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of store) {
-    if (entry.resetAt <= now) {
-      store.delete(key);
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, entry] of store) {
+      if (entry.resetAt <= now) {
+        store.delete(key);
+      }
     }
-  }
-}, 5 * 60 * 1000);
+  },
+  5 * 60 * 1000,
+);
 
 export interface RateLimitResult {
   success: boolean;
