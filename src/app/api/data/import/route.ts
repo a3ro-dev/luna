@@ -4,6 +4,7 @@ import { cycles, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { refreshCycleAnalytics } from "@/lib/cycle-tools";
+import type { PerimenoStage } from "@/lib/prediction/engine";
 
 // ─── Supported formats ───────────────────────────────────────────────
 // 1. "luna"              — Luna's own JSON export
@@ -434,12 +435,14 @@ export async function POST(req: Request) {
     // prediction engine immediately "sees" the imported data.
     const userRow = await db.query.users.findFirst({
       where: eq(users.id, session.user.id!),
-      columns: { conditions: true },
+      columns: { conditions: true, perimenoStage: true },
     });
     const conditions: string[] = Array.isArray(userRow?.conditions)
       ? (userRow.conditions as string[])
       : [];
-    await refreshCycleAnalytics(session.user.id!, conditions);
+    const perimenoStage =
+      (userRow?.perimenoStage as PerimenoStage | undefined) ?? undefined;
+    await refreshCycleAnalytics(session.user.id!, conditions, perimenoStage);
 
     return NextResponse.json(
       {
