@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.8.0",
+    date: "2026-05-07",
+    type: "refactor",
+    title:
+      "Chat UI overhaul: memoized components, scroll perf, mobile keyboard safety, session switching",
+    description:
+      "Split the 700-line monolith page.tsx into 7 memoized sub-components (ChatHeader, ChatSidebar, MobileSidebar, MessageList, ChatComposer, AssistantMessage, UserMessage). Fixed session switching to prevent empty flash by keeping old messages until new ones load then swapping atomically. Replaced Framer Motion on non-essential elements with CSS animations. Removed triple backdrop-blur-xl stack (now single blur on header). Added overscroll-contain on scroll container. Coalesced scroll state updates via requestAnimationFrame instead of setState on every scroll event. Made composer keyboard-safe with safe-area-inset-bottom and dvh viewport. Removed will-change-transform from 10+ elements. Removed infinite scale animation on logo. Added prefers-reduced-motion safety. Reduced nav text from 10px to 12px. Used next/image for all chat images.",
+  },
+  {
     version: "0.7.4",
     date: "2026-05-07",
     type: "fix",
