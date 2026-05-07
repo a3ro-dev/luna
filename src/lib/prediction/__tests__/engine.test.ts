@@ -6,6 +6,7 @@ import {
   resolveEffectivePrior,
   predictNextCycle,
   calculateJackknifeCI,
+  deriveFollicularLength,
   CONDITION_PRIORS,
   PERIMENOPAUSE_EARLY,
   PERIMENOPAUSE_LATE,
@@ -98,9 +99,21 @@ describe("skipGate", () => {
   });
 
   it("uses condition-specific maxCycleLength threshold", () => {
-    // PCOS has maxCycleLength=120. Value 100 should not trigger the max threshold.
-    const result = skipGate(100, 28, 4, ["pcos"]);
-    expect(result.isAnomaly).toBe(false); // 100 < 120
+    // PCOS has maxCycleLength=120. A value of 100 is below 120,
+    // so the max threshold does NOT fire. However, the soft-clamp may
+    // still fire if the value is far from the smoothed estimate.
+    // To test the max threshold specifically, use a value that:
+    //   - exceeds the default threshold (45) — so it WOULD be flagged without PCOS
+    //   - is below the PCOS threshold (120)
+    //   - is within 2.5σ of the smoothed estimate — so soft-clamp doesn't fire
+    // With smoothed=80, variance=400 (σ=20), 2.5σ=50 → band is [30, 130]
+    // Value 100 is within band, and below 120 threshold.
+    const result = skipGate(100, 80, 400, ["pcos"]);
+    expect(result.isAnomaly).toBe(false); // 100 < 120 AND within 2.5σ
+
+    // Same value without PCOS should trigger the max threshold (100 > 45)
+    const noConditionResult = skipGate(100, 80, 400, []);
+    expect(noConditionResult.isAnomaly).toBe(true); // 100 > 45
   });
 
   it("soft-clamps negative outliers too", () => {
@@ -139,11 +152,15 @@ describe("exponentialSmooth", () => {
     const stable = [28, 28, 28, 28, 28];
     const stableAlpha = computeAdaptiveAlpha(getResiduals(stable));
 
-    // Then: spike sequence → high α
-    const spiky = [28, 28, 28, 28, 60];
-    const spikyAlpha = computeAdaptiveAlpha(getResiduals(spiky, ["pcos"]));
+    // Then: slightly varying sequence → higher α
+    // Note: a single large spike (e.g. [28,28,28,28,60]) gets soft-clamped
+    // by skipGate when variance is low, so its residual is excluded.
+    // To produce higher MAD, use a sequence where all observations differ
+    // moderately from each other, passing the soft-clamp gate.
+    const varying = [25, 30, 26, 33, 28];
+    const varyingAlpha = computeAdaptiveAlpha(getResiduals(varying));
 
-    expect(spikyAlpha).toBeGreaterThan(stableAlpha);
+    expect(varyingAlpha).toBeGreaterThan(stableAlpha);
   });
 
   it("anomaly-gated observations do NOT contribute residuals to MAD", () => {
@@ -368,13 +385,17 @@ describe("predictNextCycle", () => {
     expect(result.predicted).toBe(28);
   });
 
-  it("cold start with hormonal_bc: no follicular/luteal predictions (null priors)", () => {
-    const follicularResult = predictNextCycle([], "follicularLength", [
-      "hormonal_bc",
-    ]);
-    // hormonal_bc has null follicularLength, so it falls back to POPULATION_PRIOR
-    // This is expected behavior — the caller should check anovulatoryCommon.
-    expect(follicularResult.predicted).toBeDefined();
+  it("cold start with hormonal_bc: deriveFollicularLength returns null (no luteal)", () => {
+    // hormonal BC users have no luteal phase, so derived follicular is null
+    const cycleResult = predictNextCycle([], "cycleLength", ["hormonal_bc"]);
+    const periodResult = predictNextCycle([], "periodLength", ["hormonal_bc"]);
+    // luteal is null for hormonal BC, so derived follicular should be null
+    const derived = deriveFollicularLength(
+      cycleResult.predicted,
+      periodResult.predicted,
+      null,
+    );
+    expect(derived).toBeNull();
   });
 
   it("returns ciReliable=false when n=0 (no data)", () => {
@@ -493,5 +514,55 @@ describe("POPULATION_PRIOR", () => {
 
   it("lutealLength.variance is 7.84 (SD 2.8)", () => {
     expect(POPULATION_PRIOR.lutealLength.variance).toBeCloseTo(7.84, 1);
+  });
+});
+
+// ─── deriveFollicularLength ────────────────────────────────────────
+
+describe("deriveFollicularLength", () => {
+  it("derives follicular from cycle, period, and luteal: cycleLength + 1 - periodLength - lutealLength", () => {
+    // Example: 30-day cycle, 5-day period, 12-day luteal
+    // follicular = 30 + 1 - 5 - 12 = 14
+    expect(deriveFollicularLength(30, 5, 12)).toBe(14);
+  });
+
+  it("returns null if lutealLength is null (e.g. hormonal BC)", () => {
+    expect(deriveFollicularLength(28, 5, null)).toBeNull();
+  });
+
+  it("returns null if cycleLength is null", () => {
+    expect(deriveFollicularLength(null, 5, 12)).toBeNull();
+  });
+
+  it("returns null if periodLength is null", () => {
+    expect(deriveFollicularLength(30, null, 12)).toBeNull();
+  });
+
+  it("returns null if all inputs are null", () => {
+    expect(deriveFollicularLength(null, null, null)).toBeNull();
+  });
+
+  it("can return negative values (indicating inconsistent inputs)", () => {
+    // If the three smoothed values are inconsistent, the derivation
+    // will produce a negative follicular length. This is a signal that
+    // the inputs need investigation, not a bug in the derivation.
+    expect(deriveFollicularLength(20, 10, 15)).toBe(-4);
+  });
+
+  it("with population priors: 30.3 + 1 - 6.2 - 11.7 = 13.4", () => {
+    // The derived value from population priors is 13.4,
+    // which differs from the Najmabadi follicular prior of 18.5.
+    // This is because the original prior was independently estimated
+    // and did not enforce the phase coupling constraint.
+    expect(deriveFollicularLength(30.3, 6.2, 11.7)).toBeCloseTo(13.4, 1);
+  });
+
+  it("enforces phase coupling constraint: cycleLength + 1 = periodLength + follicularLength + lutealLength", () => {
+    const cycle = 32;
+    const period = 5;
+    const luteal = 14;
+    const follicular = deriveFollicularLength(cycle, period, luteal)!;
+    // The constraint: periodLength + follicularLength + lutealLength = cycleLength + 1
+    expect(period + follicular + luteal).toBe(cycle + 1);
   });
 });

@@ -9,14 +9,14 @@
 
 ### What I inspected
 
-1. Read all 442 lines of the prediction engine ([engine.ts, L1-442](../src/lib/prediction/engine.ts#L1-L442)) -- functions, constants, priors, everything.
+1. Read all 779 lines of the prediction engine ([engine.ts, L1-756](../src/lib/prediction/engine.ts#L1-L756)) -- functions, constants, priors, everything.
 
-2. Read the outline and main functions of cycle tools ([cycle-tools.ts, L1-1084](../src/lib/cycle-tools.ts#L1-L1084)): `refreshCycleAnalytics`, `refreshPredictionParam`, `buildPredictionPayload`, `buildAveragesFromParams`, all tool entry functions.
+2. Read the outline and main functions of cycle tools ([cycle-tools.ts, L1-1159](../src/lib/cycle-tools.ts#L1-L1159)): `refreshCycleAnalytics`, `refreshPredictionParam`, `buildPredictionPayload`, `buildAveragesFromParams`, all tool entry functions.
 
-3. Read the full chat API ([route.ts, L1-800](../src/app/api/chat/route.ts#L1-L800)): context assembly logic, tool definitions, streaming setup, AI tracing, summarization, image handling.
+3. Read the full chat API ([route.ts, L1-853](../src/app/api/chat/route.ts#L1-L853)): context assembly logic, tool definitions, streaming setup, AI tracing, summarization, image handling.
 
 4. All supporting files:
-   - [schema.ts, L1-164](../src/lib/db/schema.ts#L1-L164) -- 8 tables, custom `pgDate` type
+   - [schema.ts, L1-168](../src/lib/db/schema.ts#L1-L168) -- 8 tables, perimenoStage, custom `pgDate` type
    - [prompt.ts, L1-333](../src/lib/chat/prompt.ts#L1-L333) -- OpenUI system prompt
    - [models.ts, L1-76](../src/lib/chat/models.ts#L1-L76) -- plan-tier persona configs
    - [openui.ts, L1-4](../src/lib/chat/openui.ts#L1-L4) -- single regex check
@@ -33,10 +33,10 @@
    - [package.json, L1-89](../package.json#L1-L89) -- dependencies
 
 5. API routes:
-   - [import/route.ts, L1-459](../src/app/api/data/import/route.ts#L1-L459) -- 5-format import
+   - [import/route.ts, L1-462](../src/app/api/data/import/route.ts#L1-L462) -- 5-format import
    - [export/route.ts, L1-31](../src/app/api/data/export/route.ts#L1-L31) -- JSON export
-   - [profile/route.ts, L1-219](../src/app/api/user/profile/route.ts#L1-L219) -- profile CRUD
-   - [onboarding/route.ts, L1-122](../src/app/api/user/onboarding/route.ts#L1-L122) -- onboarding flow
+   - [profile/route.ts, L1-227](../src/app/api/user/profile/route.ts#L1-L227) -- profile CRUD
+   - [onboarding/route.ts, L1-132](../src/app/api/user/onboarding/route.ts#L1-L132) -- onboarding flow
 
 6. Dashboard page ([dashboard/page.tsx, L1-334](../src/app/(app)/dashboard/page.tsx#L1-L334)) -- read the first 60 lines (server component, prediction logic).
 
@@ -244,17 +244,17 @@ v0.6.1 changelog. `/start` and landing page CTAs always redirected to `/signup` 
 
 | File | Lines | Role |
 |---|---|---|
-| [engine.ts, L1-442](../src/lib/prediction/engine.ts#L1-L442) | 442 | Core prediction engine |
-| [cycle-tools.ts, L1-1084](../src/lib/cycle-tools.ts#L1-1084) | 1084 | AI tools + cycle management |
-| [route.ts, L1-800](../src/app/api/chat/route.ts#L1-800) | 800 | Chat API + streaming |
+| [engine.ts, L1-756](../src/lib/prediction/engine.ts#L1-L756) | 779 | Core prediction engine |
+| [cycle-tools.ts, L1-1159](../src/lib/cycle-tools.ts#L1-L1159) | 1270 | AI tools + cycle management |
+| [route.ts, L1-853](../src/app/api/chat/route.ts#L1-L853) | 853 | Chat API + streaming |
 | [prompt.ts, L1-333](../src/lib/chat/prompt.ts#L1-333) | 333 | System prompt |
-| [import/route.ts, L1-459](../src/app/api/data/import/route.ts#L1-459) | 459 | Multi-format import |
+| [import/route.ts, L1-462](../src/app/api/data/import/route.ts#L1-L462) | 462 | Multi-format import |
 | [email/index.ts, L1-526](../src/lib/email/index.ts#L1-L526) | 526 | Email templates |
 | [dashboard/page.tsx, L1-334](../src/app/(app)/dashboard/page.tsx#L1-L334) | 334 | Dashboard server component |
-| [profile/route.ts, L1-219](../src/app/api/user/profile/route.ts#L1-L219) | 219 | Profile CRUD |
-| [schema.ts, L1-164](../src/lib/db/schema.ts#L1-164) | 164 | Database schema (8 tables) |
-| [changelog.ts, L1-162](../src/lib/changelog.ts#L1-162) | 162 | Version history |
-| [onboarding/route.ts, L1-122](../src/app/api/user/onboarding/route.ts#L1-L122) | 122 | Onboarding flow |
+| [profile/route.ts, L1-227](../src/app/api/user/profile/route.ts#L1-L227) | 227 | Profile CRUD |
+| [schema.ts, L1-168](../src/lib/db/schema.ts#L1-L168) | 168 | Database schema (8 tables, perimenoStage added) |
+| [changelog.ts, L1-188](../src/lib/changelog.ts#L1-L188) | 188 | Version history |
+| [onboarding/route.ts, L1-132](../src/app/api/user/onboarding/route.ts#L1-L132) | 132 | Onboarding flow |
 | [models.ts, L1-76](../src/lib/chat/models.ts#L1-76) | 76 | Plan-tier config |
 | [auth.ts, L1-76](../src/auth.ts#L1-76) | 76 | Auth.js config |
 | [images.ts, L1-73](../src/lib/chat/images.ts#L1-73) | 73 | Image storage |

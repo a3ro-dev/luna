@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.7.4",
+    date: "2026-05-07",
+    type: "fix",
+    title:
+      "Phase coupling: derive follicular length from cycle+period+luteal (drop and derive)",
+    description:
+      "Eliminated the phase coupling inconsistency where four metrics smoothed independently could violate the physiological constraint cycleLength+1 = periodLength+follicularLength+lutealLength. Now only three metrics (cycleLength, periodLength, lutealLength) are smoothed independently; follicularLength is derived as cycleLength+1-periodLength-lutealLength via deriveFollicularLength(). Updated refreshCycleAnalytics to skip smoothing follicular and instead derive+upsert it after the three independent metrics. Updated buildPredictionPayload and buildAveragesFromParams to use the derivation. Fixed two pre-existing test failures: skipGate condition-specific threshold test now accounts for soft-clamp, and adaptive alpha test uses varying sequence instead of gated spike. Added 8 tests for deriveFollicularLength. Total: 68 vitest tests.",
+  },
+  {
     version: "0.7.3",
     date: "2026-05-07",
     type: "fix",

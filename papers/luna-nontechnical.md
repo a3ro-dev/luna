@@ -101,7 +101,7 @@ If your cycles are fairly consistent, it learns slowly and smoothly -- small cha
 
 ### Condition handling
 
-If you tell Luna you have multiple conditions (say, PCOS and endometriosis), it uses the one that tends to cause the most cycle variability, since that's the one most likely to affect predictions. The one exception is hormonal birth control -- if you're on it, that always takes priority, because it directly controls your cycle length.
+If you tell Luna you have multiple conditions (say, PCOS and endometriosis), it blends all of them together, weighting each one by how certain it is. Conditions with tighter estimates get more weight. The one exception is hormonal birth control -- if you're on it, that always takes priority, because it directly controls your cycle length.
 
 ### The memory system
 
@@ -179,7 +179,7 @@ We cannot currently say any of the following about Luna:
 
 8. Is the 45-day skip gate threshold right? For the general population, the system flags cycles longer than 45 days as probably missed logs. But some people genuinely have 46-day cycles. We don't know whether this threshold causes false positives.
 
-9. Is "most disruptive condition wins" the right rule? When someone has multiple conditions, Luna uses the one with the highest cycle-length variance. Whether this is clinically appropriate is unknown.
+9. Is the inverse-variance mixture the right rule? When someone has multiple conditions, Luna blends all their condition priors weighted by inverse variance. Whether this is clinically appropriate is unknown.
 
 ---
 

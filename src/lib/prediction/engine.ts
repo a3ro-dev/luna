@@ -656,6 +656,29 @@ export function calculateJackknifeCI(
 }
 
 // Main function to predict next cycle (condition-aware)
+// ─── Derived metric: follicular phase ───────────────────────────
+// The follicular phase length is NOT smoothed independently.
+// Instead, it is derived from the three smoothed metrics to enforce
+// the physiological constraint:
+//   cycleLength + 1 = periodLength + follicularLength + lutealLength
+//
+// The +1 arises because periodLength uses inclusive day counting
+// (diffInDays(mStart, mEnd) + 1), while the other metrics use
+// exclusive day differences. See cycle-tools.ts computeCycleDerivedColumns.
+//
+// Returns null if any of the three inputs are null/undefined
+// (e.g. hormonal BC users have no luteal phase).
+export function deriveFollicularLength(
+  cycleLength: number | null | undefined,
+  periodLength: number | null | undefined,
+  lutealLength: number | null | undefined,
+): number | null {
+  if (cycleLength == null || periodLength == null || lutealLength == null) {
+    return null;
+  }
+  return cycleLength + 1 - periodLength - lutealLength;
+}
+
 export interface PredictionResult {
   /** Point estimate for the predicted value */
   predicted: number;

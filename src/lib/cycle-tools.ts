@@ -7,7 +7,9 @@ import {
   resolveEffectivePrior,
   skipGate,
   computeAdaptiveAlpha,
+  deriveFollicularLength,
   type PerimenoStage,
+  type PredictionResult,
 } from "@/lib/prediction/engine";
 import { asc, eq, and } from "drizzle-orm";
 
@@ -43,7 +45,7 @@ const MONTHS: Record<string, number> = {
 const PARAM_TO_METRIC = {
   cycle_length: "cycleLength",
   period_length: "periodLength",
-  follicular: "follicularLength",
+  follicular: "follicularLength", // derived: cycleLength + 1 - periodLength - lutealLength
   luteal: "lutealLength",
 } as const;
 
@@ -596,9 +598,88 @@ export async function refreshCycleAnalytics(
   await Promise.all([
     refreshPredictionParam(userId, "cycle_length", cycleLengths, conditions),
     refreshPredictionParam(userId, "period_length", periodLengths, conditions),
-    refreshPredictionParam(userId, "follicular", follicularLengths, conditions),
     refreshPredictionParam(userId, "luteal", lutealLengths, conditions),
   ]);
+
+  // Derive follicular prediction from the three smoothed metrics
+  // to enforce the phase coupling constraint:
+  // follicularLength = cycleLength + 1 - periodLength - lutealLength
+  // The +1 arises because periodLength uses inclusive day counting.
+  const [cycleParam, periodParam, lutealParam] = await Promise.all([
+    db
+      .select()
+      .from(predictionParams)
+      .where(
+        and(
+          eq(predictionParams.userId, userId),
+          eq(predictionParams.paramName, "cycle_length"),
+        ),
+      )
+      .limit(1),
+    db
+      .select()
+      .from(predictionParams)
+      .where(
+        and(
+          eq(predictionParams.userId, userId),
+          eq(predictionParams.paramName, "period_length"),
+        ),
+      )
+      .limit(1),
+    db
+      .select()
+      .from(predictionParams)
+      .where(
+        and(
+          eq(predictionParams.userId, userId),
+          eq(predictionParams.paramName, "luteal"),
+        ),
+      )
+      .limit(1),
+  ]);
+
+  const cVal = cycleParam[0]?.smoothedValue;
+  const pVal = periodParam[0]?.smoothedValue;
+  const lVal = lutealParam[0]?.smoothedValue;
+
+  if (cVal != null && pVal != null && lVal != null) {
+    const derivedFollicular = cVal + 1 - pVal - lVal;
+    // Propagate uncertainty: variance of (A + 1 - B - C) = var(A) + var(B) + var(C)
+    // (assuming independence of the three smoothed estimates)
+    const derivedVariance =
+      (cycleParam[0]?.variance ?? 0) +
+      (periodParam[0]?.variance ?? 0) +
+      (lutealParam[0]?.variance ?? 0);
+
+    const existingFoll = await db
+      .select()
+      .from(predictionParams)
+      .where(
+        and(
+          eq(predictionParams.userId, userId),
+          eq(predictionParams.paramName, "follicular"),
+        ),
+      )
+      .limit(1);
+
+    const follValues = {
+      userId,
+      paramName: "follicular",
+      smoothedValue: derivedFollicular,
+      variance: derivedVariance,
+      sampleCount: cycleParam[0]?.sampleCount ?? 0, // same n as cycle (primary observable)
+      updatedAt: new Date(),
+    };
+
+    if (existingFoll.length > 0) {
+      await db
+        .update(predictionParams)
+        .set(follValues)
+        .where(eq(predictionParams.id, existingFoll[0].id));
+    } else {
+      await db.insert(predictionParams).values(follValues);
+    }
+  }
 
   return {
     cycles: rows,
@@ -648,6 +729,31 @@ function buildPredictionPayload(
     perimenoStage,
   );
 
+  // Derive follicular length from the three smoothed metrics to enforce
+  // the phase coupling constraint: follicularLength = cycleLength + 1 - periodLength - lutealLength
+  const follicularPrediction: PredictionResult = {
+    predicted:
+      deriveFollicularLength(
+        cyclePrediction.predicted,
+        periodPrediction.predicted,
+        lutealPrediction.predicted,
+      ) ?? 0,
+    ciLower:
+      deriveFollicularLength(
+        cyclePrediction.ciLower,
+        periodPrediction.ciUpper, // worst case: short cycle, long period
+        lutealPrediction.ciUpper,
+      ) ?? 0,
+    ciUpper:
+      deriveFollicularLength(
+        cyclePrediction.ciUpper,
+        periodPrediction.ciLower, // worst case: long cycle, short period
+        lutealPrediction.ciLower,
+      ) ?? 0,
+    n: cyclePrediction.n,
+    ciReliable: cyclePrediction.ciReliable,
+  };
+
   // For hormonal BC users, don't predict ovulation (it's suppressed)
   const effectivePrior = resolveEffectivePrior({ conditions, perimenoStage });
   const ovulationSuppressed =
@@ -675,6 +781,7 @@ function buildPredictionPayload(
   return {
     cycleLength: cyclePrediction,
     periodLength: periodPrediction,
+    follicularLength: follicularPrediction,
     lutealLength: lutealPrediction,
     nextPeriodStart,
     nextPeriodEnd,
@@ -688,39 +795,43 @@ function buildAveragesFromParams(
   conditions: string[] = [],
   perimenoStage?: "early" | "late" | "unknown",
 ) {
+  const cycleLength =
+    paramMap.cycle_length?.smoothedValue ??
+    predictNextCycle(
+      analytics.cycleLengths,
+      "cycleLength",
+      conditions,
+      perimenoStage,
+    ).predicted;
+  const periodLength =
+    paramMap.period_length?.smoothedValue ??
+    predictNextCycle(
+      analytics.periodLengths,
+      "periodLength",
+      conditions,
+      perimenoStage,
+    ).predicted;
+  const lutealLength =
+    paramMap.luteal?.smoothedValue ??
+    predictNextCycle(
+      analytics.lutealLengths,
+      "lutealLength",
+      conditions,
+      perimenoStage,
+    ).predicted;
+
+  // Derive follicular from the three smoothed metrics to enforce phase coupling
+  const follicularLength = deriveFollicularLength(
+    cycleLength,
+    periodLength,
+    lutealLength,
+  );
+
   return {
-    cycleLength:
-      paramMap.cycle_length?.smoothedValue ??
-      predictNextCycle(
-        analytics.cycleLengths,
-        "cycleLength",
-        conditions,
-        perimenoStage,
-      ).predicted,
-    periodLength:
-      paramMap.period_length?.smoothedValue ??
-      predictNextCycle(
-        analytics.periodLengths,
-        "periodLength",
-        conditions,
-        perimenoStage,
-      ).predicted,
-    follicularLength:
-      paramMap.follicular?.smoothedValue ??
-      predictNextCycle(
-        analytics.follicularLengths,
-        "follicularLength",
-        conditions,
-        perimenoStage,
-      ).predicted,
-    lutealLength:
-      paramMap.luteal?.smoothedValue ??
-      predictNextCycle(
-        analytics.lutealLengths,
-        "lutealLength",
-        conditions,
-        perimenoStage,
-      ).predicted,
+    cycleLength,
+    periodLength,
+    follicularLength,
+    lutealLength,
   };
 }
 
