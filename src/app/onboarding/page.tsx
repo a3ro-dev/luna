@@ -43,7 +43,8 @@ const CONDITIONS = [
   { id: "thyroid", label: "Thyroid" },
   { id: "hormonal_bc", label: "On birth control" },
   { id: "irregular", label: "Irregular cycles" },
-  { id: "perimenopause", label: "Perimenopause" },
+  { id: "perimenopause_early", label: "Perimenopause (early)" },
+  { id: "perimenopause_late", label: "Perimenopause (late)" },
   { id: "none", label: "None of these" },
 ];
 
@@ -80,6 +81,9 @@ export default function OnboardingPage() {
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [timezone, setTimezone] = useState("Asia/Kolkata");
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [perimenoStage, setPerimenoStage] = useState<
+    "early" | "late" | "unknown"
+  >("unknown");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -127,6 +131,11 @@ export default function OnboardingPage() {
           dateOfBirth: dateOfBirth || undefined,
           timezone,
           conditions: selectedConditions,
+          // Legacy perimenopause with stage metadata — new users use
+          // perimenopause_early / perimenopause_late directly.
+          perimenoStage: selectedConditions.includes("perimenopause")
+            ? perimenoStage
+            : undefined,
           pushNotificationsEnabled: false,
         }),
       });
@@ -325,7 +334,9 @@ export default function OnboardingPage() {
                 </motion.div>
 
                 {selectedConditions.length > 0 &&
-                  !selectedConditions.includes("none") && (
+                  !selectedConditions.includes("none") &&
+                  !selectedConditions.includes("perimenopause_early") &&
+                  !selectedConditions.includes("perimenopause_late") && (
                     <motion.p
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -334,6 +345,11 @@ export default function OnboardingPage() {
                       Luna adapts to your unique rhythm over time
                     </motion.p>
                   )}
+
+                {/* Perimenopause stage follow-up no longer needed — users select
+                    perimenopause_early or perimenopause_late directly. Legacy
+                    perimenopause condition is handled via perimenoStage in the
+                    onboarding API route. */}
               </motion.div>
             )}
           </AnimatePresence>

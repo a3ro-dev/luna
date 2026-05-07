@@ -20,7 +20,11 @@ import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { z } from "zod";
 import { logError } from "@/lib/utils";
 import { baseOpenUiPrompt } from "@/lib/chat/prompt";
-import { resolveEffectivePrior } from "@/lib/prediction/engine";
+import {
+  resolveEffectivePrior,
+  predictNextCycle,
+  type PerimenoStage,
+} from "@/lib/prediction/engine";
 import {
   addCycleNoteEntry,
   fetchRecentCyclesEntry,
@@ -29,6 +33,7 @@ import {
   logOvulationEntry,
   logPeriodEndEntry,
   logPeriodStartEntry,
+  refreshCycleAnalytics,
   resolveUserTimeZone,
   sanitizeTimeZone,
 } from "@/lib/cycle-tools";
@@ -235,12 +240,16 @@ const buildSystemPrompt = ({
   contextSnippets,
   timeZone,
   conditions = [],
+  perimenoStage,
+  ciReliable,
 }: {
   memoryContext: string;
   latestSummary?: string;
   contextSnippets: string[];
   timeZone: string;
   conditions?: string[];
+  perimenoStage?: "early" | "late" | "unknown";
+  ciReliable?: boolean;
 }) => {
   const summaryContext = latestSummary
     ? `Conversation Summary:\n${latestSummary}\n\n`
@@ -253,15 +262,19 @@ const buildSystemPrompt = ({
   // Build condition-aware context for the AI
   const conditionSection =
     conditions.length > 0 && !conditions.includes("none")
-      ? buildConditionContext(conditions)
+      ? buildConditionContext(conditions, perimenoStage, ciReliable)
       : "";
 
   return `${baseOpenUiPrompt}\n\n${summaryContext}${snippetContext}${conditionSection}User Context & Memory:\n${memoryContext}\n\nToday in the user's timezone (${timeZone}) is ${getCurrentIsoDate(timeZone)}.`;
 };
 
 // Build condition-aware context section for the system prompt
-const buildConditionContext = (conditions: string[]): string => {
-  const prior = resolveEffectivePrior(conditions);
+const buildConditionContext = (
+  conditions: string[],
+  perimenoStage?: "early" | "late" | "unknown",
+  ciReliable?: boolean,
+): string => {
+  const prior = resolveEffectivePrior({ conditions, perimenoStage });
   const conditionLabels: Record<string, string> = {
     pcos: "PCOS (Polycystic Ovary Syndrome)",
     pcod: "PCOD (Polycystic Ovarian Disease)",
@@ -270,6 +283,8 @@ const buildConditionContext = (conditions: string[]): string => {
     hormonal_bc: "On hormonal birth control",
     irregular: "Irregular cycles (unexplained)",
     perimenopause: "Perimenopause",
+    perimenopause_early: "Early perimenopause",
+    perimenopause_late: "Late perimenopause",
   };
   const labels = conditions
     .filter((c) => c !== "none")
@@ -283,7 +298,8 @@ const buildConditionContext = (conditions: string[]): string => {
     section +=
       "Because anovulatory cycles are common for this user, ovulation predictions may be unreliable. " +
       "Be transparent about uncertainty when predicting ovulation or fertile windows. " +
-      "If the user asks about ovulation, acknowledge the lower confidence and explain why.\n\n";
+      "If the user asks about ovulation, acknowledge the lower confidence and explain why. " +
+      "Do not present ovulation predictions as reliable. Explicitly state high uncertainty.\n\n";
   }
 
   if (conditions.includes("hormonal_bc")) {
@@ -299,6 +315,12 @@ const buildConditionContext = (conditions: string[]): string => {
     `- Expected period length: ~${prior.periodLength.mean} days (σ≈${Math.round(Math.sqrt(prior.periodLength.variance))}d)\n` +
     `- Maximum realistic cycle length before flagging as missed log: ${prior.maxCycleLength} days\n`;
 
+  if (ciReliable === false) {
+    section +=
+      "\nNote: confidence interval has low statistical reliability for this user's data. " +
+      "Present as an approximate range, not a precise forecast.\n";
+  }
+
   return section;
 };
 
@@ -306,10 +328,12 @@ const createChatTools = ({
   userId,
   timeZone,
   conditions = [],
+  perimenoStage,
 }: {
   userId: string;
   timeZone: string;
   conditions?: string[];
+  perimenoStage?: "early" | "late" | "unknown";
 }) => ({
   logPeriodStart: tool({
     description: "Log the start date of a menstrual period.",
@@ -437,6 +461,7 @@ const createChatTools = ({
         timeZone: sanitizeTimeZone(timezone, timeZone),
         mode: "prediction",
         conditions,
+        perimenoStage,
       }),
   }),
   fetchStats: tool({
@@ -454,6 +479,7 @@ const createChatTools = ({
         timeZone: sanitizeTimeZone(timezone, timeZone),
         mode: "stats",
         conditions,
+        perimenoStage,
       }),
   }),
   exportData: tool({
@@ -711,12 +737,36 @@ export async function POST(req: Request) {
   // --- Resolve user's plan tier and conditions ---
   const userRow = await db.query.users.findFirst({
     where: eq(users.id, userId),
-    columns: { plan: true, conditions: true },
+    columns: { plan: true, conditions: true, perimenoStage: true },
   });
   const modelConfig = getModelConfig(userRow?.plan);
   const userConditions: string[] = Array.isArray(userRow?.conditions)
     ? (userRow.conditions as string[])
     : [];
+  const userPerimenoStage =
+    (userRow?.perimenoStage as "early" | "late" | "unknown" | undefined) ??
+    undefined;
+
+  // Compute CI reliability from a quick prediction on cycle lengths
+  let ciReliable: boolean | undefined;
+  try {
+    const analyticsForCi = await refreshCycleAnalytics(
+      userId,
+      userConditions,
+      userPerimenoStage,
+    );
+    if (analyticsForCi.cycleLengths.length > 0) {
+      const quickPred = predictNextCycle(
+        analyticsForCi.cycleLengths,
+        "cycleLength",
+        userConditions,
+        userPerimenoStage,
+      );
+      ciReliable = quickPred.ciReliable;
+    }
+  } catch {
+    // If prediction fails, leave ciReliable undefined
+  }
 
   const lastUserText = getTextFromParts(lastIncoming?.parts ?? []);
   const memoryContext = await recallMemory(userId, lastUserText);
@@ -732,6 +782,8 @@ export async function POST(req: Request) {
       contextSnippets,
       timeZone: userTimeZone,
       conditions: userConditions,
+      perimenoStage: userPerimenoStage,
+      ciReliable,
     }) +
     "\n\n" +
     modelConfig.personaPrompt;
@@ -742,6 +794,7 @@ export async function POST(req: Request) {
     userId,
     timeZone: userTimeZone,
     conditions: userConditions,
+    perimenoStage: userPerimenoStage,
   });
 
   const result = await streamText({
