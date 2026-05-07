@@ -1,6 +1,6 @@
 {
   "name": "luna",
-  "version": "0.7.1"
+  "version": "0.7.3",
   "private": false,
   "description": "A soft, supportive menstrual cycle companion — log, predict, and chat about your cycle",
   "author": "Akshat Singh Kushwaha <akshatsingh14372@outlook.com> (https://a3ro.dev)",
@@ -17,7 +17,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.58",
@@ -78,7 +79,8 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.4",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.5"
   },
   "pnpm": {
     "overrides": {
