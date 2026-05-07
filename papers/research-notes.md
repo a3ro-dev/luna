@@ -249,26 +249,78 @@ v0.6.1 changelog. `/start` and landing page CTAs always redirected to `/signup` 
 | File | Lines | Role |
 |---|---|---|
 | [engine.ts, L1-442](../src/lib/prediction/engine.ts#L1-L442) | 442 | Core prediction engine |
-| [cycle-tools.ts, L1-1084](../src/lib/cycle-tools.ts#L1-L1084) | 1084 | AI tools + cycle management |
-| [route.ts, L1-800](../src/app/api/chat/route.ts#L1-L800) | 800 | Chat API + streaming |
-| [prompt.ts, L1-333](../src/lib/chat/prompt.ts#L1-L333) | 333 | System prompt |
-| [import/route.ts, L1-459](../src/app/api/data/import/route.ts#L1-L459) | 459 | Multi-format import |
+| [cycle-tools.ts, L1-1084](../src/lib/cycle-tools.ts#L1-1084) | 1084 | AI tools + cycle management |
+| [route.ts, L1-800](../src/app/api/chat/route.ts#L1-800) | 800 | Chat API + streaming |
+| [prompt.ts, L1-333](../src/lib/chat/prompt.ts#L1-333) | 333 | System prompt |
+| [import/route.ts, L1-459](../src/app/api/data/import/route.ts#L1-459) | 459 | Multi-format import |
 | [email/index.ts, L1-526](../src/lib/email/index.ts#L1-L526) | 526 | Email templates |
 | [dashboard/page.tsx, L1-334](../src/app/(app)/dashboard/page.tsx#L1-L334) | 334 | Dashboard server component |
 | [profile/route.ts, L1-219](../src/app/api/user/profile/route.ts#L1-L219) | 219 | Profile CRUD |
-| [schema.ts, L1-164](../src/lib/db/schema.ts#L1-L164) | 164 | Database schema (8 tables) |
-| [changelog.ts, L1-162](../src/lib/changelog.ts#L1-L162) | 162 | Version history |
+| [schema.ts, L1-164](../src/lib/db/schema.ts#L1-164) | 164 | Database schema (8 tables) |
+| [changelog.ts, L1-162](../src/lib/changelog.ts#L1-162) | 162 | Version history |
 | [onboarding/route.ts, L1-122](../src/app/api/user/onboarding/route.ts#L1-L122) | 122 | Onboarding flow |
-| [models.ts, L1-76](../src/lib/chat/models.ts#L1-L76) | 76 | Plan-tier config |
-| [auth.ts, L1-76](../src/auth.ts#L1-L76) | 76 | Auth.js config |
-| [images.ts, L1-73](../src/lib/chat/images.ts#L1-L73) | 73 | Image storage |
-| [rate-limit.ts, L1-66](../src/lib/rate-limit.ts#L1-L66) | 66 | Rate limiter |
-| [middleware.ts, L1-68](../src/middleware.ts#L1-L68) | 68 | Auth middleware |
+| [models.ts, L1-76](../src/lib/chat/models.ts#L1-76) | 76 | Plan-tier config |
+| [auth.ts, L1-76](../src/auth.ts#L1-76) | 76 | Auth.js config |
+| [images.ts, L1-73](../src/lib/chat/images.ts#L1-73) | 73 | Image storage |
+| [rate-limit.ts, L1-66](../src/lib/rate-limit.ts#L1-66) | 66 | Rate limiter |
+| [middleware.ts, L1-68](../src/middleware.ts#L1-68) | 68 | Auth middleware |
 | [schemas/auth.ts, L1-44](../src/lib/schemas/auth.ts#L1-L44) | 44 | Zod schemas |
-| [accent.ts, L1-42](../src/lib/theme/accent.ts#L1-L42) | 42 | Accent colors |
-| [next.config.ts, L1-36](../next.config.ts#L1-L36) | 36 | Next.js config |
-| [export/route.ts, L1-31](../src/app/api/data/export/route.ts#L1-L31) | 31 | JSON export |
-| [utils.ts, L1-20](../src/lib/utils.ts#L1-L20) | 20 | Utilities |
-| [openui.ts, L1-4](../src/lib/chat/openui.ts#L1-L4) | 4 | OpenUI detection |
-| [package.json, L1-89](../package.json#L1-L89) | 89 | Dependencies |
+| [accent.ts, L1-42](../src/lib/theme/accent.ts#L1-42) | 42 | Accent colors |
+| [next.config.ts, L1-36](../next.config.ts#L1-36) | 36 | Next.js config |
+| [export/route.ts, L1-31](../src/app/api/data/export/route.ts#L1-31) | 31 | JSON export |
+| [utils.ts, L1-20](../src/lib/utils.ts#L1-20) | 20 | Utilities |
+| [openui.ts, L1-4](../src/lib/chat/openui.ts#L1-4) | 4 | OpenUI detection |
+| [package.json, L1-89](../package.json#L1-89) | 89 | Dependencies |
 | Total | 5307 | |
+
+---
+
+## 6. Third-party infrastructure findings
+
+This section documents data handling findings from inspecting the three external services Luna depends on. Source: public documentation, source code, and privacy policies for each service.
+
+### 6.1 Neon -- strongest privacy posture
+
+Neon is the most mature and audited of the three providers. SOC 2 Type II, ISO 27001, ISO 27701, AES-256 at rest, TLS 1.2+ in transit, AWS KMS. They explicitly do not sell data. The Databricks acquisition (May 2025) is a watch-item -- privacy policy URLs now redirect to `databricks.com/legal/` -- but no negative impact has been observed.
+
+The gap: HIPAA is only on the Scale plan. Luna stores health-adjacent data (cycle records, health conditions) on a plan that cannot legally be used for PHI. Whether cycle tracking data constitutes PHI depends on whether Luna is a covered entity, which it is not (it is not a healthcare provider). But the spirit of the concern remains: sensitive health data on non-HIPAA infrastructure.
+
+### 6.2 Supermemory -- unverifiable compliance claims
+
+Supermemory claims SOC 2, HIPAA, and GDPR compliance on their marketing page, but no audit reports, DPAs, or BAAs are publicly available. The privacy contact is the founder's personal email (`dhravya@supermemory.com`). Encryption at rest is not documented. Third-party AI processing (OpenAI, Google Gemini) is disclosed but the scope is vague -- it is unclear whether the core embedding pipeline routes through these providers or only optional AI features.
+
+On the positive side: they explicitly state they do not sell data and do not train models on user data. The core engine is MIT-licensed and self-hostable. Luna sends only personal facts (not cycle data or chat messages) and scopes them per user.
+
+The concern is not that Supermemory is doing something wrong -- it is that their compliance claims cannot be independently verified. For a service storing health-adjacent facts like "I have PCOS," this matters.
+
+### 6.3 HackClub -- the most significant privacy concern
+
+This is the finding I consider most important for Luna users.
+
+HackClub's AI proxy ([github.com/hackclub/ai](https://github.com/hackclub/ai)) stores every prompt and every response in full in a PostgreSQL `request_logs` table:
+
+- `request` (jsonb): the full request body, including all messages
+- `response` (jsonb): the full response body, including all AI-generated content
+- `userId` (uuid): linked to user identity
+- `slackId` (text): linked to Slack identity
+- `ip` (text): user's IP address
+
+The Search API ([github.com/hackclub/search](https://github.com/hackclub/search)) logs full query parameters and ALL request headers (not sanitized to a safe list -- unlike the AI proxy which filters to safe headers).
+
+There is no documented retention period, no automatic deletion, and no service-specific privacy policy. The general HackClub privacy policy does not mention the AI proxy, search API, prompt logging, or upstream data processing.
+
+For Luna, this means: every message a user sends to the AI assistant -- which can contain cycle details, symptom descriptions, health condition information -- is stored indefinitely in HackClub's database, linked to identity and IP. The data also passes through OpenRouter and then to model providers (xAI, Anthropic, etc.), each with their own data handling policies.
+
+HackClub is a well-intentioned nonprofit with open-source code, strong community values, and a "we do not sell your data" stance. The logging appears to be for abuse monitoring and cost tracking rather than data exploitation. But the absence of a retention policy, a service-specific privacy notice, or any opt-out mechanism is a real gap -- especially for a service being used as infrastructure for a health-adjacent application.
+
+### 6.4 Combined risk assessment
+
+| Risk | Severity | Mitigation |
+|---|---|---|
+| Neon Databricks acquisition changes data handling | Low | SOC 2 audits continue; Neon's open-source engine is independently auditable |
+| Supermemory at-rest encryption gap | Medium | Self-host Supermemory (MIT license) for full control |
+| Supermemory unverifiable compliance claims | Medium | Request BAA/DPA from Supermemory; switch to self-hosted if needed |
+| HackClub full prompt/response logging | High | No current mitigation. Self-hosting requires replacing the entire AI proxy and search API |
+| HackClub no retention policy | High | No current mitigation. Data stored indefinitely |
+| HackClub search API logs unsanitized headers | Medium | Headers from Luna contain API keys, not user credentials; lower severity |
+| Upstream AI provider data handling | Low-Medium | Depends on xAI/Anthropic/OpenRouter policies; not within Luna's control |

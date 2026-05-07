@@ -105,6 +105,8 @@ If you tell Luna you have multiple conditions (say, PCOS and endometriosis), it 
 
 Luna uses a separate service called Supermemory to remember personal facts across conversations. If you say "I have PCOS" in one session and come back a week later, it still knows. This is separate from the cycle data stored in the database.
 
+Because Supermemory is a third-party service, those facts live on their infrastructure (Timescale and Cloudflare), not in Luna's own database. Luna sends only personal facts to Supermemory -- not cycle data or chat messages -- and scopes them per user so one user's facts can't leak to another. But the facts are stored outside Luna's direct control. See the "Data privacy considerations" section below for more detail.
+
 ---
 
 ## What makes it different
@@ -194,7 +196,15 @@ Chat-based logging is convenient, but it's not perfect. The AI might misinterpre
 
 ### Data privacy considerations
 
-Your data is stored in a PostgreSQL database hosted on Neon, and personal facts are stored in Supermemory. AI conversations go through a third-party proxy (HackClub AI). The code is open-source and you can inspect how data is handled, but the infrastructure is still managed by third parties. If you need strong privacy guarantees, you would need to self-host.
+Your data touches three third-party services. Here is what each one does and what that means for your privacy.
+
+**Neon (database).** Your cycle data, account information, chat messages, and predictions all live in a PostgreSQL database hosted by Neon. Neon is a serverless Postgres platform that runs on AWS. They hold SOC 2 Type II and ISO 27001 certifications, encrypt data at rest (AES-256) and in transit (TLS 1.2+), and explicitly state that they do not sell personal data. Neon was acquired by Databricks in May 2025, which means their privacy policy now falls under Databricks' legal framework -- something to be aware of if you track where your data's legal home ends up. HIPAA compliance is available but only on their Scale plan (~$700/month), which Luna does not use. The core Neon storage engine is open source (Apache 2.0).
+
+**Supermemory (AI memory).** When you tell Luna to "remember" something -- like "I have PCOS" or "I'm allergic to ibuprofen" -- that fact gets stored in Supermemory, a persistent AI memory API. Supermemory stores facts as embeddings in a vector graph engine running on Timescale and Cloudflare infrastructure. They claim SOC 2, HIPAA, and GDPR compliance, but no public audit reports are available for verification. They say they do not sell or train models on your data. Their privacy policy discloses that content may be sent to OpenAI and Google Gemini when AI features are used, though it is unclear whether the core memory storage routes through these providers. Encryption at rest is not explicitly documented. The core engine is open source (MIT license). Supermemory is made by a small, early-stage US company (Supermemory Inc., founded by Dhravya Shah).
+
+**HackClub (AI proxy and web search).** Your AI conversations and web searches go through HackClub's infrastructure. HackClub is a US 501(c)(3) nonprofit that provides free AI and search services to its community. Their AI proxy forwards your prompts to OpenRouter, which then routes them to model providers (xAI for Grok, Anthropic for Claude, etc.). Their search API forwards queries to Brave Search. Here is the part that matters: HackClub logs every AI prompt and every AI response in full, linked to your user ID and IP address, in their PostgreSQL database. Their search API also logs full query parameters and all request headers. There is no documented retention period or automatic deletion for these logs. The general HackClub privacy policy does not specifically address the AI proxy or search API. Their code is fully open source, which means you can verify exactly what they log -- but you cannot opt out of the logging.
+
+The code for all three integrations is open-source and you can inspect how Luna sends data to each service. But the infrastructure itself is managed by these third parties, and each one adds a place where your data lives outside your control. If you need strong privacy guarantees, you would need to self-host the entire stack and replace all three services with your own infrastructure.
 
 ### Same AI model for all plans
 

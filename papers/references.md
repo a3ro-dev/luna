@@ -1,6 +1,6 @@
 # Luna Project -- comprehensive source index
 
-> Last updated: 2026-05-06 · Repository version: v0.7.0 (commit 23a0e8e)
+> Last updated: 2026-05-07 · Repository version: v0.7.1 (with third-party infrastructure documentation)
 
 ---
 
@@ -209,3 +209,70 @@ Most condition-specific priors are low evidence quality per the research documen
 5. Perimenopause is a blend. The single prior blends early and late transition, which have fundamentally different distributions (30d vs 80d). STRAW staging would help.
 
 6. Luteal phase is assumed near-normal across all conditions. This rests on a biological constraint (corpus luteum lifespan ~11-17 days), but condition-specific luteal distribution data is essentially absent.
+
+---
+
+## Category 7: third-party infrastructure
+
+Luna depends on three external services that process user data. This section documents each service's data handling practices based on publicly available information.
+
+### 7.1 Neon (database)
+
+| Attribute | Detail |
+|---|---|
+| **What it is** | Serverless PostgreSQL platform. Separates storage and compute for auto-scaling, branching, and scale-to-zero. |
+| **What Luna sends it** | All structured data: cycle records, user accounts, chat messages, prediction parameters, AI traces. |
+| **Infrastructure** | AWS (8 regions, 4 continents). Each project locked to one region. Azure regions deprecated (sunsetting August 2026). |
+| **Encryption** | AES-256 at rest, TLS 1.2+ in transit, AWS KMS key management. |
+| **Certifications** | SOC 2 Type II, ISO/IEC 27001:2022, ISO/IEC 27701:2019. HIPAA available on Scale plan only (~$700/mo). GDPR, CCPA compliant. |
+| **Data selling** | Explicitly stated: no. |
+| **Third-party sharing** | Sub-processors only (annually reviewed, SOC 2 required for sensitive data). |
+| **Open source** | Storage engine: Apache 2.0 ([github.com/neondatabase/neon](https://github.com/neondatabase/neon), ~22k stars). Managed cloud service is proprietary. |
+| **Notable concern** | Acquired by Databricks (May 2025). Privacy policy now under Databricks legal framework. HIPAA unavailable on free/launch plans. No FedRAMP or PCI-DSS. |
+| **Trust center** | [trust.neon.com](https://trust.neon.com) |
+
+### 7.2 Supermemory (AI memory)
+
+| Attribute | Detail |
+|---|---|
+| **What it is** | Persistent AI memory API. Vector graph engine with semantic search, auto-maintained user profiles, connectors. |
+| **What Luna sends it** | Personal facts only (health conditions, preferences, recurring patterns). NOT cycle data or chat messages. Scoped per user via `containerTag`. |
+| **Endpoints used** | `POST /v4/search` (recall, top 5 results), `POST /v4/memories` (store, with `isStatic` flag). |
+| **Infrastructure** | Timescale (database), Cloudflare (compute/CDN/edge). US-based. No region controls for non-enterprise users. |
+| **Encryption** | In transit: yes ("industry-standard"). At rest: not explicitly documented. No specific TLS version or algorithm disclosed. |
+| **Certifications** | Claims SOC 2, HIPAA, GDPR. No public audit reports, DPAs, or BAAs available for verification. |
+| **Data selling** | Explicitly stated: no. Also: "We don't train models on your data. Ever." |
+| **Third-party AI processing** | Privacy policy discloses content may be sent to OpenAI and Google Gemini when AI features are used. Unclear if this applies to core embedding pipeline. |
+| **Deletion** | Available via API (`DELETE /v3/documents/{id}`, `POST /v3/settings/reset`) and on request. Soft-delete for memories. |
+| **Open source** | Core engine: MIT ([github.com/supermemoryai/supermemory](https://github.com/supermemoryai/supermemory), ~22k stars). Cloud service is commercial. |
+| **Maker** | Supermemory Inc. (Delaware), founded by Dhravya Shah. Early-stage. Privacy contact: founder's personal email. |
+| **Notable concerns** | No documented at-rest encryption. No public audit reports despite compliance claims. Third-party AI processing disclosure is vague. PostHog analytics on landing page does not mask inputs by default. |
+
+### 7.3 HackClub (AI proxy and web search)
+
+| Attribute | Detail |
+|---|---|
+| **What it is** | US 501(c)(3) nonprofit (EIN: 81-2908499) providing free AI and search services to its community. |
+| **What Luna sends it** | All AI chat prompts and responses (via proxy). All web search queries (via search API). |
+| **AI proxy** | `https://ai.hackclub.com/proxy/v1` -- forwards to OpenRouter, which routes to xAI (Grok), Anthropic (Claude), etc. Also provides image generation via Replicate. |
+| **Search API** | `https://search.hackclub.com/res/v1/web/search` -- proxies Brave Search API. |
+| **Infrastructure** | Bun + Hono + PostgreSQL (Drizzle ORM) + PostHog (analytics) + Sentry (errors). |
+| **Encryption** | Not separately documented (relies on HTTPS). |
+| **Certifications** | None. |
+| **Data selling** | Privacy policy states: "We do not (and never will) sell your personal data." |
+| **Prompt/response logging** | **Full logging.** Every AI prompt and response stored in `request_logs` table (jsonb `request` and `response` fields), linked to userId, slackId, and IP address. Search API logs full query parameters and ALL request headers (not sanitized). |
+| **Data retention** | No documented retention period. No automatic deletion. General privacy policy says data kept "as long as required" but does not address AI/search logs specifically. |
+| **Service-specific privacy policy** | **None.** General HackClub privacy policy does not address the AI proxy or Search API. No mention of prompt logging, upstream processing, or data retention for these services. |
+| **Open source** | Yes. AI proxy: [github.com/hackclub/ai](https://github.com/hackclub/ai). Search: [github.com/hackclub/search](https://github.com/hackclub/search). 905+ public repos in the org. |
+| **Content moderation** | OpenAI Moderation API screening. AI coding tools (Copilot, Cursor) explicitly blocked. Spending limits ($4 default/user). ID verification enforced. |
+| **Upstream data flow** | AI: Luna → HackClub → OpenRouter → xAI/Anthropic/DeepSeek/etc. Search: Luna → HackClub → Brave. Each upstream has their own data policies. |
+| **Notable concerns** | Full prompt+response logging with identity linkage and no retention policy is the most significant privacy concern in Luna's stack. Health information in chat messages (symptom descriptions, cycle details) is stored indefinitely in HackClub's database. No service-specific privacy notice. Search API logs unsanitized headers (potentially including cookies and auth tokens). |
+| **Leadership** | Founded by Zach Latta. Board includes Tom Preston-Werner (GitHub co-founder), Quinn Slack (Sourcegraph CEO). Major donors: Musk Foundation, Vitalik Buterin, Jack Dorsey, others. |
+
+### 7.4 Third-party evidence quality summary
+
+| Service | Encryption at rest | Audit reports available | Service-specific privacy policy | Data retention documented | Health data appropriate? |
+|---|---|---|---|---|---|
+| Neon | Yes (AES-256) | Yes (SOC 2, ISO) | Yes | Yes (general) | Only on Scale plan (HIPAA) |
+| Supermemory | Not documented | No (claims only) | Yes (general) | Vague ("as needed") | Unverified |
+| HackClub | Not documented | No | No (missing for AI/search) | No | No |

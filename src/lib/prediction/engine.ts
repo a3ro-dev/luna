@@ -168,6 +168,7 @@ export const CONDITION_PRIORS: Record<ConditionId, ConditionPrior> = {
     //   -4yr: ~30d, -3yr: ~35d, -2yr: ~45d, -1yr: ~80d
     // Wide variance, increasing over time. Many anovulatory cycles.
     // Luteal ~14d when ovulation occurs, but ovulation often skips.
+    // This is the "unknown" stage fallback — moderate mean, wide variance.
     cycleLength: { mean: 45, variance: 400 }, // σ=20d — very wide, age-dependent
     periodLength: { mean: 6, variance: 4 }, // σ=2d — often heavier/longer
     follicularLength: { mean: 31, variance: 225 }, // σ=15d — highly variable
@@ -183,12 +184,110 @@ export const CONDITION_PRIORS: Record<ConditionId, ConditionPrior> = {
   },
 };
 
+// ─── Perimenopause sub-priors (Holman 2006) ────────────────────────
+// Perimenopause is not a single distribution — it spans a multi-year
+// transition with dramatically shifting parameters. These sub-priors
+// capture early (~-4yr) and late (~-1yr) stages.
+
+/** Early perimenopause: cycles still close to normal but increasing variance. ~-4yr before menopause. */
+export const PERIMENOPAUSE_EARLY: ConditionPrior = {
+  cycleLength: { mean: 30, variance: 100 }, // σ=10d, ~-4yr
+  periodLength: { mean: 6, variance: 4 },
+  follicularLength: { mean: 17, variance: 64 },
+  lutealLength: { mean: 13, variance: 9 },
+  maxCycleLength: 60,
+  anovulatoryCommon: true,
+  note: "Early perimenopause: cycles still close to normal but increasing variance.",
+};
+
+/** Late perimenopause: very long, irregular cycles near menopause. Ovulation rare. ~-1yr before menopause. */
+export const PERIMENOPAUSE_LATE: ConditionPrior = {
+  cycleLength: { mean: 75, variance: 900 }, // σ=30d, ~-1yr
+  periodLength: { mean: 6, variance: 9 },
+  follicularLength: { mean: 60, variance: 625 },
+  lutealLength: { mean: 13, variance: 9 },
+  maxCycleLength: 180,
+  anovulatoryCommon: true,
+  note: "Late perimenopause: very long, irregular cycles near menopause. Ovulation rare.",
+};
+
+/** Perimenopause stage, stored as metadata in the user's conditions jsonb field. */
+export type PerimenoStage = "early" | "late" | "unknown";
+
+/**
+ * Resolve the perimenopause-specific prior based on the user's stage metadata.
+ * Falls back to the general perimenopause prior (σ=20d) for "unknown" stage.
+ */
+function resolvePerimenopausePrior(
+  perimenoStage?: PerimenoStage,
+): ConditionPrior {
+  if (perimenoStage === "early") return PERIMENOPAUSE_EARLY;
+  if (perimenoStage === "late") return PERIMENOPAUSE_LATE;
+  return CONDITION_PRIORS.perimenopause; // "unknown" or undefined
+}
+
 // ─── Resolve effective prior for a user's condition set ────────────
-// If a user has multiple conditions, we pick the one with the widest
-// cycle-length variance (most "disruptive" condition wins).
+// Uses inverse-variance weighted mixture for multi-condition users.
 // Hormonal BC always wins if present (it fundamentally changes cycle mechanics).
 
-export function resolveEffectivePrior(conditions: string[]): ConditionPrior {
+export interface ResolvePriorOptions {
+  /** User's condition IDs (e.g. ["pcos", "thyroid"]) */
+  conditions: string[];
+  /** Perimenopause stage metadata, if applicable */
+  perimenoStage?: PerimenoStage;
+}
+
+/**
+ * Compute inverse-variance weighted blend of two metric distributions.
+ * Returns the blended mean and combined inverse-variance.
+ */
+function blendMetric(
+  distributions: Array<{ mean: number; variance: number }>,
+): { mean: number; variance: number } {
+  if (distributions.length === 0) {
+    return { mean: 0, variance: 0 };
+  }
+  if (distributions.length === 1) {
+    return distributions[0];
+  }
+
+  let sumWeightedMean = 0;
+  let sumInverseVariance = 0;
+
+  for (const d of distributions) {
+    const invVar = 1 / Math.max(d.variance, 0.001); // floor variance to avoid division by zero
+    sumWeightedMean += d.mean * invVar;
+    sumInverseVariance += invVar;
+  }
+
+  const blendedMean = sumWeightedMean / sumInverseVariance;
+  const blendedVariance = 1 / sumInverseVariance;
+
+  return { mean: blendedMean, variance: blendedVariance };
+}
+
+/**
+ * Resolve the effective prior for a user's condition set using
+ * inverse-variance weighted mixture blending.
+ *
+ * - Hormonal BC overrides everything (cycle mechanics fundamentally different).
+ * - For multiple conditions, blends their priors using inverse-variance weighting
+ *   for each metric independently.
+ * - maxCycleLength: MAX across all active conditions (widest safe gate).
+ * - anovulatoryCommon: OR across all active conditions.
+ * - note: concatenated from all conditions, separated by newline.
+ * - Perimenopause sub-priors are used based on perimenoStage metadata.
+ */
+export function resolveEffectivePrior(
+  conditionsOrOptions: string[] | ResolvePriorOptions,
+): ConditionPrior {
+  // Support both old signature (string[]) and new signature (options object)
+  const opts: ResolvePriorOptions = Array.isArray(conditionsOrOptions)
+    ? { conditions: conditionsOrOptions }
+    : conditionsOrOptions;
+
+  const { conditions, perimenoStage } = opts;
+
   if (conditions.length === 0 || conditions.includes("none")) {
     return CONDITION_PRIORS.none;
   }
@@ -198,24 +297,69 @@ export function resolveEffectivePrior(conditions: string[]): ConditionPrior {
     return CONDITION_PRIORS.hormonal_bc;
   }
 
-  // Pick the condition with the highest cycle-length variance (most disruptive)
-  let best: ConditionPrior = CONDITION_PRIORS.none;
-  let bestVariance = best.cycleLength.variance;
-
+  // Collect all applicable priors, using perimenopause sub-prior if applicable
+  const activePriors: ConditionPrior[] = [];
   for (const id of conditions) {
-    const prior = CONDITION_PRIORS[id as ConditionId];
-    if (prior && prior.cycleLength.variance > bestVariance) {
-      bestVariance = prior.cycleLength.variance;
-      best = prior;
+    if (id === "none") continue;
+    if (id === "perimenopause") {
+      activePriors.push(resolvePerimenopausePrior(perimenoStage));
+    } else {
+      const prior = CONDITION_PRIORS[id as ConditionId];
+      if (prior) activePriors.push(prior);
     }
   }
 
-  return best;
+  // Single condition: return directly
+  if (activePriors.length <= 1) {
+    return activePriors[0] ?? CONDITION_PRIORS.none;
+  }
+
+  // Multi-condition: inverse-variance weighted mixture
+  const cycleLengths = activePriors.map((p) => p.cycleLength);
+  const periodLengths = activePriors.map((p) => p.periodLength);
+  const follicularLengths = activePriors
+    .map((p) => p.follicularLength)
+    .filter((f): f is { mean: number; variance: number } => f !== null);
+  const lutealLengths = activePriors
+    .map((p) => p.lutealLength)
+    .filter((l): l is { mean: number; variance: number } => l !== null);
+
+  const blendedCycleLength = blendMetric(cycleLengths);
+  const blendedPeriodLength = blendMetric(periodLengths);
+  const blendedFollicular =
+    follicularLengths.length > 0 ? blendMetric(follicularLengths) : null;
+  const blendedLuteal =
+    lutealLengths.length > 0 ? blendMetric(lutealLengths) : null;
+
+  // maxCycleLength: MAX across all active conditions (widest safe gate)
+  const maxCycleLength = Math.max(...activePriors.map((p) => p.maxCycleLength));
+
+  // anovulatoryCommon: OR across all active conditions
+  const anovulatoryCommon = activePriors.some((p) => p.anovulatoryCommon);
+
+  // note: concatenate all condition notes, separated by newline
+  const note = activePriors
+    .map((p) => p.note)
+    .filter((n) => n.length > 0)
+    .join("\n");
+
+  return {
+    cycleLength: blendedCycleLength,
+    periodLength: blendedPeriodLength,
+    follicularLength: blendedFollicular,
+    lutealLength: blendedLuteal,
+    maxCycleLength,
+    anovulatoryCommon,
+    note,
+  };
 }
 
 // ─── Get skip threshold for a condition set ────────────────────────
-export function getSkipThreshold(conditions: string[]): number {
-  return resolveEffectivePrior(conditions).maxCycleLength;
+export function getSkipThreshold(
+  conditions: string[],
+  perimenoStage?: PerimenoStage,
+): number {
+  return resolveEffectivePrior({ conditions, perimenoStage }).maxCycleLength;
 }
 
 // ─── Smoothing constants ──────────────────────────────────────────
@@ -239,11 +383,12 @@ export function blendWithPrior(
   n: number,
   metric: keyof typeof POPULATION_PRIOR,
   conditions: string[] = [],
+  perimenoStage?: PerimenoStage,
 ): { mean: number; variance: number } {
   if (n >= 6) return { mean: userMean, variance: userVariance }; // prior fades out
 
   // Use condition-specific prior if available, otherwise fall back to general population
-  const conditionPrior = resolveEffectivePrior(conditions);
+  const conditionPrior = resolveEffectivePrior({ conditions, perimenoStage });
   const conditionMetricMap: Record<
     keyof typeof POPULATION_PRIOR,
     keyof ConditionPrior | null
@@ -275,10 +420,11 @@ export function skipGate(
   smoothed: number,
   variance: number,
   conditions: string[] = [],
+  perimenoStage?: PerimenoStage,
 ): { value: number; isAnomaly: boolean } {
   const threshold =
     conditions.length > 0
-      ? getSkipThreshold(conditions)
+      ? getSkipThreshold(conditions, perimenoStage)
       : DEFAULT_SKIP_THRESHOLD;
 
   if (value > threshold) {
@@ -299,6 +445,7 @@ export function skipGate(
 export function exponentialSmooth(
   observations: number[], // oldest → newest
   conditions: string[] = [],
+  perimenoStage?: PerimenoStage,
 ): { smoothed: number; variance: number } {
   if (observations.length === 0) return { smoothed: 0, variance: 0 };
 
@@ -315,6 +462,7 @@ export function exponentialSmooth(
       smoothed,
       variance,
       conditions,
+      perimenoStage,
     );
 
     // Compute alpha dynamically
@@ -341,10 +489,31 @@ export function exponentialSmooth(
 }
 
 // Calculate Jackknife Confidence Interval for n >= 6 (condition-aware)
+export interface JackknifeCIResult {
+  /** Lower bound of the 95% confidence interval */
+  lower: number;
+  /** Upper bound of the 95% confidence interval */
+  upper: number;
+  /** Jackknife variance estimate */
+  variance: number;
+  /** Whether the CI is statistically reliable (no discontinuity detected, n >= 10) */
+  ciReliable: boolean;
+}
+
+/**
+ * Calculate a jackknife confidence interval for the smoothed estimate.
+ *
+ * Sets `ciReliable = false` when:
+ * - n < 10 (small-sample jackknife is unreliable)
+ * - Any leave-one-out estimate differs from the full smoothed value by
+ *   more than 2 * sqrt(jackknifeVariance), indicating a discontinuity
+ *   was triggered by the leave-one-out procedure.
+ */
 export function calculateJackknifeCI(
   observations: number[],
   conditions: string[] = [],
-): { lower: number; upper: number; variance: number } {
+  perimenoStage?: PerimenoStage,
+): JackknifeCIResult {
   const n = observations.length;
   if (n < 6) {
     throw new Error("Jackknife CI requires at least 6 observations");
@@ -353,12 +522,13 @@ export function calculateJackknifeCI(
   const { smoothed: fullSmoothed } = exponentialSmooth(
     observations,
     conditions,
+    perimenoStage,
   );
   const jackknifeEstimates: number[] = [];
 
   for (let i = 0; i < n; i++) {
     const subset = [...observations.slice(0, i), ...observations.slice(i + 1)];
-    const { smoothed } = exponentialSmooth(subset, conditions);
+    const { smoothed } = exponentialSmooth(subset, conditions, perimenoStage);
     jackknifeEstimates.push(smoothed);
   }
 
@@ -372,25 +542,65 @@ export function calculateJackknifeCI(
   const jackknifeVariance = ((n - 1) / n) * varianceSum;
   const standardError = Math.sqrt(jackknifeVariance);
 
+  // Determine CI reliability
+  let ciReliable = true;
+
+  // Small-sample jackknife is unreliable
+  if (n < 10) {
+    ciReliable = false;
+  }
+
+  // Check for discontinuity: any leave-one-out estimate that differs
+  // from the full smoothed value by more than 2 * sqrt(jackknifeVariance)
+  const discontinuityThreshold = 2 * Math.sqrt(Math.max(jackknifeVariance, 0));
+  for (const estimate of jackknifeEstimates) {
+    if (Math.abs(estimate - fullSmoothed) > discontinuityThreshold) {
+      ciReliable = false;
+      break;
+    }
+  }
+
   // 95% CI roughly 1.96 * SE
   return {
     lower: fullSmoothed - 1.96 * standardError,
     upper: fullSmoothed + 1.96 * standardError,
     variance: jackknifeVariance,
+    ciReliable,
   };
 }
 
 // Main function to predict next cycle (condition-aware)
+export interface PredictionResult {
+  /** Point estimate for the predicted value */
+  predicted: number;
+  /** Lower bound of the 95% confidence interval */
+  ciLower: number;
+  /** Upper bound of the 95% confidence interval */
+  ciUpper: number;
+  /** Number of observations used */
+  n: number;
+  /** Whether the confidence interval is statistically reliable */
+  ciReliable: boolean;
+}
+
+/**
+ * Predict the next cycle value using adaptive exponential smoothing
+ * with condition-aware population priors.
+ *
+ * Returns a prediction with confidence interval and a `ciReliable` flag
+ * indicating whether the CI should be treated as authoritative.
+ */
 export function predictNextCycle(
   observations: number[],
   metric: keyof typeof POPULATION_PRIOR,
   conditions: string[] = [],
-): { predicted: number; ciLower: number; ciUpper: number; n: number } {
+  perimenoStage?: PerimenoStage,
+): PredictionResult {
   const n = observations.length;
 
   // Cold start: use condition-specific prior
   if (n === 0) {
-    const conditionPrior = resolveEffectivePrior(conditions);
+    const conditionPrior = resolveEffectivePrior({ conditions, perimenoStage });
     const conditionMetricMap: Record<
       keyof typeof POPULATION_PRIOR,
       keyof ConditionPrior | null
@@ -413,30 +623,48 @@ export function predictNextCycle(
       ciLower: prior.mean - 1.96 * stdDev,
       ciUpper: prior.mean + 1.96 * stdDev,
       n: 0,
+      ciReliable: false, // No data — CI not reliable
     };
   }
 
-  const { smoothed, variance } = exponentialSmooth(observations, conditions);
+  const { smoothed, variance } = exponentialSmooth(
+    observations,
+    conditions,
+    perimenoStage,
+  );
 
   // For n >= 6, use jackknife CI (more robust than parametric)
   // The point estimate is the smoothed value (prior fades out at n>=6)
   if (n >= 6) {
-    const jackknife = calculateJackknifeCI(observations, conditions);
+    const jackknife = calculateJackknifeCI(
+      observations,
+      conditions,
+      perimenoStage,
+    );
     return {
       predicted: smoothed,
       ciLower: jackknife.lower,
       ciUpper: jackknife.upper,
       n,
+      ciReliable: jackknife.ciReliable,
     };
   }
 
   // For n < 6, blend with population prior and use parametric CI
-  const blended = blendWithPrior(smoothed, variance, n, metric, conditions);
+  const blended = blendWithPrior(
+    smoothed,
+    variance,
+    n,
+    metric,
+    conditions,
+    perimenoStage,
+  );
   const stdDev = Math.sqrt(blended.variance);
   return {
     predicted: blended.mean,
     ciLower: blended.mean - 1.96 * stdDev,
     ciUpper: blended.mean + 1.96 * stdDev,
     n,
+    ciReliable: false, // Small sample — CI not reliable
   };
 }

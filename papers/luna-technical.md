@@ -335,6 +335,56 @@ The dashboard ([dashboard/page.tsx](../src/app/(app)/dashboard/page.tsx)) is ser
 
 The dashboard previously used `avgCycleLength - 14` for ovulation instead of the luteal phase prediction, ignored user conditions entirely, and had a naive phase forward-fill that could overlap with actual data. All three were fixed ([changelog.ts](../src/lib/changelog.ts), v0.7.0 entry).
 
+### 5.11 Third-party infrastructure and data handling
+
+Luna depends on three external services, each of which receives and processes user data. This section documents what each service receives, how it handles that data, and what the privacy implications are.
+
+#### Neon (database)
+
+All structured user data -- cycle records, prediction parameters, chat messages, AI traces, user accounts -- is stored in PostgreSQL hosted by Neon ([db/index.ts](../src/lib/db/index.ts)). Luna uses the Neon serverless HTTP driver (`@neondatabase/serverless`) with `fetchOptions: { cache: 'no-store' }` to prevent Vercel from caching query results.
+
+Neon runs on AWS (8 regions across 4 continents). Each project is locked to a single region at creation time. Neon holds SOC 2 Type II, ISO/IEC 27001:2022, and ISO/IEC 27701:2019 certifications. Data is encrypted at rest with AES-256 and in transit with TLS 1.2+. Key management uses AWS KMS. They explicitly state they do not sell personal data. The core storage engine is open source under Apache 2.0 ([github.com/neondatabase/neon](https://github.com/neondatabase/neon), ~22k stars).
+
+Two things to watch. First, Neon was acquired by Databricks in May 2025. Privacy policy and terms of use links now redirect to `databricks.com/legal/`, meaning user data is governed under Databricks' broader legal framework. The implications of cross-entity data access within Databricks have not been assessed. Second, HIPAA compliance is only available on the Scale plan (~$700/month typical), which Luna does not use. Luna's Neon database is therefore not HIPAA-compliant, even though it stores health-adjacent data (cycle records, health conditions).
+
+#### Supermemory (AI memory)
+
+Luna uses Supermemory's v4 API for persistent personal facts that persist across chat sessions. Two endpoints are used:
+
+- `POST https://api.supermemory.ai/v4/search` -- semantic recall of stored facts, scoped per user via `containerTag: userId`, limited to top 5 results ([route.ts, L54-66](../src/app/api/chat/route.ts#L54-L66))
+- `POST https://api.supermemory.ai/v4/memories` -- storing new facts, with `isStatic` flag for permanent vs. evolving facts ([route.ts, L87-95](../src/app/api/chat/route.ts#L87-L95))
+
+Luna stores only personal profile facts (health conditions, preferences, recurring patterns) in Supermemory. Cycle data stays in the Neon database. Chat messages stay in the Neon database. The `containerTag` parameter isolates each user's memories from other users'.
+
+Supermemory runs on Timescale (database) and Cloudflare (compute/CDN). They claim SOC 2, HIPAA, and GDPR compliance, but no public audit reports, DPAs, or BAAs are available for verification. Their privacy policy discloses that content may be sent to OpenAI and Google Gemini when AI features are used, though it is unclear whether this applies to the core embedding/search pipeline or only to optional AI-powered extraction. Encryption at rest is not explicitly documented in their public privacy policy. The privacy contact is the founder's personal email. The core engine is open source under MIT ([github.com/supermemoryai/supermemory](https://github.com/supermemoryai/supermemory), ~22k stars).
+
+#### HackClub (AI proxy and web search)
+
+Luna routes all LLM calls and web searches through HackClub's infrastructure:
+
+- **AI proxy** (`https://ai.hackclub.com/proxy/v1`) -- chat completions via `x-ai/grok-4.3`, session rename via `~anthropic/claude-haiku-latest` ([route.ts, L42-45](../src/app/api/chat/route.ts#L42-L45))
+- **Search API** (`https://search.hackclub.com/res/v1/web/search`) -- web search via Brave Search ([route.ts, L509-516](../src/app/api/chat/route.ts#L509-L516))
+
+HackClub is a US 501(c)(3) nonprofit (EIN: 81-2908499) that provides free AI and search services to its community. The AI proxy forwards prompts to OpenRouter, which routes them to the actual model providers. The search API forwards queries to Brave Search.
+
+The critical privacy concern: HackClub's AI proxy logs every prompt and every response in full (`request` and `response` jsonb fields in a `request_logs` table), linked to user ID, Slack ID, and IP address. The search API logs full query parameters and all request headers (not sanitized to a safe list, unlike the AI proxy). There is no documented retention period, no automatic deletion, and no service-specific privacy notice. The general HackClub privacy policy does not address prompt/response logging or upstream data processing by OpenRouter/Brave.
+
+This means every message a Luna user sends to the AI assistant -- which may contain health information, symptom descriptions, cycle details -- is stored in HackClub's database indefinitely, linked to identity. The data also passes through OpenRouter (and their sub-providers like xAI, Anthropic), each of which has their own data handling policies.
+
+All HackClub code is open source ([github.com/hackclub/ai](https://github.com/hackclub/ai), [github.com/hackclub/search](https://github.com/hackclub/search)), so the logging behavior is verifiable. But it is not optional.
+
+#### Data flow summary
+
+| Data type | Stored in | Also processed by | Logging concerns |
+|---|---|---|---|
+| Cycle records, predictions | Neon (AWS) | -- | SOC 2/ISO audited; no HIPAA on Luna's plan |
+| Chat messages | Neon (AWS) | HackClub AI proxy → OpenRouter → xAI/Anthropic | Full prompt+response logged by HackClub; upstream provider policies apply |
+| Personal facts ("remember I have PCOS") | Supermemory (Timescale/Cloudflare) | Possibly OpenAI/Gemini for AI features | No at-rest encryption documented; no public audit reports |
+| Web search queries | -- | HackClub Search → Brave | Full query+headers logged by HackClub; Brave's privacy policy applies |
+| User auth credentials | Neon (AWS) | -- | bcryptjs hashed; never sent to other services |
+
+The fundamental tension: Luna is an open-source app that stores health-adjacent data, but it relies on infrastructure operated by parties who either (a) do not provide HIPAA-level guarantees on Luna's current plan (Neon), (b) are early-stage without public audit reports (Supermemory), or (c) log all AI interactions indefinitely without a service-specific privacy policy (HackClub). Self-hosting with replacement infrastructure is the only path to full data control.
+
 ## 6. Experiments and evaluation
 
 **No experiments have been conducted.** The Luna repository contains:
@@ -450,6 +500,8 @@ Real-world usage: The application has no known users beyond the developer. No da
 5. The chat context assembly (20 recent messages + summary + 6 keyword snippets + 5 Supermemory results) has not been benchmarked for token consumption. For long conversations, the summary alone could consume significant context window space.
 
 6. The system's predictions depend entirely on the user correctly identifying and reporting their health conditions. Misreporting (e.g., a PCOS user selecting "irregular" instead) produces suboptimal priors.
+
+7. Health-adjacent data is stored on infrastructure that does not provide HIPAA-level guarantees. Neon's HIPAA compliance requires the Scale plan. Supermemory claims HIPAA compliance but provides no public BAA. HackClub logs all AI prompts and responses indefinitely without a service-specific privacy policy. For a menstrual cycle tracker that handles health conditions and symptom descriptions, this is a meaningful gap between the sensitivity of the data and the protections around it (see §5.11).
 
 ### 8.3 Evidence limitations
 
