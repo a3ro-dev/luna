@@ -26,6 +26,7 @@ export async function GET() {
         timezone: true,
         dateOfBirth: true,
         conditions: true,
+        perimenoStage: true,
         pushNotificationsEnabled: true,
         weekStart: true,
         plan: true,
@@ -72,6 +73,7 @@ export async function PATCH(req: Request) {
       email,
       timezone,
       conditions,
+      perimenoStage,
       dateOfBirth,
       pushNotificationsEnabled,
       weekStart,
@@ -127,6 +129,11 @@ export async function PATCH(req: Request) {
     // ── Conditions ────────────────────────────────────
     if (conditions !== undefined) {
       updates.conditions = conditions;
+    }
+
+    // ── Perimenopause Stage ────────────────────────────
+    if (perimenoStage !== undefined) {
+      updates.perimenoStage = perimenoStage;
     }
 
     // ── Push Notifications ────────────────────────────
@@ -201,6 +208,7 @@ export async function PATCH(req: Request) {
         timezone: true,
         dateOfBirth: true,
         conditions: true,
+        perimenoStage: true,
         pushNotificationsEnabled: true,
         weekStart: true,
         plan: true,

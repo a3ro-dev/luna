@@ -95,6 +95,7 @@ interface UserProfile {
   timezone: string;
   dateOfBirth: string | null;
   conditions: string[] | null;
+  perimenoStage: "early" | "late" | "unknown" | null;
   pushNotificationsEnabled: boolean;
   weekStart: number;
   plan: string;
@@ -120,6 +121,9 @@ export default function SettingsPage() {
   const [timezone, setTimezone] = useState("Asia/Kolkata");
   const [weekStart, setWeekStart] = useState(1);
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [perimenoStage, setPerimenoStage] = useState<
+    "early" | "late" | "unknown"
+  >("unknown");
 
   // Notifications
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -167,6 +171,7 @@ export default function SettingsPage() {
         setSelectedConditions(
           Array.isArray(data.conditions) ? data.conditions : [],
         );
+        setPerimenoStage(data.perimenoStage ?? "unknown");
         setPushEnabled(data.pushNotificationsEnabled ?? false);
         setPlan(data.plan || "free");
         setDobEditCount(data.dobEditCount ?? 0);
@@ -230,7 +235,15 @@ export default function SettingsPage() {
 
   const handleSaveCycle = () =>
     saveSection(
-      { dateOfBirth, timezone, weekStart, conditions: selectedConditions },
+      {
+        dateOfBirth,
+        timezone,
+        weekStart,
+        conditions: selectedConditions,
+        perimenoStage: selectedConditions.includes("perimenopause")
+          ? perimenoStage
+          : undefined,
+      },
       setCycleStatus,
       setErrorMsg,
     );
@@ -477,6 +490,39 @@ export default function SettingsPage() {
                     );
                   })}
                 </div>
+
+                {/* Perimenopause stage follow-up */}
+                {selectedConditions.includes("perimenopause") && (
+                  <div className="mt-4">
+                    <p className="text-sm font-light text-[#8E7D82] mb-3">
+                      Are your cycles just starting to become irregular, or have
+                      they been very irregular for a while?
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { value: "early" as const, label: "Just starting" },
+                        {
+                          value: "late" as const,
+                          label: "Very irregular for some time",
+                        },
+                        { value: "unknown" as const, label: "Not sure" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setPerimenoStage(opt.value)}
+                          className={`rounded-2xl border px-4 py-3 text-sm font-light transition cursor-pointer ${
+                            perimenoStage === opt.value
+                              ? "border-[#FFB5C0]/60 bg-[#FFEEF1]/50 text-[#6D5A60]"
+                              : "border-[#FFDDE0]/30 bg-[#FFF9F9] text-[#8E7D82] hover:border-[#FFDDE0]/60"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

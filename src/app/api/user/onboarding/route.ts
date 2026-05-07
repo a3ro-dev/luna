@@ -27,8 +27,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const { dateOfBirth, timezone, conditions, pushNotificationsEnabled } =
-      parsed.data;
+    const {
+      dateOfBirth,
+      timezone,
+      conditions,
+      perimenoStage,
+      pushNotificationsEnabled,
+    } = parsed.data;
 
     const userRecord = await db.query.users.findFirst({
       where: eq(users.id, userId),
@@ -76,6 +81,10 @@ export async function POST(req: Request) {
       updates.conditions = conditions;
     }
 
+    if (perimenoStage !== undefined) {
+      updates.perimenoStage = perimenoStage;
+    }
+
     if (pushNotificationsEnabled !== undefined) {
       updates.pushNotificationsEnabled = pushNotificationsEnabled;
     }
@@ -106,6 +115,7 @@ export async function GET() {
       dateOfBirth: true,
       timezone: true,
       conditions: true,
+      perimenoStage: true,
       pushNotificationsEnabled: true,
       onboardingCompleted: true,
       onboardingVersion: true,

@@ -24,7 +24,11 @@ export const profileUpdateSchema = z.object({
   email: z.string().email().max(255).optional(),
   timezone: z.string().max(100).optional(),
   conditions: z.array(z.string()).max(20).optional(),
-  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  perimenoStage: z.enum(["early", "late", "unknown"]).optional(),
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   pushNotificationsEnabled: z.boolean().optional(),
   weekStart: z.number().int().min(0).max(6).optional(),
   passwordChange: z
@@ -37,8 +41,12 @@ export const profileUpdateSchema = z.object({
 
 /** Onboarding schema */
 export const onboardingSchema = z.object({
-  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   timezone: z.string().max(100).optional(),
   conditions: z.array(z.string()).max(20).optional(),
+  perimenoStage: z.enum(["early", "late", "unknown"]).optional(),
   pushNotificationsEnabled: z.boolean().optional(),
 });
