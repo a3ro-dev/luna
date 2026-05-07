@@ -129,7 +129,7 @@ Located in `/research/` at repository root.
 | `POPULATION_PRIOR.cycleLength` = 30.3 ± 6.7 | Najmabadi et al. → Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | Strong (pooled cohort, N=581) |
 | `POPULATION_PRIOR.periodLength` = 6.2 ± 1.5 | Najmabadi et al. → Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | Strong |
 | `POPULATION_PRIOR.follicularLength` = 18.5 ± 6.5 | Najmabadi et al. → Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | Strong |
-| `POPULATION_PRIOR.lutealLength` = 12.0 ± 2.8 | Najmabadi et al. (11.7) → adjusted to 12.0 | Moderate (slight upward adjustment, reason undocumented) |
+| `POPULATION_PRIOR.lutealLength` = 11.7 ± 2.8 | Najmabadi et al. → Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | Strong (pooled cohort, N=581) |
 | `pcos.cycleLength` = 51 ± 15 | Nutrients 2026 (N=10) → Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | Weak (very small N) |
 | `pcos.maxCycleLength` = 120 | MOS2 (observed 111) → +9d buffer → [engine.ts](../src/lib/prediction/engine.ts) | Moderate (empirical max + buffer) |
 | `pcod.cycleLength` = 45 ± 13 | Interpolation (no PCOD-specific data) | Very weak (fabricated prior) |
@@ -138,6 +138,8 @@ Located in `/research/` at repository root.
 | `hormonal_bc.cycleLength` = 28 ± 1 | Regimen design + RCT bleed data | Strong (by design) |
 | `hormonal_bc.periodLength` = 4.5 ± 1.5 | RCTs (4.4-5.2d, SD 1.5-2.2) → midpoint | Strong |
 | `irregular.cycleLength` = 30 ± 15 | General population mean + inflated SD | Very weak (no PCOS-excluded distributions) |
+| `perimenopause_early.cycleLength` = 30 ± 8 | Holman 2006 (~-4yr to -2yr) → [engine.ts](../src/lib/prediction/engine.ts) | Moderate (NIH cohort re-analysis) |
+| `perimenopause_late.cycleLength` = 80 ± 30 | Holman 2006 (~-2yr to -1yr) → [engine.ts](../src/lib/prediction/engine.ts) | Moderate (NIH cohort re-analysis) |
 | `perimenopause.cycleLength` = 45 ± 20 | Holman 2006 (-4yr to -1yr blend) | Moderate (blended across stages, SD estimated) |
 
 ---

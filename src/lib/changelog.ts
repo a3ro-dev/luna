@@ -8,8 +8,26 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.7.3",
+    date: "2026-05-07",
+    type: "fix",
+    title:
+      "Peer-review fixes round 2: unified anomaly detection, inverse-variance mixture with spread, perimenopause sub-conditions, luteal prior fix, expanded tests",
+    description:
+      "Fixed 8 peer-review findings: (1) unified anomaly detection -- refreshCycleAnalytics now delegates entirely to skipGate() as the single source of truth, removing the old z-score first pass; (2) replaced simple inverse-variance pool with mixture that includes between-condition spread term; (3) added 40+ unit tests for the prediction engine covering skipGate, exponentialSmooth, blendWithPrior, predictNextCycle, and resolveEffectivePrior; (4) added perimenopause_early and perimenopause_late as direct condition IDs in ConditionId and CONDITION_PRIORS, with onboarding UI and chat route updates; (5) corrected POPULATION_PRIOR and none condition lutealLength from 12.0 to 11.7d matching Najmabadi et al.; (6) added serverless rate limiter warning JSDoc; (7) added base64 image storage limitation note to schema; (8) passed perimenoStage through all refreshCycleAnalytics callers.",
+  },
+  {
+    version: "0.7.2",
+    date: "2026-05-07",
+    type: "fix",
+    title:
+      "Peer-review fixes: unified anomaly detection, mixture priors, CI reliability, perimenopause sub-priors, tests",
+    description:
+      "Fixed 7 peer-review findings: (1) unified anomaly detection by replacing the manual z-score second pass in refreshCycleAnalytics with the engine's skipGate(); (2) replaced 'highest variance wins' multi-condition resolution with inverse-variance weighted mixture blending; (3) added ciReliable flag to jackknife CI and prediction output, with AI disclaimer when unreliable; (4) added early/late perimenopause sub-priors with perimenoStage user metadata; (5) fixed package.json version mismatch; (6) added 30 unit tests for the prediction engine using Vitest; (7) added CI reliability warning and enhanced anovulatory disclaimer to AI system prompt.",
+  },
+  {
     version: "0.7.1",
-        date: "06-05-2026",
+    date: "06-05-2026",
     type: "docs",
     title: "Humanize all papers and project docs",
     description:

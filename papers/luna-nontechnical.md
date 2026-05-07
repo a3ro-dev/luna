@@ -84,6 +84,8 @@ This is the core of the app.
 | Hormonal birth control | 28 days | 4.5 days | 35 days |
 | Irregular cycles | 30 days | 5.5 days | 90 days |
 | Perimenopause | 45 days | 6 days | 120 days |
+| Perimenopause (early) | 30 days | 6 days | 60 days |
+| Perimenopause (late) | 80 days | 6 days | 180 days |
 
 The "maximum realistic cycle length" is the cutoff -- anything longer is treated as a missed log rather than a real cycle.
 
@@ -149,6 +151,7 @@ We found and fixed several bugs during development through code review:
 | Anomaly flags were lost | The system computed whether a cycle looked anomalous, but never saved that flag to the database | We now save flags to the database |
 | Prediction code mixed two strategies | The variance estimation had confusing code that unintentionally blended two different approaches | Simplified to one clear approach |
 | Import didn't update predictions | When you imported cycles from another app, the prediction engine didn't recalculate | Predictions now refresh after import |
+| Anomaly flags used two different detectors | The analytics pipeline and the prediction engine used different anomaly detection logic, so a cycle could be flagged as anomalous in one place but not the other | Unified: both now use the same skip gate from the prediction engine |
 | Anomalous cycles lowered learning speed | Flagged anomalies were making the system learn slower, the opposite of what was intended | Anomalies no longer deflate the learning rate |
 | Calendar showed overlapping phases | Predicted phases could visually overlap with actual logged data | We corrected the display logic |
 

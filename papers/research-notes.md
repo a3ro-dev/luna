@@ -208,15 +208,11 @@ v0.6.1 changelog. `/start` and landing page CTAs always redirected to `/signup` 
 
 6. Does the in-memory rate limiter work in serverless? The code itself acknowledges this: "In a serverless environment with multiple instances, limits apply per-instance." If Luna runs on Vercel with multiple serverless functions, each instance has its own rate limit state. An attacker could bypass limits by hitting different instances. Architectural limitation, not a bug.
 
-7. Is the luteal phase adjustment from 11.7 to 12.0 documented? Najmabadi data gives luteal mean as 11.7d, but `POPULATION_PRIOR.lutealLength.mean` is 12.0. Perplexity also cites an alternative of 12.4d from an app-based cohort. The 12.0 value appears to be a round-up, but no comment explains the choice. Minor but undocumented.
+7. ~~Is the luteal phase adjustment from 11.7 to 12.0 documented?~~ **RESOLVED**: `POPULATION_PRIOR.lutealLength.mean` has been corrected to 11.7d, matching Najmabadi et al. directly. The `none` condition prior also now uses 11.7d. The previous 12.0 value was an undocumented round-up that has been removed.
 
 8. What's the evidence for the specific KAPPA, ALPHA_MIN, ALPHA_MAX, OUTLIER_SIGMA values? These constants (5.0, 0.1, 0.5, 2.5) have no citations or justification in comments. They look like tuning parameters chosen by the developer. Requires sensitivity analysis on real data.
 
-9. Does `refreshCycleAnalytics` handle edge cases correctly? The function recomputes derived columns (cycleLength, periodLength, follicularLength, lutealLength, isAnomaly) for all cycles and recomputes prediction params. But what happens when:
-   - A cycle has `mEnd` but no `ovulationDate`? (follicular/luteal can't be computed)
-   - A cycle has `ovulationDate` but no `mEnd`? (period length unknown)
-   - Only one cycle exists? (no previous cycle for cycle length)
-   The code handles some of these (the outline shows conditional logic), but the exact behavior wasn't fully traced.
+9. ~~Does `refreshCycleAnalytics` handle edge cases correctly?~~ **RESOLVED**: The anomaly detection in `refreshCycleAnalytics` now delegates entirely to the prediction engine's `skipGate()`, eliminating the previous inconsistency where a separate z-score-based detector could flag different observations than the prediction engine's running-variance skip gate. The function now takes an optional `perimenoStage` parameter that gets passed through to `skipGate()`.
 
 10. How accurate is date parsing in `normalizeDateInput`? The function handles ISO dates, "January 28" style, "Jan 28" style, and MM/DD/YYYY. But what about:
     - "28th of January" → likely fails

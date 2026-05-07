@@ -80,9 +80,9 @@ The general population prior derives from Najmabadi et al. [1], who pooled three
 | cycleLength | 30.3 | 44.89 | 6.7 d |
 | periodLength | 6.2 | 2.25 | 1.5 d |
 | follicularLength | 18.5 | 42.25 | 6.5 d |
-| lutealLength | 12.0 | 7.84 | 2.8 d |
+| lutealLength | 11.7 | 7.84 | 2.8 d |
 
-Eight condition-specific priors extend this baseline: `none`, `pcos`, `pcod`, `endometriosis`, `thyroid`, `hormonal_bc`, `irregular`, `perimenopause` ([engine.ts, L52-184](../src/lib/prediction/engine.ts#L52-L184)). Each specifies cycle length, period length, follicular length, and luteal length (mean and variance), a maximum cycle length threshold, whether anovulation is common, and a human-readable note for the AI assistant.
+Ten condition-specific priors extend this baseline: `none`, `pcos`, `pcod`, `endometriosis`, `thyroid`, `hormonal_bc`, `irregular`, `perimenopause`, `perimenopause_early`, `perimenopause_late` ([engine.ts, L52-230](../src/lib/prediction/engine.ts#L52-L230)). Each specifies cycle length, period length, follicular length, and luteal length (mean and variance), a maximum cycle length threshold, whether anovulation is common, and a human-readable note for the AI assistant.
 
 Condition priors:
 
@@ -96,6 +96,10 @@ Condition priors:
 | hormonal_bc | 28 | 1 | 35 | Yes |
 | irregular | 30 | 15 | 90 | Yes |
 | perimenopause | 45 | 20 | 120 | Yes |
+| perimenopause_early | 30 | 8 | 60 | No |
+| perimenopause_late | 80 | 30 | 180 | Yes |
+
+*The `perimenopause` key is a backward-compatibility alias. New users select `perimenopause_early` or `perimenopause_late` directly, corresponding to ~-4yr to -2yr and ~-2yr to -1yr before the final menstrual period respectively (Holman 2006) ([engine.ts, L195-230](../src/lib/prediction/engine.ts#L195-L230)).*
 
 *PCOD is treated as a milder phenotype of PCOS following South Asian clinical tradition, with interpolated parameters (slightly shorter mean, slightly lower variance). No separate quantitative data distinguishes PCOD from PCOS in peer-reviewed literature ([engine.ts, L81-95](../src/lib/prediction/engine.ts#L81-L95); see note at [L91-94](../src/lib/prediction/engine.ts#L91-L94)).*
 
@@ -103,15 +107,22 @@ Condition priors:
 
 ### 4.2 Prior resolution
 
-When a user has multiple conditions, `resolveEffectivePrior()` ([engine.ts, L191-214](../src/lib/prediction/engine.ts#L191-L214)) selects a single effective prior:
+When a user has multiple conditions, `resolveEffectivePrior()` ([engine.ts, L332-358](../src/lib/prediction/engine.ts#L332-L358)) computes an effective prior using inverse-variance weighted mixture blending:
 
 1. If `hormonal_bc` is present, use the hormonal BC prior (cycle mechanics are fundamentally altered).
 
-2. Otherwise, pick the condition with the highest `cycleLength.variance` (the "most disruptive" condition wins).
+2. Otherwise, compute an inverse-variance weighted mixture of all active condition priors for each metric independently:
+   - `blended_mean = Σ(w_i * μ_i) / Σ(w_i)`, where `w_i = 1/σ²_i`
+   - `blended_variance = 1 / Σ(w_i) + Σ(w_i * (μ_i - blended_mean)²) / Σ(w_i)` (accounts for between-condition spread)
 
-3. Empty conditions or `"none"` fall back to the general population prior.
+3. `maxCycleLength` = MAX across all active conditions (widest safe gate).
+4. `anovulatoryCommon` = OR across all active conditions.
 
-This is a heuristic, and I'm not fully satisfied with it. A user with both endometriosis and thyroid disorders receives the thyroid prior (σ=15d vs σ=4d), which may overestimate variance for their actual presentation. No evidence supports the "highest variance wins" rule; I chose it because underestimating uncertainty is worse than overestimating it [inference].
+NOTE: The mixture assumes approximate Gaussianity and may underestimate tails for heavily right-skewed conditions like PCOS.
+
+5. Empty conditions or `"none"` fall back to the general population prior.
+
+The previous approach used a "highest variance wins" heuristic, which discarded lower-variance conditions entirely. The inverse-variance mixture is more principled: it weights each condition by `1/σ²`, so tighter estimates contribute more to the blended mean, while the between-condition spread term ensures the blended variance reflects the full uncertainty. A user with both endometriosis and thyroid disorders now receives a blended mean between the two condition means, with variance that accounts for both within-condition uncertainty and the spread between the two condition means.
 
 ### 4.3 Adaptive exponential smoothing
 
@@ -248,15 +259,15 @@ The `cycles.notes` column is jsonb storing symptom/note entries per cycle. Perio
 
 1. Fetch all cycles for the user, ordered by mStart ascending.
 
-2. First pass: compute derived columns (cycleLength, periodLength, follicularLength, lutealLength) and apply threshold-based anomaly detection.
+2. First pass: compute derived columns (cycleLength, periodLength, follicularLength, lutealLength). Anomaly flags are not set in this pass.
 
-3. Second pass: mark statistical outliers beyond 2.5σ from the mean cycle length (requires ≥3 cycles).
+3. Second pass: run the prediction engine's `skipGate()` over cycles in chronological order, mirroring the `exponentialSmooth` update logic so the running smoothed value and variance stay in sync. The `isAnomaly` flag is set solely by `skipGate()` ([cycle-tools.ts, L513-582](../src/lib/cycle-tools.ts#L513-L582)).
 
 4. Persist changes to DB (isAnomaly flag + derived columns).
 
 5. Call `refreshPredictionParam()` for each metric (cycle_length, period_length, follicular, luteal), which runs exponential smoothing + prior blending and upserts the result to prediction_params.
 
-The anomaly detection in `refreshCycleAnalytics` uses simple mean±σ (not the exponential smoother's running variance), creating an inconsistency with the prediction engine's own skip gate ([cycle-tools.ts, L528-541](../src/lib/cycle-tools.ts#L528-L541) vs [engine.ts, L273-296](../src/lib/prediction/engine.ts#L273-L296)). The two anomaly detectors may flag different observations. I haven't quantified the impact of this discrepancy [unverified impact].
+The anomaly detection in `refreshCycleAnalytics` now delegates entirely to the prediction engine's `skipGate()`, ensuring the DB `isAnomaly` flags match exactly what the prediction engine used when computing smoothed values. Previously, there was a separate z-score-based anomaly detector that could flag different observations, creating inconsistent state.
 
 ### 5.4 AI chat interface
 
@@ -475,13 +486,11 @@ Real-world usage: The application has no known users beyond the developer. No da
 
 1. The inverse-variance blending and parametric CI assume approximately Gaussian distributions. Menstrual cycle lengths--especially for PCOS and perimenopause--are typically right-skewed [14]. The 1.96σ CI will be asymmetric in reality but is presented symmetrically.
 
-2. The perimenopause prior uses a fixed mean of 45 days, but Holman [11] shows that cycle length varies dramatically over the perimenopausal transition (from ~30d at -4yr to ~80d at -1yr). The prior does not model this temporal evolution. This is a real weakness--perimenopause is a moving target, and a static prior can't capture that.
+2. The perimenopause sub-priors (`perimenopause_early` μ=30d and `perimenopause_late` μ=80d) better capture the temporal evolution described by Holman [11], but the user must self-select which stage they are in. Users who select incorrectly get a poor prior. The legacy `perimenopause` fallback (μ=45d) still lacks this temporal structure.
 
-3. The "highest variance wins" rule for multi-condition users is a heuristic with no empirical support. A user with both endometriosis (short cycles, low variance) and thyroid disorders (long cycles, high variance) receives only the thyroid prior, losing the endometriosis signal entirely.
+3. The inverse-variance mixture for multi-condition users assumes approximate Gaussianity and may underestimate tails for heavily right-skewed conditions like PCOS, where the true distribution has a long right tail. Users with bimodal condition combinations (e.g. endometriosis + thyroid) receive a blended mean between the two modes, which may not match either well.
 
-4. `refreshCycleAnalytics()` uses simple z-scores from sample mean/variance for its second-pass anomaly detection ([cycle-tools.ts, L528-541](../src/lib/cycle-tools.ts#L528-L541)), while the prediction engine uses running variance from exponential smoothing. These two mechanisms can flag different observations.
-
-5. Unlike Clue [4], Luna does not explicitly model the distinction between a missed log and a genuinely long cycle. The skip gate threshold is a hard cutoff, not a probabilistic model of logging behavior. I acknowledge this is a weaker approach.
+4. Unlike Clue [4], Luna does not explicitly model the distinction between a missed log and a genuinely long cycle. The skip gate threshold is a hard cutoff, not a probabilistic model of logging behavior. I acknowledge this is a weaker approach.
 
 6. The prediction engine treats cycle length, period length, follicular length, and luteal length as independent metrics, each smoothed separately. In reality, these are coupled: a long follicular phase necessarily shortens the time from ovulation to next period (if cycle length is fixed), and vice versa. The engine does not enforce this constraint.
 
