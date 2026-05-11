@@ -94,6 +94,13 @@ export default function Home() {
   const signupHref = "/signup";
 
   const { canInstall, isInstalled, platform, triggerInstall } = usePWAInstall();
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
+
+  const installPlatform = mounted
+    ? /iPad|iPhone|iPod/.test(navigator.userAgent)
+      ? "ios"
+      : platform
+    : "unknown";
 
   useEffect(() => {
     setMounted(true);
@@ -708,21 +715,34 @@ export default function Home() {
               {isAuthenticated ? "Open Luna" : "Get started"}
             </Link>
           </div>
-          {canInstall && !isInstalled && (
-            <button
-              type="button"
-              onClick={triggerInstall}
-              className="mt-4 inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[#FFDDE0]/60 bg-white/40 px-8 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] shadow-[0_10px_30px_rgba(255,181,192,0.15)] backdrop-blur-md transition hover:bg-white/60 hover:text-[#FFB5C0]"
-            >
-              <Download className="h-4 w-4" />
-              Install app
-            </button>
-          )}
-          {platform === "ios" && !isInstalled && (
-            <p className="mt-4 text-xs font-light text-[#8E7D82]/60">
-              On iPhone or iPad, open Safari&apos;s share menu and tap Add to
-              Home Screen.
-            </p>
+          {/* Install CTA: prompt when available; otherwise show helpful instructions */}
+          {!isInstalled && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  if (canInstall) {
+                    triggerInstall();
+                    return;
+                  }
+                  setShowInstallHelp((v) => !v);
+                }}
+                className="mt-4 inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[#FFDDE0]/60 bg-white/40 px-8 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] shadow-[0_10px_30px_rgba(255,181,192,0.15)] backdrop-blur-md transition hover:bg-white/60 hover:text-[#FFB5C0]"
+              >
+                <Download className="h-4 w-4" />
+                {installPlatform === "ios"
+                  ? "How to install on iOS"
+                  : "Install app"}
+              </button>
+
+              {(showInstallHelp || installPlatform === "ios") && (
+                <p className="mt-3 text-xs font-light text-[#8E7D82]/60">
+                  {installPlatform === "ios"
+                    ? "On iPhone or iPad: open this site in Safari, tap Share, then Add to Home Screen."
+                    : "If you don't see an install prompt, open your browser menu and choose Install app (or Add to Home Screen)."}
+                </p>
+              )}
+            </>
           )}
         </div>
       </section>
