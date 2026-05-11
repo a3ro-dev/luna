@@ -118,6 +118,7 @@ export function usePWAInstall() {
 export function PWAInstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [showIosHint, setShowIosHint] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [platform] = useState<InstallPlatform>(() => detectPlatform());
 
   useEffect(() => {
@@ -137,18 +138,25 @@ export function PWAInstallPrompt() {
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
 
+    // If the browser never fires beforeinstallprompt (some shells/browsers),
+    // still show a helpful install card after a short delay.
+    const fallbackTimer = setTimeout(() => {
+      if (!isStandalone()) setShowPrompt(true);
+    }, 3500);
+
     // iOS Safari: no beforeinstallprompt — show a manual hint
     if (platform === "ios") {
-      // Small delay so it doesn't fight with page load
       const timer = setTimeout(() => setShowIosHint(true), 2000);
       return () => {
         window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
         clearTimeout(timer);
+        clearTimeout(fallbackTimer);
       };
     }
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+      clearTimeout(fallbackTimer);
     };
   }, [platform]);
 
@@ -171,14 +179,18 @@ export function PWAInstallPrompt() {
     localStorage.setItem("luna-pwa-dismissed", "1");
   }, []);
 
-  // ── Chrome / Edge / Android prompt ─────────────────────────────
-  if (showPrompt && sharedDeferredPrompt) {
+  // ── Install card (prompt if available; otherwise show instructions) ─────
+  if (showPrompt) {
     return (
       <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:bottom-6 md:max-w-sm z-50 animate-in slide-in-from-bottom-4 duration-300">
         <div className="bg-white rounded-2xl shadow-lg border border-[#FFDDE0] p-4 flex flex-col gap-3">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#FFDDE0] flex items-center justify-center flex-shrink-0">
-              <span className="text-lg">🌙</span>
+            <div className="w-10 h-10 rounded-xl bg-[#FFDDE0] flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <img
+                src="/luna.png"
+                alt="Luna"
+                className="h-7 w-7 rounded-full"
+              />
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm text-[#2D1F2F]">
@@ -187,6 +199,13 @@ export function PWAInstallPrompt() {
               <p className="text-xs text-[#8B7B82] mt-0.5">
                 Quick access from your home screen — works offline too
               </p>
+              {showHelp && (
+                <p className="text-xs text-[#8B7B82] mt-2 leading-relaxed">
+                  {platform === "ios"
+                    ? "On iPhone or iPad: open this site in Safari, tap Share, then Add to Home Screen."
+                    : "If you don't see an install prompt, open your browser menu and choose Install app (or Add to Home Screen)."}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex gap-2 justify-end">
@@ -198,13 +217,24 @@ export function PWAInstallPrompt() {
             >
               Not now
             </Button>
-            <Button
-              size="sm"
-              className="text-xs bg-[#2D1F2F] hover:bg-[#3D2F3F] text-white rounded-full"
-              onClick={handleInstallClick}
-            >
-              Install
-            </Button>
+            {sharedDeferredPrompt ? (
+              <Button
+                size="sm"
+                className="text-xs bg-[#2D1F2F] hover:bg-[#3D2F3F] text-white rounded-full"
+                onClick={handleInstallClick}
+              >
+                Install
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs rounded-full border-[#FFDDE0]/60 text-[#6D5A60] hover:bg-[#FFF5F7]"
+                onClick={() => setShowHelp((v) => !v)}
+              >
+                {platform === "ios" ? "How to install" : "How to install"}
+              </Button>
+            )}
           </div>
         </div>
       </div>

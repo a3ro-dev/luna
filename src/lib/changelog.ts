@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.2",
+    date: "2026-05-08",
+    type: "fix",
+    title: "PWA install banner uses Luna logo and always offers install help",
+    description:
+      "Replaced the emoji in the install banner with the Luna logo and added a fallback install-help action for browsers that never fire beforeinstallprompt (users can still install via the browser menu).",
+  },
+  {
     version: "0.9.1",
     date: "2026-05-08",
     type: "fix",
