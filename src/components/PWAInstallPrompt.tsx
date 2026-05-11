@@ -2,6 +2,14 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -118,7 +126,7 @@ export function usePWAInstall() {
 export function PWAInstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [showIosHint, setShowIosHint] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [platform] = useState<InstallPlatform>(() => detectPlatform());
 
   useEffect(() => {
@@ -199,13 +207,11 @@ export function PWAInstallPrompt() {
               <p className="text-xs text-[#8B7B82] mt-0.5">
                 Quick access from your home screen — works offline too
               </p>
-              {showHelp && (
-                <p className="text-xs text-[#8B7B82] mt-2 leading-relaxed">
-                  {platform === "ios"
-                    ? "On iPhone or iPad: open this site in Safari, tap Share, then Add to Home Screen."
-                    : "If you don't see an install prompt, open your browser menu and choose Install app (or Add to Home Screen)."}
-                </p>
-              )}
+              <InstallHelpDialog
+                open={isHelpOpen}
+                onOpenChange={setIsHelpOpen}
+                platform={platform}
+              />
             </div>
           </div>
           <div className="flex gap-2 justify-end">
@@ -230,9 +236,9 @@ export function PWAInstallPrompt() {
                 size="sm"
                 variant="outline"
                 className="text-xs rounded-full border-[#FFDDE0]/60 text-[#6D5A60] hover:bg-[#FFF5F7]"
-                onClick={() => setShowHelp((v) => !v)}
+                onClick={() => setIsHelpOpen(true)}
               >
-                {platform === "ios" ? "How to install" : "How to install"}
+                How to install
               </Button>
             )}
           </div>

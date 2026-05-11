@@ -96,23 +96,12 @@ export default function Home() {
 
   const { status: authStatus } = useSession();
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const isAuthenticated = mounted && authStatus === "authenticated";
+  const isAuthenticated = authStatus === "authenticated";
   const ctaHref = isAuthenticated ? "/dashboard" : "/login";
   const signupHref = "/signup";
 
-  const { canInstall, isInstalled, platform, triggerInstall } = usePWAInstall();
+  const { canInstall, isInstalled, triggerInstall } = usePWAInstall();
   const [showInstallHelp, setShowInstallHelp] = useState(false);
-
-  const installPlatform = mounted
-    ? /iPad|iPhone|iPod/.test(navigator.userAgent)
-      ? "ios"
-      : platform
-    : "unknown";
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -780,13 +769,13 @@ export default function Home() {
                 {installPlatform === "ios"
                   ? "How to install on iOS"
                   : "Install app"}
+                Install app
               </button>
 
-              {(showInstallHelp || installPlatform === "ios") && (
+              {showInstallHelp && (
                 <p className="mt-3 text-xs font-light text-[#8E7D82]/60">
-                  {installPlatform === "ios"
-                    ? "On iPhone or iPad: open this site in Safari, tap Share, then Add to Home Screen."
-                    : "If you don't see an install prompt, open your browser menu and choose Install app (or Add to Home Screen)."}
+                  If you don't see an install prompt, open your browser menu and
+                  choose Install app (or Add to Home Screen).
                 </p>
               )}
             </>
