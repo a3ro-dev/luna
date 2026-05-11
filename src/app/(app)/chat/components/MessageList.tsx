@@ -189,10 +189,6 @@ export const MessageList = memo(function MessageList({
   }, []);
 
   /* ---- Render ---- */
-  if (messages.length === 0) {
-    return <EmptyState onSuggestionClick={onSuggestionClick} />;
-  }
-
   return (
     <div className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain">
       <div
@@ -204,20 +200,28 @@ export const MessageList = memo(function MessageList({
           ref={contentRef}
           className="mx-auto max-w-3xl px-4 md:px-6 py-6 space-y-4"
         >
-          {messages.map((m) => (
-            <MessageItem key={m.id} message={m} isStreaming={isStreaming} />
-          ))}
+          {messages.length === 0 ? (
+            <div className="min-h-full flex">
+              <EmptyState onSuggestionClick={onSuggestionClick} />
+            </div>
+          ) : (
+            messages.map((m) => (
+              <MessageItem key={m.id} message={m} isStreaming={isStreaming} />
+            ))
+          )}
 
           {/* Streaming indicator */}
-          {isBusy && !lastAssistantHasContent(messages) && (
-            <div>
-              <div className="is-assistant group flex w-full max-w-[95%] flex-col gap-2">
-                <div className="flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm text-foreground">
-                  <Shimmer>Thinking...</Shimmer>
+          {messages.length > 0 &&
+            isBusy &&
+            !lastAssistantHasContent(messages) && (
+              <div>
+                <div className="is-assistant group flex w-full max-w-[95%] flex-col gap-2">
+                  <div className="flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm text-foreground">
+                    <Shimmer>Thinking...</Shimmer>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
 

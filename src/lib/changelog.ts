@@ -8,6 +8,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.4",
+    date: "2026-05-08",
+    type: "fix",
+    title: "Chat empty state no longer collapses into a blank screen",
+    description:
+      "Fixed the /chat layout when there are zero messages so the empty state fills the available space instead of leaving a large blank area above the composer (especially noticeable when the mobile keyboard opens).",
+  },
+  {
+    version: "0.9.3",
+    date: "2026-05-08",
+    type: "fix",
+    title: "Install help opens a mini-modal",
+    description:
+      "Changed the install banner's 'How to install' state from inline expanding text to a compact dialog with step-by-step instructions for iOS and other browsers.",
+  },
+  {
     version: "0.9.2",
     date: "2026-05-08",
     type: "fix",
