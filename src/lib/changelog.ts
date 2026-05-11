@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.1",
+    date: "2026-05-08",
+    type: "fix",
+    title: "Dashboard mobile header pills no longer overflow",
+    description:
+      "Made the dashboard top navigation pills horizontally scrollable on small screens and tightened padding and font size so Dashboard/Chat/Settings/Sign out stay usable without clipping.",
+  },
+  {
     version: "0.9.0",
     date: "2026-05-08",
     type: "feat",

@@ -93,7 +93,7 @@ const shimmerKeyframes = `
 function Nav({ userName }: { userName: string }) {
   return (
     <motion.nav
-      className="flex items-center justify-between mb-10 md:mb-14"
+      className="flex items-center justify-between gap-3 mb-10 md:mb-14 min-w-0"
       {...enterFade}
     >
       <Link
@@ -102,10 +102,10 @@ function Nav({ userName }: { userName: string }) {
       >
         Luna
       </Link>
-      <div className="flex items-center gap-1.5 sm:gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 min-w-0">
         <Link
           href="/dashboard"
-          className="h-9 rounded-full px-5 text-[10px] font-semibold uppercase tracking-widest inline-flex items-center transition-all duration-150 bg-[#6D5A60] text-white shadow-[0_4px_12px_rgba(109,90,96,0.15)]"
+          className="h-9 rounded-full px-4 sm:px-5 text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest inline-flex items-center transition-all duration-150 bg-[#6D5A60] text-white shadow-[0_4px_12px_rgba(109,90,96,0.15)]"
         >
           Dashboard
         </Link>
