@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Instrument_Serif, DM_Sans, Figtree } from "next/font/google";
 import "./globals.css";
 import AppSessionProvider from "@/components/SessionProvider";
+import PWAProvider from "@/components/PWAProvider";
 import { cn } from "@/lib/utils";
 
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
@@ -17,12 +18,35 @@ const dmSans = DM_Sans({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#FFDDE0",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
   title: "Luna - Cycle Tracker",
-  description: "Your caring health companion",
+  description:
+    "Your caring health companion — log, predict, and chat about your cycle",
+  manifest: "/manifest.webmanifest",
   icons: {
-    icon: [{ url: "/luna.png", sizes: "any" }],
-    apple: "/luna.png",
+    icon: [
+      { url: "/luna.png", sizes: "any" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/icon-192.png" }, { url: "/icons/icon-512.png" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Luna",
+  },
+  formatDetection: {
+    telephone: false,
   },
 };
 
@@ -44,7 +68,10 @@ export default function RootLayout({
       )}
     >
       <body className="min-h-full flex flex-col font-sans bg-[#FCFBFB]">
-        <AppSessionProvider>{children}</AppSessionProvider>
+        <AppSessionProvider>
+          <PWAProvider />
+          {children}
+        </AppSessionProvider>
       </body>
     </html>
   );

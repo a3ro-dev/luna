@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.0",
+    date: "2026-05-08",
+    type: "feat",
+    title: "PWA install support for iOS, Android, and desktop",
+    description:
+      "Added full Progressive Web App support. Web App Manifest with standalone display, shortcuts, and maskable icons (192px and 512px generated from luna.png). Service worker with network-first HTML caching and cache-first static assets. PWAInstallPrompt component detects the platform and shows a native install banner (Chrome/Edge/Android via beforeinstallprompt) or a manual iOS Safari hint (share > Add to Home Screen). Dismiss state persisted in localStorage. CSP updated with worker-src, manifest-src, and blob: directives. Root layout updated with viewport metadata, apple-web-app capable, and theme color.",
+  },
+  {
     version: "0.8.0",
     date: "2026-05-07",
     type: "refactor",
