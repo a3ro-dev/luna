@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.5",
+    date: "2026-05-08",
+    type: "fix",
+    title: "Homepage header no longer clips logo on mobile",
+    description:
+      "Collapsed homepage header actions into a single primary CTA plus an overflow menu on small screens, preventing the Luna wordmark from being clipped.",
+  },
+  {
     version: "0.9.4",
     date: "2026-05-08",
     type: "fix",

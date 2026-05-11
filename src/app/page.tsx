@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -11,11 +11,19 @@ import {
   CalendarDays,
   Download,
   HeartPulse,
+  MoreVertical,
   MessageCircleHeart,
   Moon,
   Sparkles,
 } from "lucide-react";
 import { usePWAInstall } from "@/components/PWAInstallPrompt";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger, useGSAP);
@@ -362,24 +370,63 @@ export default function Home() {
       <header className="fixed left-0 right-0 top-0 z-40 flex items-center justify-between px-6 py-6 md:px-12">
         <Link
           href="/"
-          className="flex items-center gap-2 font-serif text-3xl font-light leading-none text-[#6D5A60]"
+          className="flex items-center gap-2 min-w-0 font-serif text-3xl font-light leading-none text-[#6D5A60]"
         >
           <img src="/luna.png" alt="Luna" className="h-9 w-9 rounded-full" />
-          Luna
+          <span className="truncate">Luna</span>
         </Link>
-        <div className="flex items-center gap-3">
-          <Link
-            href={ctaHref}
-            className="rounded-full border border-white/60 bg-white/40 px-5 py-2.5 text-xs font-semibold uppercase tracking-widest text-[#6D5A60] shadow-[0_10px_30px_rgba(255,181,192,0.15)] backdrop-blur-md transition hover:bg-white/60 hover:text-[#FFB5C0]"
-          >
-            {isAuthenticated ? "Dashboard" : "Sign in"}
-          </Link>
+
+        <div className="flex items-center gap-2">
+          {/* Primary CTA */}
           <Link
             href={isAuthenticated ? "/dashboard" : signupHref}
             className="rounded-full bg-[#6D5A60] px-5 py-2.5 text-xs font-semibold uppercase tracking-widest text-white shadow-[0_10px_30px_rgba(109,90,96,0.18)] transition hover:bg-[#8E7D82]"
           >
             {isAuthenticated ? "Open Luna" : "Get started"}
           </Link>
+
+          {/* Overflow menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Menu"
+                className="h-10 w-10 grid place-items-center rounded-full border border-white/60 bg-white/40 text-[#6D5A60] shadow-[0_10px_30px_rgba(255,181,192,0.15)] backdrop-blur-md transition hover:bg-white/60"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-56">
+              {isAuthenticated ? (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard">Dashboard</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/chat">Chat</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings">Settings</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                  >
+                    Sign out
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/login">Sign in</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/signup">Create account</Link>
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
