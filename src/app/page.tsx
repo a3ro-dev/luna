@@ -361,29 +361,18 @@ export default function Home() {
           Luna
         </Link>
         <div className="flex items-center gap-3">
-          {isAuthenticated ? (
-            <Link
-              href="/dashboard"
-              className="rounded-full border border-white/60 bg-white/40 px-6 py-2.5 text-xs font-semibold uppercase tracking-widest text-[#6D5A60] shadow-[0_10px_30px_rgba(255,181,192,0.15)] backdrop-blur-md transition hover:bg-white/60 hover:text-[#FFB5C0]"
-            >
-              Dashboard
-            </Link>
-          ) : (
-            <>
-              <Link
-                href={ctaHref}
-                className="rounded-full border border-white/60 bg-white/40 px-5 py-2.5 text-xs font-semibold uppercase tracking-widest text-[#6D5A60] shadow-[0_10px_30px_rgba(255,181,192,0.15)] backdrop-blur-md transition hover:bg-white/60 hover:text-[#FFB5C0]"
-              >
-                Sign in
-              </Link>
-              <Link
-                href={signupHref}
-                className="rounded-full bg-[#6D5A60] px-5 py-2.5 text-xs font-semibold uppercase tracking-widest text-white shadow-[0_10px_30px_rgba(109,90,96,0.18)] transition hover:bg-[#8E7D82]"
-              >
-                Get started
-              </Link>
-            </>
-          )}
+          <Link
+            href={ctaHref}
+            className="rounded-full border border-white/60 bg-white/40 px-5 py-2.5 text-xs font-semibold uppercase tracking-widest text-[#6D5A60] shadow-[0_10px_30px_rgba(255,181,192,0.15)] backdrop-blur-md transition hover:bg-white/60 hover:text-[#FFB5C0]"
+          >
+            {isAuthenticated ? "Dashboard" : "Sign in"}
+          </Link>
+          <Link
+            href={isAuthenticated ? "/dashboard" : signupHref}
+            className="rounded-full bg-[#6D5A60] px-5 py-2.5 text-xs font-semibold uppercase tracking-widest text-white shadow-[0_10px_30px_rgba(109,90,96,0.18)] transition hover:bg-[#8E7D82]"
+          >
+            {isAuthenticated ? "Open Luna" : "Get started"}
+          </Link>
         </div>
       </header>
 
@@ -705,29 +694,20 @@ export default function Home() {
             Start with one log. Luna will learn the rest slowly, privately, and
             with care.
           </p>
-          {isAuthenticated ? (
+          <div className="mt-14 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
-              href="/dashboard"
-              className="mt-14 inline-flex h-14 items-center justify-center rounded-full bg-[#6D5A60] px-10 text-[11px] font-semibold uppercase tracking-widest text-white shadow-[0_20px_40px_rgba(109,90,96,0.25)] transition duration-300 hover:-translate-y-1 hover:bg-[#8E7D82] hover:shadow-[0_30px_60px_rgba(109,90,96,0.35)]"
+              href={ctaHref}
+              className="inline-flex h-14 items-center justify-center rounded-full border border-[#FFDDE0]/60 bg-white/50 px-10 text-[11px] font-semibold uppercase tracking-widest text-[#6D5A60] shadow-[0_12px_24px_rgba(255,181,192,0.12)] backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_20px_40px_rgba(255,181,192,0.2)]"
             >
-              Open Luna
+              {isAuthenticated ? "Dashboard" : "Sign in"}
             </Link>
-          ) : (
-            <div className="mt-14 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link
-                href={ctaHref}
-                className="inline-flex h-14 items-center justify-center rounded-full border border-[#FFDDE0]/60 bg-white/50 px-10 text-[11px] font-semibold uppercase tracking-widest text-[#6D5A60] shadow-[0_12px_24px_rgba(255,181,192,0.12)] backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_20px_40px_rgba(255,181,192,0.2)]"
-              >
-                Sign in
-              </Link>
-              <Link
-                href={signupHref}
-                className="inline-flex h-14 items-center justify-center rounded-full bg-[#6D5A60] px-10 text-[11px] font-semibold uppercase tracking-widest text-white shadow-[0_20px_40px_rgba(109,90,96,0.25)] transition duration-300 hover:-translate-y-1 hover:bg-[#8E7D82] hover:shadow-[0_30px_60px_rgba(109,90,96,0.35)]"
-              >
-                Get started
-              </Link>
-            </div>
-          )}
+            <Link
+              href={isAuthenticated ? "/dashboard" : signupHref}
+              className="inline-flex h-14 items-center justify-center rounded-full bg-[#6D5A60] px-10 text-[11px] font-semibold uppercase tracking-widest text-white shadow-[0_20px_40px_rgba(109,90,96,0.25)] transition duration-300 hover:-translate-y-1 hover:bg-[#8E7D82] hover:shadow-[0_30px_60px_rgba(109,90,96,0.35)]"
+            >
+              {isAuthenticated ? "Open Luna" : "Get started"}
+            </Link>
+          </div>
           {canInstall && !isInstalled && (
             <button
               type="button"
