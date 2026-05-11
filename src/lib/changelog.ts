@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.6",
+    date: "2026-05-11",
+    type: "fix",
+    title: "Fix PWA install help build errors",
+    description:
+      "Fixed missing install platform wiring on the landing page and restored the missing InstallHelpDialog component so production builds succeed.",
+  },
+  {
     version: "0.9.5",
     date: "2026-05-08",
     type: "fix",

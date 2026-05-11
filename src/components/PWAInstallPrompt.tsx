@@ -24,6 +24,61 @@ type InstallPlatform =
   | "desktop-edge"
   | "unknown";
 
+function InstallHelpDialog({
+  open,
+  onOpenChange,
+  platform,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  platform: InstallPlatform;
+}) {
+  const steps =
+    platform === "ios"
+      ? [
+          'Tap the Share button in Safari (the square with an arrow).',
+          'Scroll and tap "Add to Home Screen".',
+          "Confirm to add Luna.",
+        ]
+      : [
+          "Open your browser menu.",
+          'Tap "Install app" (or "Add to Home Screen").',
+          "Confirm to install Luna.",
+        ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>How to install Luna</DialogTitle>
+          <DialogDescription>
+            {platform === "ios"
+              ? "iOS doesn’t show an install prompt -- you’ll install from Safari’s menu."
+              : "If you don’t see an install prompt, you can install from your browser menu."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 text-sm text-[#6D5A60]">
+          {steps.map((step, idx) => (
+            <p key={`${platform}-${idx}`}>
+              {idx + 1}. {step}
+            </p>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-full"
+            onClick={() => onOpenChange(false)}
+          >
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function detectPlatform(): InstallPlatform {
   if (typeof navigator === "undefined") return "unknown";
 

@@ -100,7 +100,7 @@ export default function Home() {
   const ctaHref = isAuthenticated ? "/dashboard" : "/login";
   const signupHref = "/signup";
 
-  const { canInstall, isInstalled, triggerInstall } = usePWAInstall();
+  const { canInstall, isInstalled, platform, triggerInstall } = usePWAInstall();
   const [showInstallHelp, setShowInstallHelp] = useState(false);
 
   useEffect(() => {
@@ -766,10 +766,9 @@ export default function Home() {
                 className="mt-4 inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[#FFDDE0]/60 bg-white/40 px-8 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] shadow-[0_10px_30px_rgba(255,181,192,0.15)] backdrop-blur-md transition hover:bg-white/60 hover:text-[#FFB5C0]"
               >
                 <Download className="h-4 w-4" />
-                {installPlatform === "ios"
+                {platform === "ios"
                   ? "How to install on iOS"
                   : "Install app"}
-                Install app
               </button>
 
               {showInstallHelp && (
