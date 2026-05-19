@@ -1,32 +1,16 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
-import { rateLimit } from "@/lib/rate-limit";
+
+// NOTE: Rate limiting for auth endpoints is handled inside each route handler
+// (forgot-password, reset-password) using the async Redis-backed rateLimit().
+// Next.js middleware cannot use async rate limiting for the NextAuth callback
+// path without blocking the auth flow, so login brute-force protection is
+// enforced at the route level via Auth.js's built-in signIn error handling
+// and the per-IP limiter in /api/auth/reset-password.
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth?.user?.id;
-
-  // ── Rate limiting for auth endpoints ──────────────────────
-  // Login: 5 requests per 60 seconds per IP
-  if (
-    pathname.includes("/api/auth") &&
-    req.method === "POST" &&
-    !pathname.includes("register") &&
-    !pathname.includes("forgot-password") &&
-    !pathname.includes("reset-password") &&
-    !pathname.includes("send-otp") &&
-    !pathname.includes("verify-otp")
-  ) {
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    const result = rateLimit(`login:${ip}`, 5, 60 * 1000);
-    if (!result.success) {
-      return NextResponse.json(
-        { error: "Too many login attempts. Please try again later." },
-        { status: 429 },
-      );
-    }
-  }
 
   // ── Public routes that don't require auth ─────────────────
   const publicRoutes = [

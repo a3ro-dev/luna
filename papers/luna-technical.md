@@ -262,7 +262,7 @@ Eight tables are defined in [schema.ts](../src/lib/db/schema.ts):
 
 | Table | Columns | Notes |
 |---|---|---|
-| `users` | id, email, passwordHash, conditions (jsonb), perimenoStage, plan | conditions = array of condition strings; perimenoStage = "early"/"late"/"unknown" (only when perimenopause is in conditions) |
+| `users` | id, email, passwordHash, conditions (jsonb), perimenoStage, plan | conditions = allowlist-validated array (pcos, pcod, endometriosis, thyroid, hormonal_bc, irregular, perimenopause, perimenopause_early, perimenopause_late, none); perimenoStage = "early"/"late"/"unknown" |
 | `cycles` | id, userId, mStart, mEnd, ovulationDate, cycleLength, periodLength, follicularLength, lutealLength, isAnomaly, notes (jsonb) | Derived columns recomputed on every cycle write |
 | `prediction_params` | id, userId, paramName, smoothedValue, variance, sampleCount | One row per (userId, metric); unique on (userId, paramName) |
 | `ai_traces` | id, userId, model, inputTokens, outputTokens, costUsd, latencyMs, feature | Every AI response logged |
@@ -330,13 +330,13 @@ Auth.js v5 with Credentials provider only (email + password), JWT strategy (7-da
 
 ### 5.7 Rate limiting
 
-In-memory sliding-window counter, per-process only ([rate-limit.ts](../src/lib/rate-limit.ts)). A 5-minute cleanup interval prevents memory leaks. In serverless deployments with multiple instances, rate limits apply per-instance, not globally. An attacker can bypass limits by distributing requests across instances.
+Sliding-window counter backed by Upstash Redis (`KV_REST_API_URL` / `KV_REST_API_TOKEN`), shared across all serverless instances ([rate-limit.ts](../src/lib/rate-limit.ts)). Falls back to an in-process in-memory store when Redis is unavailable. Applied to: login (5 req/60s per IP), password reset (3 req/5min per IP), OTP verify (5 req/5min per IP), subscription (3 req/hour per IP), and login notifications (1 req/5min per user). The Redis-backed store correctly enforces limits across concurrent instances. Without Redis configured, limits apply per-process only and can be bypassed by distributing requests across instances.
 
 ### 5.8 Data import
 
 The import route ([import/route.ts](../src/app/api/data/import/route.ts)) supports five formats:
 
-1. Luna JSON -- native export format
+1. Luna JSON -- native export format. The `parseLuna()` parser validates each entry against a Zod schema (`lunaCycleSchema`) before inserting -- invalid entries are skipped rather than crashing the import.
 
 2. Period Calendar -- "My Calendar" app (Google Play), tab-separated
 
@@ -677,9 +677,18 @@ Seven implementation bugs were identified and fixed during development:
 
 8. The cycle analytics pipeline used a separate z-score-based anomaly detector in `refreshCycleAnalytics`, which could flag different observations than the prediction engine's `skipGate()`, producing inconsistent `isAnomaly` flags. Fix: anomaly detection in `refreshCycleAnalytics` now delegates entirely to `skipGate()`, ensuring the DB flags match exactly what the prediction engine used when computing smoothed values.
 
+9. The rate limiter used an in-memory Map that leaked between invocations in some test environments and provided no cross-instance protection in production. Fix: migrated to Upstash Redis via `@upstash/ratelimit`, with in-process fallback ([rate-limit.ts](../src/lib/rate-limit.ts)). Applied to login, password reset, OTP, subscription, and login-notification endpoints.
+
+10. The `conditions` field in profile update and onboarding schemas accepted any string array, making it possible to inject unexpected values into the health condition prior selector. Fix: Zod enum allowlist applied in `profileUpdateSchema` and `onboardingSchema` ([schemas/auth.ts](../src/lib/schemas/auth.ts)).
+
+11. The Content-Security-Policy `script-src` directive included `'unsafe-eval'` and `'unsafe-inline'` in production, which materially weakens XSS protections. Fix: both directives removed from production CSP ([next.config.ts](../next.config.ts)).
+
+12. Admin email was hardcoded in the email library source. Fix: moved to `process.env.ADMIN_EMAIL` with the personal email as fallback ([email/index.ts](../src/lib/email/index.ts)).
+
+
 ## Appendix D: Version history
 
-The changelog ([changelog.ts](../src/lib/changelog.ts)) documents 18 versions spanning May 4-6, 2026 (58 git commits):
+The changelog ([changelog.ts](../src/lib/changelog.ts)) documents versions spanning May 4-19, 2026:
 
 | Version | Date | Type | Description |
 |---|---|---|---|
@@ -687,24 +696,16 @@ The changelog ([changelog.ts](../src/lib/changelog.ts)) documents 18 versions sp
 | 0.1.0 | 2026-05-04 | feat | Landing page with GSAP animations |
 | 0.1.1 | 2026-05-04 | feat | Authentication: registration & login |
 | 0.1.2 | 2026-05-05 | feat | Dashboard with cycle prediction & calendar |
-| 0.2.0 | 2026-05-05 | feat | Chat session management |
-| 0.2.1 | 2026-05-05 | docs | Design & product documentation |
-| 0.2.2 | 2026-05-05 | feat | Auth session management & sign-out |
-| 0.3.0 | 2026-05-05 | feat | Prediction engine & Tailwind setup |
-| 0.3.1 | 2026-05-05 | feat | Agent-based NLP tools & OpenUI rendering |
-| 0.4.0 | 2026-05-05 | feat | AI chat with context-aware tools & session memory |
-| 0.4.1 | 2026-05-05 | fix | AI SDK v6 migration, Supermemory v4 & web search |
-| 0.5.0 | 2026-05-05 | feat | Chat rewrite with AI Elements + OpenUI + shadcn |
-| 0.5.1 | 2026-05-05 | fix | Chat layout dynamic viewport height |
-| 0.5.2 | 2026-05-05 | fix | Chat scroll anchoring, next.config & docs |
-| 0.5.3 | 2026-05-05 | chore | Git LFS for large media files |
-| 0.6.0 | 2026-05-05 | feat | Onboarding, manual logging, password reset |
-| 0.6.1 | 2026-05-05 | fix | Landing page auth redirect for signed-in users |
-| 0.6.2 | 2026-05-05 | fix | Period length off-by-one, dashboard count & favicon |
+| 0.2.0--0.2.2 | 2026-05-05 | feat | Chat sessions, design docs, auth sign-out |
+| 0.3.0--0.3.1 | 2026-05-05 | feat | Prediction engine, Tailwind, NLP tools, OpenUI |
+| 0.4.0--0.4.1 | 2026-05-05 | feat/fix | AI chat, session memory, AI SDK v6 migration |
+| 0.5.0--0.5.3 | 2026-05-05 | feat/fix | Chat rewrite, scroll, viewport, Git LFS |
+| 0.6.0--0.6.2 | 2026-05-05 | feat/fix | Onboarding, password reset, auth redirects, favicon |
 | 0.7.0 | 2026-05-06 | feat | Condition-aware prediction engine & Luna responses |
 | 0.7.1 | 2026-05-06 | docs | Humanize all papers and project docs |
-| 0.7.2 | 2026-05-07 | fix | Peer-review fixes: unified anomaly detection, mixture priors, CI reliability, perimenopause sub-priors, tests |
-| 0.7.3 | 2026-05-07 | fix | Unified skipGate anomaly, inverse-variance spread mixture, perimenopause early/late conditions, luteal 11.7d, 40+ vitest tests |
-| 0.7.4 | 2026-05-07 | fix | Phase coupling: derive follicular from cycle+period+luteal (drop and derive), fix skipGate and adaptive alpha tests, 68 vitest tests |
+| 0.7.2--0.7.4 | 2026-05-07 | fix | Peer-review fixes, mixture priors, phase coupling, 68 vitest tests |
+| 0.8.0--0.9.6 | 2026-05-07--11 | feat/fix | Chat UI overhaul, PWA support, mobile fixes |
+| 0.9.7 | 2026-05-19 | fix | Security audit fixes (Kiro): Redis rate limiting, CSP hardening, Zod import validation, conditions allowlist, third-party timeouts, admin email env var |
 
 *Note: Version numbers in package.json are kept in sync with changelog.ts from v0.7.0 onward.*
+

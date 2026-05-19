@@ -40,8 +40,22 @@ import {
 import { looksLikeOpenUiLang } from "@/lib/chat/openui";
 import { getModelConfig } from "@/lib/chat/models";
 import { storeImage } from "@/lib/chat/images";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
+
+// Chat rate limit: 30 messages per minute per user to prevent AI cost abuse
+const CHAT_RATE_LIMIT = 30;
+const CHAT_RATE_WINDOW_MS = 60 * 1000;
+
+// Max request body size: 15MB (accounts for base64 image payloads)
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "15mb",
+    },
+  },
+};
 
 // HackClub AI provider
 const hackClubAI = createOpenAI({
@@ -68,6 +82,7 @@ async function recallMemory(userId: string, query: string): Promise<string> {
         searchMode: "memories",
       }),
       method: "POST",
+      signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) return "";
     const data = await res.json();
@@ -98,6 +113,7 @@ async function storeMemoryFact(
         memories: [{ content: fact.trim(), isStatic }],
       }),
       method: "POST",
+      signal: AbortSignal.timeout(3000),
     });
   } catch (e) {
     console.error("Supermemory write failed", e);
@@ -538,6 +554,7 @@ const createChatTools = ({
             headers: {
               Authorization: `Bearer ${process.env.HACKCLUB_WEB_SEARCH_API_KEY}`,
             },
+            signal: AbortSignal.timeout(5000),
           },
         );
         if (!res.ok) {
@@ -637,6 +654,19 @@ export async function POST(req: Request) {
 
   if (!userId) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  // Rate limit: 30 messages per minute per user
+  const chatRateResult = await rateLimit(
+    `chat:${userId}`,
+    CHAT_RATE_LIMIT,
+    CHAT_RATE_WINDOW_MS,
+  );
+  if (!chatRateResult.success) {
+    return new Response(
+      JSON.stringify({ error: "Too many messages. Please slow down." }),
+      { status: 429, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   const {

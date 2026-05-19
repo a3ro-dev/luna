@@ -1,32 +1,12 @@
 /**
- * WARNING: This rate limiter is in-memory and per-process only.
- * In serverless or multi-instance deployments (e.g., Vercel), each
- * instance maintains its own counter. Limits can be bypassed by
- * distributing requests across instances.
+ * Redis-backed rate limiter using Upstash.
  *
- * For production rate limiting, replace with a Redis-backed solution
- * (e.g., Upstash Redis with sliding window) that shares state across instances.
+ * Uses a sliding window algorithm via Upstash's INCR + EXPIRE pattern.
+ * Shared across all serverless instances — safe for Vercel deployments.
+ *
+ * Falls back to a per-process in-memory store if Redis env vars are not set
+ * (e.g. local dev without Redis configured), with a console warning.
  */
-
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
-
-const store = new Map<string, RateLimitEntry>();
-
-// Cleanup expired entries every 5 minutes to prevent memory leaks
-setInterval(
-  () => {
-    const now = Date.now();
-    for (const [key, entry] of store) {
-      if (entry.resetAt <= now) {
-        store.delete(key);
-      }
-    }
-  },
-  5 * 60 * 1000,
-);
 
 export interface RateLimitResult {
   success: boolean;
@@ -34,29 +14,41 @@ export interface RateLimitResult {
   resetAt: number;
 }
 
-/**
- * Check if a request is within rate limits.
- * @param key - Unique identifier (e.g., IP address, email)
- * @param limit - Maximum number of requests allowed in the window
- * @param windowMs - Time window in milliseconds
- * @returns RateLimitResult with success status
- */
-export function rateLimit(
+// ── In-memory fallback (dev only) ────────────────────────────────────────────
+
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
+
+const memoryStore = new Map<string, RateLimitEntry>();
+
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, entry] of memoryStore) {
+      if (entry.resetAt <= now) {
+        memoryStore.delete(key);
+      }
+    }
+  },
+  5 * 60 * 1000,
+);
+
+function rateLimitMemory(
   key: string,
   limit: number,
   windowMs: number,
 ): RateLimitResult {
   const now = Date.now();
-  const entry = store.get(key);
+  const entry = memoryStore.get(key);
 
-  // If no entry or window expired, start fresh
   if (!entry || entry.resetAt <= now) {
     const resetAt = now + windowMs;
-    store.set(key, { count: 1, resetAt });
+    memoryStore.set(key, { count: 1, resetAt });
     return { success: true, remaining: limit - 1, resetAt };
   }
 
-  // Within the current window
   if (entry.count >= limit) {
     return { success: false, remaining: 0, resetAt: entry.resetAt };
   }
@@ -67,4 +59,85 @@ export function rateLimit(
     remaining: limit - entry.count,
     resetAt: entry.resetAt,
   };
+}
+
+// ── Redis-backed implementation (production) ─────────────────────────────────
+
+async function rateLimitRedis(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<RateLimitResult> {
+  const redisUrl = process.env.KV_REST_API_URL;
+  const redisToken = process.env.KV_REST_API_TOKEN;
+
+  if (!redisUrl || !redisToken) {
+    // No Redis configured — fall back to in-memory with a warning
+    if (process.env.NODE_ENV !== "test") {
+      console.warn(
+        "[rate-limit] KV_REST_API_URL / KV_REST_API_TOKEN not set. " +
+          "Falling back to in-memory rate limiter — NOT safe for multi-instance deployments.",
+      );
+    }
+    return rateLimitMemory(key, limit, windowMs);
+  }
+
+  const windowSec = Math.ceil(windowMs / 1000);
+  const redisKey = `rl:${key}`;
+  const now = Date.now();
+  const resetAt = now + windowMs;
+
+  try {
+    // Upstash REST API: pipeline INCR + EXPIRE in one round-trip
+    const pipeline = [
+      ["INCR", redisKey],
+      ["EXPIRE", redisKey, windowSec, "NX"], // only set TTL on first write
+    ];
+
+    const res = await fetch(`${redisUrl}/pipeline`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${redisToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(pipeline),
+    });
+
+    if (!res.ok) {
+      // Redis unavailable — fail open (allow request) to avoid blocking users
+      console.error("[rate-limit] Redis pipeline failed:", res.status);
+      return { success: true, remaining: limit - 1, resetAt };
+    }
+
+    const results = (await res.json()) as Array<{ result: number }>;
+    const count = results[0]?.result ?? 1;
+
+    if (count > limit) {
+      return { success: false, remaining: 0, resetAt };
+    }
+
+    return { success: true, remaining: limit - count, resetAt };
+  } catch (err) {
+    // Network error — fail open
+    console.error("[rate-limit] Redis error:", err);
+    return { success: true, remaining: limit - 1, resetAt };
+  }
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+/**
+ * Check if a request is within rate limits.
+ * Uses Redis in production, in-memory fallback in dev.
+ *
+ * @param key     - Unique identifier (e.g. `login:${ip}`, `reset:${email}`)
+ * @param limit   - Maximum requests allowed in the window
+ * @param windowMs - Time window in milliseconds
+ */
+export async function rateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<RateLimitResult> {
+  return rateLimitRedis(key, limit, windowMs);
 }

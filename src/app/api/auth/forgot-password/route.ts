@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const normalizedEmail = email.trim().toLowerCase();
 
     // Rate limit by email
-    const rateResult = rateLimit(
+    const rateResult = await rateLimit(
       `reset:${normalizedEmail}`,
       MAX_RESET_ATTEMPTS,
       RESET_WINDOW_MS,

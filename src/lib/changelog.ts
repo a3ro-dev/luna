@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.7",
+    date: "2026-05-19",
+    type: "fix",
+    title: "Security audit fixes (Kiro audit, May 2026)",
+    description:
+      "Applied 10 security fixes from the full Kiro audit: (1) pinned @openuidev packages to exact versions (supply chain hardening); (2) set package.json private:true to block accidental npm publish; (3) removed unsafe-eval and unsafe-inline from production Content-Security-Policy script-src; (4) replaced open-ended conditions string array with an allowlist enum in profileUpdateSchema and onboardingSchema (prompt-injection prevention); (5) added IP-based rate limiting (3/hour) and proper RFC-5322 email validation to the public /api/subscribe endpoint; (6) added Zod validation to parseLuna() import parser to prevent type confusion and prototype pollution attacks; (7) added AbortSignal.timeout(3000) to both Supermemory API calls; (8) added AbortSignal.timeout(5000) to the HackClub web search call; (9) moved hardcoded admin email to ADMIN_EMAIL env var; (10) added per-user rate limiting (1/5min) to the login-notification endpoint; (11) added CRON_SECRET, NEXT_PUBLIC_APP_URL, ADMIN_EMAIL, and KV Redis vars to .env.example.",
+  },
+  {
     version: "0.9.6",
     date: "2026-05-11",
     type: "fix",

@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     // Rate limit by IP to prevent brute-force token attacks
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    const rateResult = rateLimit(
+    const rateResult = await rateLimit(
       `reset-pw:${ip}`,
       MAX_RESET_ATTEMPTS,
       RESET_WINDOW_MS,

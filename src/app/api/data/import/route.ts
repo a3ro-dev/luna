@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { refreshCycleAnalytics } from "@/lib/cycle-tools";
 import type { PerimenoStage } from "@/lib/prediction/engine";
+import { z } from "zod";
 
 // ─── Supported formats ───────────────────────────────────────────────
 // 1. "luna"              — Luna's own JSON export
@@ -258,19 +259,41 @@ function parseAppleHealth(text: string): ParsedCycle[] {
 }
 
 // ─── Parser: Luna's own JSON ─────────────────────────────────────────
+
+const lunaCycleSchema = z.object({
+  mStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  mEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  ovulationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  cycleLength: z.number().int().min(1).max(365).nullable().optional(),
+  periodLength: z.number().int().min(1).max(60).nullable().optional(),
+  notes: z.record(z.unknown()).optional(),
+});
+
 function parseLuna(text: string): ParsedCycle[] {
-  const data = JSON.parse(text);
-  const rawCycles = data.cycles || data;
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return [];
+  }
+  const rawCycles = (data as Record<string, unknown>)?.cycles ?? data;
   if (!Array.isArray(rawCycles)) return [];
 
-  return rawCycles.map((c: Record<string, unknown>) => ({
-    mStart: c.mStart as string,
-    mEnd: (c.mEnd as string) || null,
-    ovulationDate: (c.ovulationDate as string) || null,
-    cycleLength: (c.cycleLength as number) || null,
-    periodLength: (c.periodLength as number) || null,
-    notes: (c.notes as Record<string, unknown>) || undefined,
-  }));
+  const results: ParsedCycle[] = [];
+  for (const item of rawCycles) {
+    const parsed = lunaCycleSchema.safeParse(item);
+    if (!parsed.success) continue; // Skip invalid entries silently
+    const c = parsed.data;
+    results.push({
+      mStart: c.mStart,
+      mEnd: c.mEnd ?? null,
+      ovulationDate: c.ovulationDate ?? null,
+      cycleLength: c.cycleLength ?? null,
+      periodLength: c.periodLength ?? null,
+      notes: c.notes as Record<string, unknown> | undefined,
+    });
+  }
+  return results;
 }
 
 // ─── Utility: group consecutive dates into start/end cycles ──────────
@@ -372,6 +395,17 @@ export async function POST(req: Request) {
   }
 
   try {
+    // Enforce a 5MB body size limit to prevent DoS via large payloads.
+    // Apple Health XML exports can be large, but 5MB covers all realistic cases.
+    const contentLength = req.headers.get("content-length");
+    const MAX_BODY_BYTES = 5 * 1024 * 1024; // 5MB
+    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_BYTES) {
+      return NextResponse.json(
+        { error: "Import file is too large. Maximum size is 5MB." },
+        { status: 413 },
+      );
+    }
+
     const body = await req.json();
     const { data, format: explicitFormat } = body as {
       data: string;
@@ -381,6 +415,24 @@ export async function POST(req: Request) {
     if (!data || typeof data !== "string") {
       return NextResponse.json(
         { error: "Missing 'data' field." },
+        { status: 400 },
+      );
+    }
+
+    // Secondary size check on the parsed string (catches cases where
+    // Content-Length header is absent, e.g. chunked transfer encoding)
+    if (data.length > MAX_BODY_BYTES) {
+      return NextResponse.json(
+        { error: "Import data is too large. Maximum size is 5MB." },
+        { status: 413 },
+      );
+    }
+
+    // Validate explicit format if provided
+    const ALLOWED_FORMATS = ["luna", "period_calendar", "clue", "flo", "apple_health"];
+    if (explicitFormat && !ALLOWED_FORMATS.includes(explicitFormat)) {
+      return NextResponse.json(
+        { error: `Unknown format: ${explicitFormat}` },
         { status: 400 },
       );
     }
@@ -410,7 +462,6 @@ export async function POST(req: Request) {
           { status: 400 },
         );
     }
-
     if (parsed.length === 0) {
       return NextResponse.json(
         { error: "No cycle data found in the import." },

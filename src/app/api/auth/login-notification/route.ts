@@ -8,11 +8,27 @@ import {
   geoLocateIp,
   parseUserAgent,
 } from "@/lib/email";
+import { rateLimit } from "@/lib/rate-limit";
+
+// Rate limit: 1 notification per 5 minutes per user to prevent self-spam
+const NOTIFY_RATE_LIMIT = 1;
+const NOTIFY_RATE_WINDOW_MS = 5 * 60 * 1000;
 
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Rate limit per user — prevents repeated self-triggered notifications
+  const rateResult = await rateLimit(
+    `login-notify:${session.user.id}`,
+    NOTIFY_RATE_LIMIT,
+    NOTIFY_RATE_WINDOW_MS,
+  );
+  if (!rateResult.success) {
+    // Silently succeed — no need to tell the caller we suppressed it
+    return NextResponse.json({ sent: false, suppressed: true });
   }
 
   try {

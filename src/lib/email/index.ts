@@ -362,8 +362,9 @@ export async function geoLocateIp(ip: string): Promise<IpGeoResult> {
     ) {
       return {};
     }
+    // Use HTTPS to prevent IP data from being intercepted in transit
     const res = await fetch(
-      `http://ip-api.com/json/${ip}?fields=status,city,regionName,country`,
+      `https://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,city,regionName,country`,
       {
         signal: AbortSignal.timeout(3000),
       },
@@ -436,7 +437,7 @@ export async function sendSubscriptionRequestEmail({
   planName,
   subscriberName,
 }: SendSubscriptionRequestParams) {
-  const adminEmail = "akshatsingh14372@outlook.com";
+  const adminEmail = process.env.ADMIN_EMAIL ?? "akshatsingh14372@outlook.com";
   const now = new Date().toLocaleString("en-IN", {
     timeZone: "Asia/Kolkata",
     dateStyle: "full",

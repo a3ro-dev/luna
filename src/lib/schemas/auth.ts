@@ -23,7 +23,20 @@ export const profileUpdateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   email: z.string().email().max(255).optional(),
   timezone: z.string().max(100).optional(),
-  conditions: z.array(z.string()).max(20).optional(),
+  conditions: z.array(
+    z.enum([
+      "pcos",
+      "pcod",
+      "endometriosis",
+      "thyroid",
+      "hormonal_bc",
+      "irregular",
+      "perimenopause",
+      "perimenopause_early",
+      "perimenopause_late",
+      "none",
+    ])
+  ).max(20).optional(),
   perimenoStage: z.enum(["early", "late", "unknown"]).optional(),
   dateOfBirth: z
     .string()
@@ -46,7 +59,20 @@ export const onboardingSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
   timezone: z.string().max(100).optional(),
-  conditions: z.array(z.string()).max(20).optional(),
+  conditions: z.array(
+    z.enum([
+      "pcos",
+      "pcod",
+      "endometriosis",
+      "thyroid",
+      "hormonal_bc",
+      "irregular",
+      "perimenopause",
+      "perimenopause_early",
+      "perimenopause_late",
+      "none",
+    ])
+  ).max(20).optional(),
   perimenoStage: z.enum(["early", "late", "unknown"]).optional(),
   pushNotificationsEnabled: z.boolean().optional(),
 });

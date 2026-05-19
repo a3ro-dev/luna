@@ -11,7 +11,7 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Next.js dev needs these; tighten in prod
+      "script-src 'self'", // 'unsafe-eval' and 'unsafe-inline' intentionally omitted from prod; use a nonce for inline scripts if needed
       "worker-src 'self' blob:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https://models.dev",

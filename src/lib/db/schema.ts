@@ -60,6 +60,10 @@ export const users = pgTable("users", {
   passwordResetExpiry: timestamp("password_reset_expiry", {
     withTimezone: true,
   }),
+  // Dedicated OTP column — avoids reusing passwordResetToken with an "otp:" prefix
+  // which could allow a password-reset token to be used as an OTP or vice versa.
+  otpToken: text("otp_token"),
+  otpExpiry: timestamp("otp_expiry", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 

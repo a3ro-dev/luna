@@ -23,12 +23,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // Find user with matching OTP that hasn't expired
+    // Validate OTP format — must be exactly 6 digits
+    if (!/^\d{6}$/.test(otp)) {
+      return NextResponse.json(
+        { error: "Invalid verification code format." },
+        { status: 400 },
+      );
+    }
+
+    // Find user with matching OTP in the dedicated otpToken column
     const userRecord = await db.query.users.findFirst({
       where: and(
         eq(users.id, userId),
-        eq(users.passwordResetToken, `otp:${otp}`),
-        gt(users.passwordResetExpiry, new Date()),
+        eq(users.otpToken, otp),
+        gt(users.otpExpiry, new Date()),
       ),
       columns: { id: true },
     });
@@ -40,12 +48,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // Clear the OTP token
+    // Clear the OTP token after successful verification
     await db
       .update(users)
       .set({
-        passwordResetToken: null,
-        passwordResetExpiry: null,
+        otpToken: null,
+        otpExpiry: null,
       })
       .where(eq(users.id, userId));
 
