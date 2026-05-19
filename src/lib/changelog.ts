@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.8",
+    date: "2026-05-19",
+    type: "fix",
+    title: "Fix Zod v4 z.record() build error in import route",
+    description:
+      "Zod v4 changed z.record() to require two arguments (key schema + value schema). Fixed the lunaCycleSchema in the data import route by passing z.string() as the key schema: z.record(z.string(), z.unknown()). This unblocked the Vercel production build.",
+  },
+  {
     version: "0.9.7",
     date: "2026-05-19",
     type: "fix",

@@ -266,7 +266,7 @@ const lunaCycleSchema = z.object({
   ovulationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   cycleLength: z.number().int().min(1).max(365).nullable().optional(),
   periodLength: z.number().int().min(1).max(60).nullable().optional(),
-  notes: z.record(z.unknown()).optional(),
+  notes: z.record(z.string(), z.unknown()).optional(),
 });
 
 function parseLuna(text: string): ParsedCycle[] {
