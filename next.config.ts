@@ -7,21 +7,8 @@ const securityHeaders = [
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
   },
-  {
-    key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      "script-src 'self'", // 'unsafe-eval' and 'unsafe-inline' intentionally omitted from prod; use a nonce for inline scripts if needed
-      "worker-src 'self' blob:",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "img-src 'self' data: blob: https://models.dev",
-      "font-src 'self' https://fonts.gstatic.com https://frontend-cdn.perplexity.ai",
-      "connect-src 'self' https://ai.hackclub.com https://api.supermemory.ai https://search.hackclub.com blob:",
-      "media-src 'self'",
-      "manifest-src 'self'",
-      "frame-ancestors 'none'",
-    ].join("; "),
-  },
+  // NOTE: Content-Security-Policy is set per-request in src/middleware.ts
+  // (not here) so that a unique nonce can be generated for every response.
   {
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=()",

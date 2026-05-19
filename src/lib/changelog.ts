@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.9",
+    date: "2026-05-19",
+    type: "fix",
+    title: "Fix CSP blocking Next.js inline hydration scripts",
+    description:
+      "Moved Content-Security-Policy from a static next.config.ts header to per-request generation in middleware. Each response now carries a unique 'nonce-...' value (base64 UUID). 'strict-dynamic' allows Next.js chunk loaders to propagate the nonce. 'unsafe-eval' is added only in development (for HMR). The static CSP in next.config.ts is removed to avoid double-header conflicts.",
+  },
+  {
     version: "0.9.8",
     date: "2026-05-19",
     type: "fix",

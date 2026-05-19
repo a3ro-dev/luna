@@ -1,5 +1,38 @@
 import { auth } from "@/auth";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+
+// ─── Nonce + CSP ──────────────────────────────────────────────────────
+// CSP must be set per-request (not statically in next.config.ts) so that
+// each response carries a unique nonce. Next.js reads the x-nonce request
+// header and automatically stamps it onto its own inline <script> tags.
+function buildCspResponse(request: NextRequest): NextResponse {
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const isDev = process.env.NODE_ENV === "development";
+
+  // 'strict-dynamic' allows scripts loaded by nonced scripts to run without
+  // needing their own nonce (covers Next.js chunk loading).
+  const csp = [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
+    "worker-src 'self' blob:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' data: blob: https://models.dev",
+    "font-src 'self' https://fonts.gstatic.com https://frontend-cdn.perplexity.ai",
+    "connect-src 'self' https://ai.hackclub.com https://api.supermemory.ai https://search.hackclub.com blob:",
+    "media-src 'self'",
+    "manifest-src 'self'",
+    "frame-ancestors 'none'",
+  ].join("; ");
+
+  // Forward the nonce to server components via a request header.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", csp);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", csp);
+  return response;
+}
 
 // NOTE: Rate limiting for auth endpoints is handled inside each route handler
 // (forgot-password, reset-password) using the async Redis-backed rateLimit().
@@ -36,7 +69,7 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  return buildCspResponse(req);
 });
 
 export const config = {
