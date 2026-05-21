@@ -1,6 +1,6 @@
 # Luna project -- working research notes
 
-> Generated from repository inspection of v0.9.10 (commit cef70c0)
+> Generated from repository inspection of v0.9.11
 > Working notes, not a final document. Gaps and uncertainties called out directly.
 
 ---
@@ -98,6 +98,10 @@ This one is serious -- date corruption cascades into cycle length, period length
 ### Bug 7: landing page auth redirect
 
 v0.6.1 changelog. `/start` and landing page CTAs always redirected to `/signup` even for signed-in users. Fixed -- signed-in users now see "Dashboard" / "Open Luna" CTAs and get auto-redirected to `/dashboard`. UX issue only.
+
+### Bug 8: Vercel build failure (pnpm lockfile overrides config mismatch)
+
+v0.9.11. The local development environment was upgraded to pnpm v11, which no longer reads the `pnpm.overrides` configuration from `package.json` (warning that the `pnpm` field is ignored). This caused the local `pnpm install` execution to write a `pnpm-lock.yaml` file that did not resolve transitive react types (`@types/react` and `@types/react-dom`) to the overridden `19.0.0` version, resolving them to `18.3.29` instead. However, Vercel defaults to pnpm v10 which still parses the legacy `package.json` overrides. This caused the Vercel frozen lockfile build check to crash with a `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` mismatch error. Fixed by adding the `overrides` configuration to `pnpm-workspace.yaml` (which is the new standard hub for workspace settings in both pnpm v10 and v11) while keeping the fallback in `package.json`, then regenerating the lockfile.
 
 ---
 

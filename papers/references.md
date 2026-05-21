@@ -1,6 +1,6 @@
 # Luna project -- comprehensive source index
 
-> Last updated: 2026-05-21 · Repository version: v0.9.10 (with third-party infrastructure documentation)
+> Last updated: 2026-05-21 · Repository version: v0.9.11 (with third-party infrastructure documentation)
 
 ---
 
@@ -23,7 +23,7 @@ All paths relative to repository root. Line counts from final commit (23a0e8e).
 | [accent.ts, L1-43](../src/lib/theme/accent.ts#L1-L43) | Plan-based accent colors: free=#FFB5C0 (pink), premium=#B8A9E8 (purple), premium+=#E8C547 (gold). | 43 |
 | [rate-limit.ts, L1-144](../src/lib/rate-limit.ts#L1-L144) | In-memory sliding-window rate limiter. Auto-cleanup every 5 minutes. Per-process only (not cross-instance in serverless). | 144 |
 | [utils.ts, L1-21](../src/lib/utils.ts#L1-L21) | `cn()` (clsx + tailwind-merge) and `logError()` (full object in dev, message-only in prod). | 21 |
-| [changelog.ts, L1-287](../src/lib/changelog.ts#L1-L287) | Version history from 0.0.1 (2026-05-04, project init) through 0.7.0 (2026-05-06, condition-aware engine). | 287 |
+| [changelog.ts, L1-303](../src/lib/changelog.ts#L1-L303) | Version history from 0.0.1 (2026-05-04, project init) through 0.9.11 (2026-05-21, pnpm workspace overrides fix). | 303 |
 | [auth.ts, L1-77](../src/auth.ts#L1-L77) | Auth.js v5 config with credentials provider (email + password), JWT strategy, DrizzleAdapter, user-existence check on every token refresh. | 77 |
 | [middleware.ts, L1-86](../src/middleware.ts#L1-L86) | Auth middleware with route protection, rate limiting on login (5 req/60s per IP), public/cron/api route exemptions. | 86 |
 | [dashboard/page.tsx, L1-335](../src/app/(app)/dashboard/page.tsx#L1-L335) | Server-rendered dashboard with condition-aware predictions. Fetches user conditions, computes predictions via `predictNextCycle()`, renders calendar with phase color-coding. | 335 |

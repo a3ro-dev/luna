@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.11",
+    date: "2026-05-21",
+    type: "fix",
+    title: "Fix pnpm lockfile config mismatch for overrides in Vercel build",
+    description:
+      "Moved package overrides to pnpm-workspace.yaml in accordance with pnpm v11 workspace requirements to ensure local pnpm v11 correctly resolves and locks react type packages. Retained overrides in package.json for backward compatibility with Vercel's default pnpm v10 runner, eliminating the lockfile config mismatch error.",
+  },
+  {
     version: "0.9.10",
     date: "2026-05-21",
     type: "fix",
