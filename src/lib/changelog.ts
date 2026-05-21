@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.10",
+    date: "2026-05-21",
+    type: "fix",
+    title: "Documentation peer-review corrections & mathematical audit",
+    description:
+      "Audited and verified prediction engine mathematical derivations and logic in papers/luna-technical.md, ensuring 100% correctness of mixture prior blending equations and explanations. Completed documentation formatting verification, link and line-number hash check, and dashes compliance across all papers. Verified prediction engine vitest unit tests.",
+  },
+  {
     version: "0.9.9",
     date: "2026-05-19",
     type: "fix",

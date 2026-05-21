@@ -1,6 +1,6 @@
-# Luna Project -- comprehensive source index
+# Luna project -- comprehensive source index
 
-> Last updated: 2026-05-07 · Repository version: v0.7.1 (with third-party infrastructure documentation)
+> Last updated: 2026-05-21 · Repository version: v0.9.10 (with third-party infrastructure documentation)
 
 ---
 
@@ -10,30 +10,31 @@ All paths relative to repository root. Line counts from final commit (23a0e8e).
 
 | File | Description | Lines |
 |---|---|---|
-| [engine.ts, L1-779](../src/lib/prediction/engine.ts#L1-L779) | Condition-aware adaptive exponential smoothing engine. 10 condition-specific priors (including perimenopause_early/late), population prior, `resolveEffectivePrior()`, `resolvePerimenopausePrior()`, `skipGate()`, `exponentialSmooth()`, `blendWithPrior()`, `calculateJackknifeCI()`, `predictNextCycle()`. | 779 |
-| [cycle-tools.ts, L1-1270](../src/lib/cycle-tools.ts#L1-L1270) | 10 AI tools for cycle logging, prediction, stats. Date parsing, timezone resolution, note merging, `refreshCycleAnalytics()`, `refreshPredictionParam()`, `buildPredictionPayload()`, `buildAveragesFromParams()`, all tool entry functions. | 1270 |
-| [route.ts, L1-853](../src/app/api/chat/route.ts#L1-L853) | Chat streaming API with context assembly (recent messages + summary + keyword snippets + Supermemory recall), 10 tool definitions, AI tracing (cost, latency, tokens), session management, auto-summarization, image upload handling. | 853 |
-| [schema.ts, L1-168](../src/lib/db/schema.ts#L1-L168) | Drizzle ORM schema for 8 tables: `users` (with perimenoStage), `cycles`, `predictionParams`, `aiTraces`, `chatSessions`, `chatMessages`, `chatSummaries`, `uploadedImages`. Custom `pgDate` type for Neon Date-object bug. | 168 |
-| [prompt.ts, L1-333](../src/lib/chat/prompt.ts#L1-L333) | Base system prompt with OpenUI DSL specification, condition-aware prediction context, persona integration. | 333 |
-| [models.ts, L1-76](../src/lib/chat/models.ts#L1-L76) | Plan-tier model configuration. Same model (`x-ai/grok-4.3`) for all tiers; differences are persona prompts (free=practical, premium=warm, premium+=empathetic). | 76 |
-| [openui.ts, L1-4](../src/lib/chat/openui.ts#L1-L4) | OpenUI language detection via `looksLikeOpenUiLang()` -- checks if text starts with `root =`. | 4 |
-| [images.ts, L1-73](../src/lib/chat/images.ts#L1-L73) | Image storage with 7-day TTL. `storeImage()`, `cleanupExpiredImages()`, `getImage()` with expiry check. | 73 |
-| [email/index.ts, L1-526](../src/lib/email/index.ts#L1-L526) | Resend email templates: welcome, login notification (with IP geolocation + user-agent parsing), password reset, OTP, subscription request. HTML shell with inline styles. | 526 |
-| [schemas/auth.ts, L1-44](../src/lib/schemas/auth.ts#L1-L44) | Zod validation schemas for registration, password reset, profile update, and onboarding. Password max 128 chars (bcrypt DoS prevention). | 44 |
-| [accent.ts, L1-42](../src/lib/theme/accent.ts#L1-L42) | Plan-based accent colors: free=#FFB5C0 (pink), premium=#B8A9E8 (purple), premium+=#E8C547 (gold). | 42 |
-| [rate-limit.ts, L1-66](../src/lib/rate-limit.ts#L1-L66) | In-memory sliding-window rate limiter. Auto-cleanup every 5 minutes. Per-process only (not cross-instance in serverless). | 66 |
-| [utils.ts, L1-20](../src/lib/utils.ts#L1-L20) | `cn()` (clsx + tailwind-merge) and `logError()` (full object in dev, message-only in prod). | 20 |
-| [changelog.ts, L1-162](../src/lib/changelog.ts#L1-L162) | Version history from 0.0.1 (2026-05-04, project init) through 0.7.0 (2026-05-06, condition-aware engine). | 162 |
-| [auth.ts, L1-76](../src/auth.ts#L1-L76) | Auth.js v5 config with credentials provider (email + password), JWT strategy, DrizzleAdapter, user-existence check on every token refresh. | 76 |
-| [middleware.ts, L1-68](../src/middleware.ts#L1-L68) | Auth middleware with route protection, rate limiting on login (5 req/60s per IP), public/cron/api route exemptions. | 68 |
-| [dashboard/page.tsx, L1-334](../src/app/(app)/dashboard/page.tsx#L1-L334) | Server-rendered dashboard with condition-aware predictions. Fetches user conditions, computes predictions via `predictNextCycle()`, renders calendar with phase color-coding. | 334 |
-| [import/route.ts, L1-459](../src/app/api/data/import/route.ts#L1-L459) | Multi-format cycle data import: Luna JSON, Period Calendar, Clue CSV, Flo CSV/TXT, Apple Health XML. Timezone-safe date parsing. | 459 |
-| [export/route.ts, L1-31](../src/app/api/data/export/route.ts#L1-L31) | JSON cycle data export (all user cycles, ascending by mStart). | 31 |
-| [cleanup-images/route.ts, L1-37](../src/app/api/cron/cleanup-images/route.ts#L1-L37) | Cron job for expired image cleanup. Bearer token auth via CRON_SECRET. | 37 |
-| [profile/route.ts, L1-219](../src/app/api/user/profile/route.ts#L1-L219) | Profile CRUD with DOB edit limits (max 2 edits after initial set), email uniqueness check, password change with current-password verification. | 219 |
-| [onboarding/route.ts, L1-122](../src/app/api/user/onboarding/route.ts#L1-L122) | Onboarding flow: DOB, timezone, conditions, push notifications. DOB first-set doesn't count as edit. | 122 |
-| [next.config.ts, L1-36](../next.config.ts#L1-L36) | Security headers (CSP, HSTS, X-Frame-Options: DENY, etc.), `serverExternalPackages: ['@opentelemetry/api']`. | 36 |
-| [package.json, L1-89](../package.json#L1-L89) | Dependencies and scripts. Core deps: Next.js 16.2.4, AI SDK v6, Auth.js 5.0.0-beta.31, Drizzle 0.45.2, React 19. | 89 |
+| [engine.ts, L1-780](../src/lib/prediction/engine.ts#L1-L780) | Condition-aware adaptive exponential smoothing engine. 10 condition-specific priors (including perimenopause_early/late), population prior, `resolveEffectivePrior()`, `resolvePerimenopausePrior()`, `skipGate()`, `exponentialSmooth()`, `blendWithPrior()`, `calculateJackknifeCI()`, `predictNextCycle()`. | 780 |
+| [cycle-tools.ts, L1-1271](../src/lib/cycle-tools.ts#L1-L1271) | 10 AI tools for cycle logging, prediction, stats. Date parsing, timezone resolution, note merging, `refreshCycleAnalytics()`, `refreshPredictionParam()`, `buildPredictionPayload()`, `buildAveragesFromParams()`, all tool entry functions. | 1271 |
+| [route.ts, L1-884](../src/app/api/chat/route.ts#L1-L884) | Chat streaming API with context assembly (recent messages + summary + keyword snippets + Supermemory recall), 10 tool definitions, AI tracing (cost, latency, tokens), session management, auto-summarization, image upload handling. | 884 |
+| [schema.ts, L1-173](../src/lib/db/schema.ts#L1-L173) | Drizzle ORM schema for 8 tables: `users` (with perimenoStage), `cycles`, `predictionParams`, `aiTraces`, `chatSessions`, `chatMessages`, `chatSummaries`, `uploadedImages`. Custom `pgDate` type for Neon Date-object bug. | 173 |
+| [prompt.ts, L1-334](../src/lib/chat/prompt.ts#L1-L334) | Base system prompt with OpenUI DSL specification, condition-aware prediction context, persona integration. | 334 |
+| [models.ts, L1-77](../src/lib/chat/models.ts#L1-L77) | Plan-tier model configuration. Same model (`x-ai/grok-4.3`) for all tiers; differences are persona prompts (free=practical, premium=warm, premium+=empathetic). | 77 |
+| [openui.ts, L1-5](../src/lib/chat/openui.ts#L1-L5) | OpenUI language detection via `looksLikeOpenUiLang()` -- checks if text starts with `root =`. | 5 |
+| [images.ts, L1-74](../src/lib/chat/images.ts#L1-L74) | Image storage with 7-day TTL. `storeImage()`, `cleanupExpiredImages()`, `getImage()` with expiry check. | 74 |
+| [email/index.ts, L1-528](../src/lib/email/index.ts#L1-L528) | Resend email templates: welcome, login notification (with IP geolocation + user-agent parsing), password reset, OTP, subscription request. HTML shell with inline styles. | 528 |
+| [schemas/auth.ts, L1-79](../src/lib/schemas/auth.ts#L1-L79) | Zod validation schemas for registration, password reset, profile update, and onboarding. Password max 128 chars (bcrypt DoS prevention). | 79 |
+| [accent.ts, L1-43](../src/lib/theme/accent.ts#L1-L43) | Plan-based accent colors: free=#FFB5C0 (pink), premium=#B8A9E8 (purple), premium+=#E8C547 (gold). | 43 |
+| [rate-limit.ts, L1-144](../src/lib/rate-limit.ts#L1-L144) | In-memory sliding-window rate limiter. Auto-cleanup every 5 minutes. Per-process only (not cross-instance in serverless). | 144 |
+| [utils.ts, L1-21](../src/lib/utils.ts#L1-L21) | `cn()` (clsx + tailwind-merge) and `logError()` (full object in dev, message-only in prod). | 21 |
+| [changelog.ts, L1-287](../src/lib/changelog.ts#L1-L287) | Version history from 0.0.1 (2026-05-04, project init) through 0.7.0 (2026-05-06, condition-aware engine). | 287 |
+| [auth.ts, L1-77](../src/auth.ts#L1-L77) | Auth.js v5 config with credentials provider (email + password), JWT strategy, DrizzleAdapter, user-existence check on every token refresh. | 77 |
+| [middleware.ts, L1-86](../src/middleware.ts#L1-L86) | Auth middleware with route protection, rate limiting on login (5 req/60s per IP), public/cron/api route exemptions. | 86 |
+| [dashboard/page.tsx, L1-335](../src/app/(app)/dashboard/page.tsx#L1-L335) | Server-rendered dashboard with condition-aware predictions. Fetches user conditions, computes predictions via `predictNextCycle()`, renders calendar with phase color-coding. | 335 |
+| [import/route.ts, L1-514](../src/app/api/data/import/route.ts#L1-L514) | Multi-format cycle data import: Luna JSON, Period Calendar, Clue CSV, Flo CSV/TXT, Apple Health XML. Timezone-safe date parsing. | 514 |
+| [export/route.ts, L1-32](../src/app/api/data/export/route.ts#L1-L32) | JSON cycle data export (all user cycles, ascending by mStart). | 32 |
+| [cleanup-images/route.ts, L1-38](../src/app/api/cron/cleanup-images/route.ts#L1-L38) | Cron job for expired image cleanup. Bearer token auth via CRON_SECRET. | 38 |
+| [profile/route.ts, L1-228](../src/app/api/user/profile/route.ts#L1-L228) | Profile CRUD with DOB edit limits (max 2 edits after initial set), email uniqueness check, password change with current-password verification. | 228 |
+| [onboarding/route.ts, L1-133](../src/app/api/user/onboarding/route.ts#L1-L133) | Onboarding flow: DOB, timezone, conditions, push notifications. DOB first-set doesn't count as edit. | 133 |
+| [next.config.ts, L1-26](../next.config.ts#L1-L26) | Security headers (CSP, HSTS, X-Frame-Options: DENY, etc.), `serverExternalPackages: ['@opentelemetry/api']`. | 26 |
+| [package.json, L1-95](../package.json#L1-L95) | Dependencies and scripts. Core deps: Next.js 16.2.4, AI SDK v6, Auth.js 5.0.0-beta.31, Drizzle 0.45.2, React 19. | 95 |
+
 
 ---
 

@@ -1,6 +1,6 @@
-# Luna Project -- working research notes
+# Luna project -- working research notes
 
-> Generated from repository inspection of v0.7.0 (commit 23a0e8e)
+> Generated from repository inspection of v0.9.10 (commit cef70c0)
 > Working notes, not a final document. Gaps and uncertainties called out directly.
 
 ---
@@ -9,36 +9,36 @@
 
 ### What I inspected
 
-1. Read all 779 lines of the prediction engine ([engine.ts, L1-756](../src/lib/prediction/engine.ts#L1-L756)) -- functions, constants, priors, everything.
+1. Read all 780 lines of the prediction engine ([engine.ts, L1-780](../src/lib/prediction/engine.ts#L1-L780)) -- functions, constants, priors, everything.
 
-2. Read the outline and main functions of cycle tools ([cycle-tools.ts, L1-1159](../src/lib/cycle-tools.ts#L1-L1159)): `refreshCycleAnalytics`, `refreshPredictionParam`, `buildPredictionPayload`, `buildAveragesFromParams`, all tool entry functions.
+2. Read the outline and main functions of cycle tools ([cycle-tools.ts, L1-1271](../src/lib/cycle-tools.ts#L1-L1271)): `refreshCycleAnalytics`, `refreshPredictionParam`, `buildPredictionPayload`, `buildAveragesFromParams`, all tool entry functions.
 
-3. Read the full chat API ([route.ts, L1-853](../src/app/api/chat/route.ts#L1-L853)): context assembly logic, tool definitions, streaming setup, AI tracing, summarization, image handling.
+3. Read the full chat API ([route.ts, L1-884](../src/app/api/chat/route.ts#L1-L884)): context assembly logic, tool definitions, streaming setup, AI tracing, summarization, image handling.
 
 4. All supporting files:
-   - [schema.ts, L1-168](../src/lib/db/schema.ts#L1-L168) -- 8 tables, perimenoStage, custom `pgDate` type
-   - [prompt.ts, L1-333](../src/lib/chat/prompt.ts#L1-L333) -- OpenUI system prompt
-   - [models.ts, L1-76](../src/lib/chat/models.ts#L1-L76) -- plan-tier persona configs
-   - [openui.ts, L1-4](../src/lib/chat/openui.ts#L1-L4) -- single regex check
-   - [images.ts, L1-73](../src/lib/chat/images.ts#L1-L73) -- 7-day TTL image storage
-   - [email/index.ts, L1-526](../src/lib/email/index.ts#L1-L526) -- 5 email templates
-   - [schemas/auth.ts, L1-44](../src/lib/schemas/auth.ts#L1-L44) -- Zod validation
-   - [accent.ts, L1-42](../src/lib/theme/accent.ts#L1-L42) -- 3 accent palettes
-   - [rate-limit.ts, L1-66](../src/lib/rate-limit.ts#L1-L66) -- in-memory sliding window
-   - [utils.ts, L1-20](../src/lib/utils.ts#L1-L20) -- cn + logError
-   - [changelog.ts, L1-162](../src/lib/changelog.ts#L1-L162) -- 18 version entries
-   - [auth.ts, L1-76](../src/auth.ts#L1-L76) -- Auth.js v5 config
-   - [middleware.ts, L1-68](../src/middleware.ts#L1-L68) -- auth + rate limiting
-   - [next.config.ts, L1-36](../next.config.ts#L1-L36) -- security headers, CSP
-   - [package.json, L1-89](../package.json#L1-L89) -- dependencies
+   - [schema.ts, L1-173](../src/lib/db/schema.ts#L1-L173) -- 8 tables, perimenoStage, custom `pgDate` type
+   - [prompt.ts, L1-334](../src/lib/chat/prompt.ts#L1-L334) -- OpenUI system prompt
+   - [models.ts, L1-77](../src/lib/chat/models.ts#L1-L77) -- plan-tier persona configs
+   - [openui.ts, L1-5](../src/lib/chat/openui.ts#L1-L5) -- single regex check
+   - [images.ts, L1-74](../src/lib/chat/images.ts#L1-L74) -- 7-day TTL image storage
+   - [email/index.ts, L1-528](../src/lib/email/index.ts#L1-L528) -- 5 email templates
+   - [schemas/auth.ts, L1-79](../src/lib/schemas/auth.ts#L1-L79) -- Zod validation
+   - [accent.ts, L1-43](../src/lib/theme/accent.ts#L1-L43) -- 3 accent palettes
+   - [rate-limit.ts, L1-144](../src/lib/rate-limit.ts#L1-L144) -- in-memory sliding window
+   - [utils.ts, L1-21](../src/lib/utils.ts#L1-L21) -- cn + logError
+   - [changelog.ts, L1-287](../src/lib/changelog.ts#L1-L287) -- 18 version entries
+   - [auth.ts, L1-77](../src/auth.ts#L1-L77) -- Auth.js v5 config
+   - [middleware.ts, L1-86](../src/middleware.ts#L1-L86) -- auth + rate limiting
+   - [next.config.ts, L1-26](../next.config.ts#L1-L26) -- security headers, CSP
+   - [package.json, L1-95](../package.json#L1-L95) -- dependencies
 
 5. API routes:
-   - [import/route.ts, L1-462](../src/app/api/data/import/route.ts#L1-L462) -- 5-format import
-   - [export/route.ts, L1-31](../src/app/api/data/export/route.ts#L1-L31) -- JSON export
-   - [profile/route.ts, L1-227](../src/app/api/user/profile/route.ts#L1-L227) -- profile CRUD
-   - [onboarding/route.ts, L1-132](../src/app/api/user/onboarding/route.ts#L1-L132) -- onboarding flow
+   - [import/route.ts, L1-514](../src/app/api/data/import/route.ts#L1-L514) -- 5-format import
+   - [export/route.ts, L1-32](../src/app/api/data/export/route.ts#L1-L32) -- JSON export
+   - [profile/route.ts, L1-228](../src/app/api/user/profile/route.ts#L1-L228) -- profile CRUD
+   - [onboarding/route.ts, L1-133](../src/app/api/user/onboarding/route.ts#L1-L133) -- onboarding flow
 
-6. Dashboard page ([dashboard/page.tsx, L1-334](../src/app/(app)/dashboard/page.tsx#L1-L334)) -- read the first 60 lines (server component, prediction logic).
+6. Dashboard page ([dashboard/page.tsx, L1-335](../src/app/(app)/dashboard/page.tsx#L1-L335)) -- read the first 60 lines (server component, prediction logic).
 
 7. All three research documents in `/research/`:
    - `chatgpt-deep-research.md` -- condition stats, mostly Low evidence
@@ -55,7 +55,7 @@
 - Traced commit messages to changelog entries to check consistency.
 - Did NOT run the application, execute tests (there are none), or query the database.
 
-### What I did NOT inspect
+### What I did not inspect
 
 - Client components (DashboardClient, Conversation, etc.) -- only read server component entry points.
 - CSS/styling files.
@@ -89,7 +89,7 @@ This one is serious -- date corruption cascades into cycle length, period length
 
 ### Bug 5: Grok-4.3 token pricing
 
-`e43f9d9`. The changelog says pricing was corrected to "$0.25/M input, $0.50/M output tokens." But the code in [route.ts, L690](../src/app/api/chat/route.ts#L690) calculates `(usage.inputTokens ?? 0) * (1.25 / 1_000_000) + (usage.outputTokens ?? 0) * (2.5 / 1_000_000)` -- that's a 5x multiplier over the changelog's stated price. Either the changelog is wrong, the code is wrong, or there's an undocumented markup. AI cost tracking in `ai_traces.costUsd` is wrong if the pricing doesn't match actual HackClub proxy billing. Needs verification.
+`e43f9d9`. The changelog says pricing was corrected to "$0.25/M input, $0.50/M output tokens." But the code in [route.ts, L854-857](../src/app/api/chat/route.ts#L854-L857) calculates `(usage.inputTokens ?? 0) * (1.25 / 1_000_000) + (usage.outputTokens ?? 0) * (2.5 / 1_000_000)` -- that's a 5x multiplier over the changelog's stated price. Either the changelog is wrong, the code is wrong, or there's an undocumented markup. AI cost tracking in `ai_traces.costUsd` is wrong if the pricing doesn't match actual HackClub proxy billing. Needs verification.
 
 ### Bug 6: chat mobile rendering and tool payloads
 
@@ -121,9 +121,9 @@ v0.6.1 changelog. `/start` and landing page CTAs always redirected to `/signup` 
 
 ### What's questionable
 
-1. Variance floor of 4.0 in skipGate. At [engine.ts, L288](../src/lib/prediction/engine.ts#L288): `const sigma = Math.sqrt(Math.max(variance, 4.0))`. This floors variance at 4.0 (σ≥2d) to prevent tight convergence from flagging normal variation. But it means the anomaly gate never tightens below σ=2d, even for hormonal BC users where true σ should be ~1d. For hormonal BC, a cycle 5 days off (2.5×2 = 5d) passes the anomaly gate when it should arguably be flagged. The floor keeps the gate from being appropriately tight for regular users.
+1. Variance floor of 4.0 in skipGate. At [engine.ts, L520](../src/lib/prediction/engine.ts#L520): `const sigma = Math.sqrt(Math.max(variance, 4.0))`. This floors variance at 4.0 (σ≥2d) to prevent tight convergence from flagging normal variation. But it means the anomaly gate never tightens below σ=2d, even for hormonal BC users where true σ should be ~1d. For hormonal BC, a cycle 5 days off (2.5×2 = 5d) passes the anomaly gate when it should arguably be flagged. The floor keeps the gate from being appropriately tight for regular users.
 
-2. Initial variance = 0. At [engine.ts, L303](../src/lib/prediction/engine.ts#L303): `let variance = 0`. The smoother starts with zero variance. The first observation becomes the initial smoothed value, and the first residual is computed from observation 2. The first few cycles contribute with an artificially low variance estimate, which could cause the 2.5σ gate to trigger prematurely on observation 2 or 3 if it differs from observation 1.
+2. Initial variance = 0. At [engine.ts, L539](../src/lib/prediction/engine.ts#L539): `let variance = 0`. The smoother starts with zero variance. The first observation becomes the initial smoothed value, and the first residual is computed from observation 2. The first few cycles contribute with an artificially low variance estimate, which could cause the 2.5σ gate to trigger prematurely on observation 2 or 3 if it differs from observation 1.
 
 3. PCOD prior is fabricated. The `pcod` prior (45d, σ=13) is interpolated between PCOS (51d) and general population (30.3d) with no published evidence. Gemini cites a single Indian regional cohort with 72.5d mean, which would make 45d far too low. ChatGPT treats PCOD as identical to PCOS. Perplexity says there's no separate data. The implementation chose a middle ground with no empirical basis.
 
@@ -131,7 +131,7 @@ v0.6.1 changelog. `/start` and landing page CTAs always redirected to `/signup` 
 
 5. No double exponential smoothing (trend component). The engine uses simple exponential smoothing, which assumes no trend. For PCOD users who may be normalizing (cycles shortening from 90d to 35d over several months due to treatment), Gemini explicitly recommends a trend component (Holt's linear method). The current engine will lag behind a normalizing trend because α is bounded at 0.5 max.
 
-6. Exponential smoothing variance estimate. The variance update at [engine.ts, L325](../src/lib/prediction/engine.ts#L325) (`variance = (1 - alpha) * (variance + alpha * diff * diff)`) is an approximation. It doesn't correctly estimate the variance of the smoothed value -- it's more like a discounted sum of squared errors. The jackknife CI partially compensates at n≥6, but for n<6, the CI from `blendWithPrior` depends on this approximate variance.
+6. Exponential smoothing variance estimate. The variance update at [engine.ts, L559](../src/lib/prediction/engine.ts#L559) (`variance = (1 - alpha) * (variance + alpha * diff * diff)`) is an approximation. It doesn't correctly estimate the variance of the smoothed value -- it's more like a discounted sum of squared errors. The jackknife CI partially compensates at n≥6, but for n<6, the CI from `blendWithPrior` depends on this approximate variance.
 
 7. `resolveEffectivePrior` picks highest-variance condition. When a user has multiple conditions (e.g., endometriosis + thyroid), the engine picks the one with the highest cycle-length variance. But endometriosis (short cycles, low variance) + thyroid (long/irregular cycles, high variance) would pick thyroid, completely ignoring the endometriosis contribution. A weighted blend or a max-of-extremes approach (shortest cycle mean from endo, highest variance from thyroid) might work better.
 
@@ -244,30 +244,30 @@ v0.6.1 changelog. `/start` and landing page CTAs always redirected to `/signup` 
 
 | File | Lines | Role |
 |---|---|---|
-| [engine.ts, L1-756](../src/lib/prediction/engine.ts#L1-L756) | 779 | Core prediction engine |
-| [cycle-tools.ts, L1-1159](../src/lib/cycle-tools.ts#L1-L1159) | 1270 | AI tools + cycle management |
-| [route.ts, L1-853](../src/app/api/chat/route.ts#L1-L853) | 853 | Chat API + streaming |
-| [prompt.ts, L1-333](../src/lib/chat/prompt.ts#L1-333) | 333 | System prompt |
-| [import/route.ts, L1-462](../src/app/api/data/import/route.ts#L1-L462) | 462 | Multi-format import |
-| [email/index.ts, L1-526](../src/lib/email/index.ts#L1-L526) | 526 | Email templates |
-| [dashboard/page.tsx, L1-334](../src/app/(app)/dashboard/page.tsx#L1-L334) | 334 | Dashboard server component |
-| [profile/route.ts, L1-227](../src/app/api/user/profile/route.ts#L1-L227) | 227 | Profile CRUD |
-| [schema.ts, L1-168](../src/lib/db/schema.ts#L1-L168) | 168 | Database schema (8 tables, perimenoStage added) |
-| [changelog.ts, L1-188](../src/lib/changelog.ts#L1-L188) | 188 | Version history |
-| [onboarding/route.ts, L1-132](../src/app/api/user/onboarding/route.ts#L1-L132) | 132 | Onboarding flow |
-| [models.ts, L1-76](../src/lib/chat/models.ts#L1-76) | 76 | Plan-tier config |
-| [auth.ts, L1-76](../src/auth.ts#L1-76) | 76 | Auth.js config |
-| [images.ts, L1-73](../src/lib/chat/images.ts#L1-73) | 73 | Image storage |
-| [rate-limit.ts, L1-66](../src/lib/rate-limit.ts#L1-66) | 66 | Rate limiter |
-| [middleware.ts, L1-68](../src/middleware.ts#L1-68) | 68 | Auth middleware |
-| [schemas/auth.ts, L1-44](../src/lib/schemas/auth.ts#L1-L44) | 44 | Zod schemas |
-| [accent.ts, L1-42](../src/lib/theme/accent.ts#L1-42) | 42 | Accent colors |
-| [next.config.ts, L1-36](../next.config.ts#L1-36) | 36 | Next.js config |
-| [export/route.ts, L1-31](../src/app/api/data/export/route.ts#L1-31) | 31 | JSON export |
-| [utils.ts, L1-20](../src/lib/utils.ts#L1-20) | 20 | Utilities |
-| [openui.ts, L1-4](../src/lib/chat/openui.ts#L1-4) | 4 | OpenUI detection |
-| [package.json, L1-89](../package.json#L1-89) | 89 | Dependencies |
-| Total | 5307 | |
+| [engine.ts, L1-780](../src/lib/prediction/engine.ts#L1-L780) | 780 | Core prediction engine |
+| [cycle-tools.ts, L1-1271](../src/lib/cycle-tools.ts#L1-L1271) | 1271 | AI tools + cycle management |
+| [route.ts, L1-884](../src/app/api/chat/route.ts#L1-L884) | 884 | Chat API + streaming |
+| [prompt.ts, L1-334](../src/lib/chat/prompt.ts#L1-L334) | 334 | System prompt |
+| [import/route.ts, L1-514](../src/app/api/data/import/route.ts#L1-L514) | 514 | Multi-format import |
+| [email/index.ts, L1-528](../src/lib/email/index.ts#L1-L528) | 528 | Email templates |
+| [dashboard/page.tsx, L1-335](../src/app/(app)/dashboard/page.tsx#L1-L335) | 335 | Dashboard server component |
+| [profile/route.ts, L1-228](../src/app/api/user/profile/route.ts#L1-L228) | 228 | Profile CRUD |
+| [schema.ts, L1-173](../src/lib/db/schema.ts#L1-L173) | 173 | Database schema (8 tables, perimenoStage added) |
+| [changelog.ts, L1-287](../src/lib/changelog.ts#L1-L287) | 287 | Version history |
+| [onboarding/route.ts, L1-133](../src/app/api/user/onboarding/route.ts#L1-L133) | 133 | Onboarding flow |
+| [models.ts, L1-77](../src/lib/chat/models.ts#L1-L77) | 77 | Plan-tier config |
+| [auth.ts, L1-77](../src/auth.ts#L1-L77) | 77 | Auth.js config |
+| [images.ts, L1-74](../src/lib/chat/images.ts#L1-L74) | 74 | Image storage |
+| [rate-limit.ts, L1-144](../src/lib/rate-limit.ts#L1-L144) | 144 | Rate limiter |
+| [middleware.ts, L1-86](../src/middleware.ts#L1-L86) | 86 | Auth middleware |
+| [schemas/auth.ts, L1-79](../src/lib/schemas/auth.ts#L1-L79) | 79 | Zod schemas |
+| [accent.ts, L1-43](../src/lib/theme/accent.ts#L1-L43) | 43 | Accent colors |
+| [next.config.ts, L1-26](../next.config.ts#L1-L26) | 26 | Next.js config |
+| [export/route.ts, L1-32](../src/app/api/data/export/route.ts#L1-L32) | 32 | JSON export |
+| [utils.ts, L1-21](../src/lib/utils.ts#L1-L21) | 21 | Utilities |
+| [openui.ts, L1-5](../src/lib/chat/openui.ts#L1-L5) | 5 | OpenUI detection |
+| [package.json, L1-95](../package.json#L1-L95) | 95 | Dependencies |
+| Total | 6226 | |
 
 ---
 

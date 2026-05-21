@@ -1,4 +1,4 @@
-# Luna: Condition-aware menstrual cycle prediction via adaptive exponential smoothing with population priors
+# Luna: condition-aware menstrual cycle prediction via adaptive exponential smoothing with population priors
 
 **Akshat Singh Kushwaha**
 
@@ -14,7 +14,7 @@ I present Luna, a web-based menstrual cycle tracking and prediction application 
 
 Menstrual cycle tracking is a widespread practice, with dozens of mobile applications serving hundreds of millions of users. Despite this scale, most trackers employ simple predictive strategies--rolling averages of the last *N* cycles, fixed 28-day defaults, or undisclosed proprietary models--that fail to account for the substantial heterogeneity in cycle patterns across different health conditions [1][2]. A user with polycystic ovary syndrome (PCOS), whose cycle length may range from 21 to 111 days [3], receives the same predictive framework as a user with regular 28-day cycles.
 
-This paper describes Luna (v0.7.4), an open-source menstrual cycle tracker that takes a different approach: condition-aware adaptive exponential smoothing. The system adjusts its core parameters--smoothing rate, anomaly thresholds, population priors, uncertainty estimates--based on the user's self-reported health conditions. The algorithm is fully deterministic and inspectable: all parameters and decision boundaries are specified in a single source file ([engine.ts, L1-779](../src/lib/prediction/engine.ts#L1-L779)).
+This paper describes Luna (v0.9.10), an open-source menstrual cycle tracker that takes a different approach: condition-aware adaptive exponential smoothing. The system adjusts its core parameters--smoothing rate, anomaly thresholds, population priors, uncertainty estimates--based on the user's self-reported health conditions. The algorithm is fully deterministic and inspectable: all parameters and decision boundaries are specified in a single source file ([engine.ts, L1-780](../src/lib/prediction/engine.ts#L1-L780)).
 
 Luna is a functional web application built on Next.js 16.2.4 with a conversational AI interface. It has not undergone clinical validation and has no published accuracy benchmarks. A unit test suite (vitest, 68 tests) covers the core prediction functions but does not substitute for empirical validation. I present the system as-is, documenting what it does and the evidence behind its design choices, with full transparency about what remains unverified.
 
@@ -52,8 +52,8 @@ Table 1 summarizes the published evidence for cycle parameters across conditions
 | Perimenopause (-1yr) | ~80 d | Holman 2006 [11] | Treloar/Tremin re-analysis |
 | Endometriosis | ≤27d over-represented (OR 1.22) | Meta-analysis, 11 studies [12] | Case-control |
 | Hormonal BC (monophasic) | 28 d (regimen-driven) | RCTs of 21/7, 24/4 pills [13] | RCT cohorts |
-| Thyroid (hypo/hyper) | No published mean±SD | Directional data only | — |
-| Irregular (idiopathic) | No published mean±SD | — | — |
+| Thyroid (hypo/hyper) | No published mean±SD | Directional data only | -- |
+| Irregular (idiopathic) | No published mean±SD | -- | -- |
 
 *Table 1: Published evidence for condition-specific cycle parameters. Thyroid and idiopathic irregular conditions lack quantitative priors in the literature.*
 
@@ -73,9 +73,9 @@ Luna addresses these by making the prediction engine condition-aware at every la
 
 ### 4.1 Population priors
 
-> **⚠ Verification caveat:** The population prior values below are sourced from AI research summaries [15–17] and have not been independently verified against the original papers. Independent verification is recommended before citing these specific values.
+> **⚠ Verification caveat:** The population prior values below are sourced from AI research summaries [15-17] and have not been independently verified against the original papers. Independent verification is recommended before citing these specific values.
 
-The general population prior derives from Najmabadi et al. [1], who pooled three prospective cohorts of 581 eumenorrheic women across 3,324 cycles ([engine.ts, L33-38](../src/lib/prediction/engine.ts#L33-L38)). Values reported below were extracted via Perplexity Deep Research [17] and cross-referenced with ChatGPT [15] and Gemini [16], but were not independently verified against the original paper:
+The general population prior derives from Najmabadi et al. [1], who pooled three prospective cohorts of 581 eumenorrheic women across 3,324 cycles ([engine.ts, L35-42](../src/lib/prediction/engine.ts#L35-L42)). Values reported below were extracted via Perplexity Deep Research [17] and cross-referenced with ChatGPT [15] and Gemini [16], but were not independently verified against the original paper:
 
 | Parameter | Mean | Variance | σ |
 |---|---|---|---|
@@ -84,7 +84,7 @@ The general population prior derives from Najmabadi et al. [1], who pooled three
 | follicularLength | 18.5 | 42.25 | 6.5 d |
 | lutealLength | 11.7 | 7.84 | 2.8 d |
 
-Ten condition-specific priors extend this baseline: `none`, `pcos`, `pcod`, `endometriosis`, `thyroid`, `hormonal_bc`, `irregular`, `perimenopause`, `perimenopause_early`, `perimenopause_late` ([engine.ts, L52-230](../src/lib/prediction/engine.ts#L52-L230)). Each specifies cycle length, period length, follicular length, and luteal length (mean and variance), a maximum cycle length threshold, whether anovulation is common, and a human-readable note for the AI assistant.
+Ten condition-specific priors extend this baseline: `none`, `pcos`, `pcod`, `endometriosis`, `thyroid`, `hormonal_bc`, `irregular`, `perimenopause`, `perimenopause_early`, `perimenopause_late` ([engine.ts, L56-230](../src/lib/prediction/engine.ts#L56-L230)). Each specifies cycle length, period length, follicular length, and luteal length (mean and variance), a maximum cycle length threshold, whether anovulation is common, and a human-readable note for the AI assistant.
 
 Condition priors:
 
@@ -101,23 +101,26 @@ Condition priors:
 | perimenopause_early | 30 | 8 | 60 | No |
 | perimenopause_late | 80 | 30 | 180 | Yes |
 
-*The `perimenopause` key is a backward-compatibility alias. New users select `perimenopause_early` or `perimenopause_late` directly, corresponding to ~-4yr to -2yr and ~-2yr to -1yr before the final menstrual period respectively (Holman 2006) ([engine.ts, L195-230](../src/lib/prediction/engine.ts#L195-L230)).*
+*The `perimenopause` key is a backward-compatibility alias. New users select `perimenopause_early` or `perimenopause_late` directly, corresponding to ~-4yr to -2yr and ~-2yr to -1yr before the final menstrual period respectively (Holman 2006) ([engine.ts, L238-257](../src/lib/prediction/engine.ts#L238-L257)).*
 
-*PCOD is treated as a milder phenotype of PCOS following South Asian clinical tradition, with interpolated parameters (slightly shorter mean, slightly lower variance). No separate quantitative data distinguishes PCOD from PCOS in peer-reviewed literature ([engine.ts, L81-95](../src/lib/prediction/engine.ts#L81-L95); see note at [L91-94](../src/lib/prediction/engine.ts#L91-L94)).*
+*PCOD is treated as a milder phenotype of PCOS following South Asian clinical tradition, with interpolated parameters (slightly shorter mean, slightly lower variance). No separate quantitative data distinguishes PCOD from PCOS in peer-reviewed literature ([engine.ts, L87-101](../src/lib/prediction/engine.ts#L87-L101); see note at [L88-90](../src/lib/prediction/engine.ts#L88-L90)).*
 
-*Hormonal BC sets follicularLength and lutealLength to null, as ovulation is suppressed and these phases do not exist ([engine.ts, L137-138](../src/lib/prediction/engine.ts#L137-L138)).*
+*Hormonal BC sets follicularLength and lutealLength to null, as ovulation is suppressed and these phases do not exist ([engine.ts, L143-144](../src/lib/prediction/engine.ts#L143-L144)).*
 
 ### 4.2 Prior resolution
 
-When a user has multiple conditions, `resolveEffectivePrior()` ([engine.ts, L332-358](../src/lib/prediction/engine.ts#L332-L358)) computes an effective prior using inverse-variance weighted mixture blending:
+When a user has multiple conditions, `resolveEffectivePrior()` ([engine.ts, L359-438](../src/lib/prediction/engine.ts#L359-L438)) computes an effective prior using inverse-variance weighted mixture blending:
 
 1. If `hormonal_bc` is present, use the hormonal BC prior (cycle mechanics are fundamentally altered).
 
 2. Otherwise, compute an inverse-variance weighted mixture of all active condition priors for each metric independently:
-   - `blended_mean = Σ(w_i * μ_i) / Σ(w_i)`, where `w_i = 1/σ²_i`
-   - `blended_variance = 1 / Σ(w_i) + Σ(w_i * (μ_i - blended_mean)²) / Σ(w_i)` (accounts for between-condition spread)
 
-   Note: the first term `1/Σ(w_i)` is the posterior precision from inverse-variance combination, which equals the pooled within-condition variance only when all σ²_i are equal. For unequal variances, it underestimates the true pooled variance. A fully consistent mixture would use `Σ(w_i * σ²_i) / Σ(w_i)` for the within-condition term instead. The current formula is retained because it matches the variance produced by `blendWithPrior()` for the warm-start regime (1-5 observations), ensuring internal consistency at the cost of slight underestimation of multi-condition variance. A log-normal reparameterization would be a principled next step for conditions with known right-skew, but has not been implemented [unverified].
+   $$\mu_{\text{blended}} = \frac{\sum_{i} w_i \cdot \mu_i}{\sum_{i} w_i}, \quad \text{where } w_i = \frac{1}{\sigma^2_i}$$
+
+   $$\sigma^2_{\text{blended}} = \frac{1}{\sum_{i} w_i} + \frac{\sum_{i} w_i \cdot (\mu_i - \mu_{\text{blended}})^2}{\sum_{i} w_i}$$
+   (The second term captures the spread between condition means).
+
+   Note: the first term $1/\sum w_i$ is the variance of the weighted mean estimator under inverse-variance combination, which is $1/M$ of the pooled within-condition variance of the mixture (where $M$ is the number of active conditions). For a mixture of subpopulations, the within-condition variance component is $\sum p_i \sigma^2_i = M / \sum w_i$ (since $p_i = w_i / \sum w_j$ and $w_i \sigma^2_i = 1$). The current formula is retained because it matches the variance produced by `blendWithPrior()` for the warm-start regime (1-5 observations), ensuring internal consistency at the cost of underestimating the blended prior variance. A log-normal reparameterization would be a principled next step for conditions with known right-skew, but has not been implemented [unverified].
 
    **Perimenopause dual pathway:** Users can encode their perimenopause stage through two mechanisms: (1) selecting `perimenopause_early` or `perimenopause_late` directly in the `conditions` array, or (2) selecting the legacy `perimenopause` condition plus a separate `perimenoStage` field ("early"/"late"/"unknown"). In `resolveEffectivePrior()`, `perimenopause_early`/`perimenopause_late` are resolved directly; the legacy `perimenopause` key is resolved via `resolvePerimenopausePrior(perimenoStage)`, which maps to `PERIMENOPAUSE_EARLY` for "early", `PERIMENOPAUSE_LATE` for "late", or the general `perimenopause` prior for "unknown". A user with `conditions: ["perimenopause"]` and `perimenoStage: "late"` receives the same prior as `conditions: ["perimenopause_late"]`. The two pathways are equivalent and there is no precedence conflict -- they resolve to the same prior.
 
@@ -132,7 +135,7 @@ The previous approach used a "highest variance wins" heuristic, which discarded 
 
 ### 4.3 Adaptive exponential smoothing
 
-The core smoother `exponentialSmooth()` ([engine.ts, L299-341](../src/lib/prediction/engine.ts#L299-L341)) iterates observations from oldest to newest:
+The core smoother `exponentialSmooth()` ([engine.ts, L531-575](../src/lib/prediction/engine.ts#L531-L575)) iterates observations from oldest to newest:
 
 **Initialization:**
 
@@ -146,7 +149,7 @@ $$\hat{x}_0 = x_0, \quad \sigma^2_0 = 0$$
 
 $$\alpha = \alpha_{\min} + (\alpha_{\max} - \alpha_{\min}) \cdot \frac{\text{MAD}}{\text{MAD} + \kappa}$$
 
-where $\alpha_{\min} = 0.1$, $\alpha_{\max} = 0.5$, $\kappa = 5.0$ ([engine.ts, L222-224](../src/lib/prediction/engine.ts#L222-L224)). For empty residuals, α defaults to 0.3 ([engine.ts, L231](../src/lib/prediction/engine.ts#L231)).
+where $\alpha_{\min} = 0.1$, $\alpha_{\max} = 0.5$, $\kappa = 5.0$ ([engine.ts, L449-451](../src/lib/prediction/engine.ts#L449-L451)). For empty residuals, α defaults to 0.3 ([engine.ts, L460](../src/lib/prediction/engine.ts#L460)).
 
 3. Update variance and smoothed value:
 
@@ -156,25 +159,25 @@ $$\hat{x}_i = \hat{x}_{i-1} + \alpha \cdot d_i$$
 
 where $d_i = \tilde{x}_i - \hat{x}_{i-1}$.
 
-4. Only non-anomaly observations contribute residuals to the MAD computation. Anomaly-gated observations produce $d_i \approx 0$, which would artificially deflate MAD and lock α low, making the smoother unresponsive to genuine regime changes ([engine.ts, L331-338](../src/lib/prediction/engine.ts#L331-L338)).
+4. Only non-anomaly observations contribute residuals to the MAD computation. Anomaly-gated observations produce $d_i \approx 0$, which would artificially deflate MAD and lock α low, making the smoother unresponsive to genuine regime changes ([engine.ts, L565-571](../src/lib/prediction/engine.ts#L565-L571)).
 
 Adaptive α lets the smoother respond quickly when recent observations are highly variable (large MAD → α approaches 0.5) and stabilize when observations are consistent (small MAD → α approaches 0.1). The MAD window of 5 observations balances responsiveness and smoothness. I chose exponential smoothing over richer probabilistic models because it's simple, interpretable, and works well with small samples. Bayesian approaches might perform better with enough data, but they'd be harder to debug.
 
 ### 4.4 Skip gate and anomaly detection
 
-The skip gate `skipGate()` ([engine.ts, L273-296](../src/lib/prediction/engine.ts#L273-L296)) applies a two-stage test:
+The skip gate `skipGate()` ([engine.ts, L504-528](../src/lib/prediction/engine.ts#L504-L528)) applies a two-stage test:
 
 **Stage 1 -- Maximum cycle length threshold:**
 
 $$\text{if } x_i > T_{\text{max}}(\text{conditions}): \quad \tilde{x}_i = \hat{x}_{i-1}, \quad \text{isAnomaly} = \text{true}$$
 
-where $T_{\text{max}}$ is the condition-specific `maxCycleLength` (e.g., 120 for PCOS, 45 for general population) ([engine.ts, L279-282](../src/lib/prediction/engine.ts#L279-L282)).
+where $T_{\text{max}}$ is the condition-specific `maxCycleLength` (e.g., 120 for PCOS, 45 for general population) ([engine.ts, L516-518](../src/lib/prediction/engine.ts#L516-L518)).
 
 **Stage 2 -- Outlier soft-clamp:**
 
 $$\text{if } |d_i| > 2.5 \cdot \sigma: \quad \tilde{x}_i = \hat{x}_{i-1} + \text{sign}(d_i) \cdot 2.5 \cdot \sigma, \quad \text{isAnomaly} = \text{true}$$
 
-where σ is floored at 2.0 days ($\sigma^2 \geq 4.0$) to prevent tight convergence from flagging normal variation ([engine.ts, L288](../src/lib/prediction/engine.ts#L288)).
+where σ is floored at 2.0 days ($\sigma^2 \geq 4.0$) to prevent tight convergence from flagging normal variation ([engine.ts, L520](../src/lib/prediction/engine.ts#L520)).
 
 The soft-clamp preserves the direction of the outlier while limiting its influence, rather than discarding it entirely. I prefer this over hard rejection because it retains directional information. The σ floor prevents the pathological case where a long series of identical observations drives variance to zero, causing the next normal fluctuation to be flagged as anomalous.
 
@@ -182,7 +185,7 @@ The 2.5σ threshold is a domain-specific heuristic, not derived from any theoret
 
 ### 4.5 Prior blending
 
-`blendWithPrior()` ([engine.ts, L236-270](../src/lib/prediction/engine.ts#L236-L270)) handles the cold-start and warm-start regimes:
+`blendWithPrior()` ([engine.ts, L466-501](../src/lib/prediction/engine.ts#L466-L501)) handles the cold-start and warm-start regimes:
 
 - For n ≥ 6 observations, return user data unchanged (prior fades out completely).
 
@@ -194,13 +197,13 @@ $$\mu_{\text{blended}} = \frac{w_{\text{prior}} \cdot \mu_{\text{prior}} + w_{\t
 
 $$\sigma^2_{\text{blended}} = \frac{1}{w_{\text{prior}} + w_{\text{user}}}$$
 
-The condition-specific prior is used if available; otherwise the general population prior is the fallback ([engine.ts, L246-261](../src/lib/prediction/engine.ts#L246-L261)).
+The condition-specific prior is used if available; otherwise the general population prior is the fallback ([engine.ts, L476-492](../src/lib/prediction/engine.ts#L476-L492)).
 
 The cutoff at n=6 is a heuristic. Six observations felt like enough to start trusting the user's own data over the prior, but I have no statistical argument for this specific number. The inverse-variance blending is theoretically sound for Gaussian distributions, but menstrual cycle lengths are not Gaussian--especially for conditions like PCOS where distributions are right-skewed with heavy tails [unverified].
 
 ### 4.6 Prediction output
 
-`predictNextCycle()` ([engine.ts, L384-442](../src/lib/prediction/engine.ts#L384-L442)) produces a point estimate and 95% confidence interval through three regimes:
+`predictNextCycle()` ([engine.ts, L702-779](../src/lib/prediction/engine.ts#L702-L779)) produces a point estimate and 95% confidence interval through three regimes:
 
 | Regime | Condition | Point Estimate | 95% CI |
 |---|---|---|---|
@@ -212,7 +215,7 @@ Only three metrics are smoothed independently: `cycleLength`, `periodLength`, an
 
 $$\text{follicularLength} = \text{cycleLength} + 1 - \text{periodLength} - \text{lutealLength}$$
 
-The +1 arises because `periodLength` uses inclusive day counting (`diffInDays(mStart, mEnd) + 1`), while the other metrics use exclusive day differences. The derivation is implemented in `deriveFollicularLength()` ([engine.ts, L659-680](../src/lib/prediction/engine.ts#L659-L680)).
+The +1 arises because `periodLength` uses inclusive day counting (`diffInDays(mStart, mEnd) + 1`), while the other metrics use exclusive day differences. The derivation is implemented in `deriveFollicularLength()` ([engine.ts, L671-680](../src/lib/prediction/engine.ts#L671-L680)).
 
 **Variance propagation:** The derived follicular variance is computed as `var(cycleLength) + var(periodLength) + var(lutealLength)`, assuming independence of the three smoothed estimates. This is a conservative upper bound; in practice the three estimates are weakly correlated because they share the same observation count and anomaly flags.
 
@@ -224,7 +227,7 @@ This "drop and derive" approach eliminates the phase coupling inconsistency that
 
 ### 4.7 Jackknife confidence intervals
 
-For n ≥ 6 observations, `calculateJackknifeCI()` ([engine.ts, L344-381](../src/lib/prediction/engine.ts#L344-381)) computes a leave-one-out jackknife:
+For n ≥ 6 observations, `calculateJackknifeCI()` ([engine.ts, L598-656](../src/lib/prediction/engine.ts#L598-L656)) computes a leave-one-out jackknife:
 
 1. Compute full smoothed estimate $\hat{\theta}$ on all n observations.
 
@@ -246,15 +249,15 @@ The jackknife assumes that the estimator is approximately smooth in each observa
 |---|---|---|
 | Framework | Next.js (App Router) | 16.2.4 |
 | UI | React | 19.0.0 |
-| Database | Neon PostgreSQL (serverless) | — |
+| Database | Neon PostgreSQL (serverless) | -- |
 | ORM | Drizzle ORM | 0.45.2 |
 | Auth | Auth.js (NextAuth v5) | 5.0.0-beta.31 |
 | AI | Vercel AI SDK | 6.0.174 |
-| LLM | x-ai/grok-4.3 (via HackClub proxy) | — |
-| Memory | Supermemory v4 API | — |
+| LLM | x-ai/grok-4.3 (via HackClub proxy) | -- |
+| Memory | Supermemory v4 API | -- |
 | Styling | Tailwind CSS | 4.0.0 |
 | Language | TypeScript | 5.0+ |
-| License | MIT | — |
+| License | MIT | -- |
 
 ### 5.2 Database schema
 
@@ -266,22 +269,22 @@ Eight tables are defined in [schema.ts](../src/lib/db/schema.ts):
 | `cycles` | id, userId, mStart, mEnd, ovulationDate, cycleLength, periodLength, follicularLength, lutealLength, isAnomaly, notes (jsonb) | Derived columns recomputed on every cycle write |
 | `prediction_params` | id, userId, paramName, smoothedValue, variance, sampleCount | One row per (userId, metric); unique on (userId, paramName) |
 | `ai_traces` | id, userId, model, inputTokens, outputTokens, costUsd, latencyMs, feature | Every AI response logged |
-| `chat_sessions` | id, userId, title, createdAt, updatedAt | — |
+| `chat_sessions` | id, userId, title, createdAt, updatedAt | -- |
 | `chat_messages` | id, sessionId, userId, role, parts (jsonb), textContent | parts = UIMessage parts array |
 | `chat_summaries` | id, sessionId, userId, summary, messageCount | Auto-generated after 30+ messages |
 | `uploaded_images` | id, userId, imageData (base64), mediaType, expiresAt | 7-day retention |
 
-The `cycles.notes` column is jsonb storing symptom/note entries per cycle. Period length uses inclusive day count: `diffInDays(mStart, mEnd) + 1` ([cycle-tools.ts, L465-467](../src/lib/cycle-tools.ts#L465-L467)).
+The `cycles.notes` column is jsonb storing symptom/note entries per cycle. Period length uses inclusive day count: `diffInDays(mStart, mEnd) + 1` ([cycle-tools.ts, L470](../src/lib/cycle-tools.ts#L470)).
 
 ### 5.3 Cycle analytics pipeline
 
-`refreshCycleAnalytics()` ([cycle-tools.ts, L421-575](../src/lib/cycle-tools.ts#L421-L575)) is the central data pipeline, invoked after every cycle write:
+`refreshCycleAnalytics()` ([cycle-tools.ts, L424-691](../src/lib/cycle-tools.ts#L424-L691)) is the central data pipeline, invoked after every cycle write:
 
 1. Fetch all cycles for the user, ordered by mStart ascending.
 
 2. First pass: compute derived columns (cycleLength, periodLength, follicularLength, lutealLength). Anomaly flags are not set in this pass.
 
-3. Second pass: run the prediction engine's `skipGate()` over cycles in chronological order, mirroring the `exponentialSmooth` update logic so the running smoothed value and variance stay in sync. The `isAnomaly` flag is set solely by `skipGate()` ([cycle-tools.ts, L513-582](../src/lib/cycle-tools.ts#L513-L582)).
+3. Second pass: run the prediction engine's `skipGate()` over cycles in chronological order, mirroring the `exponentialSmooth` update logic so the running smoothed value and variance stay in sync. The `isAnomaly` flag is set solely by `skipGate()` ([cycle-tools.ts, L539-587](../src/lib/cycle-tools.ts#L539-L587)).
 
 4. Persist changes to DB (isAnomaly flag + derived columns).
 
@@ -306,7 +309,7 @@ The chat route ([route.ts](../src/app/api/chat/route.ts)) implements a conversat
 | `rememberFact` | Store personal fact in Supermemory |
 | `searchWeb` | Search web via HackClub Search API |
 
-Context assembly for each message ([route.ts, L109-115](../src/app/api/chat/route.ts#L109-L115) and [L234-254](../src/app/api/chat/route.ts#L234-L254)):
+Context assembly for each message ([route.ts, L801-820](../src/app/api/chat/route.ts#L801-L820), helper methods at [L160-187](../src/app/api/chat/route.ts#L160-L187) and [L231-251](../src/app/api/chat/route.ts#L231-L251)):
 
 - Recent 20 messages from current session
 
@@ -316,9 +319,9 @@ Context assembly for each message ([route.ts, L109-115](../src/app/api/chat/rout
 
 - Supermemory recall: top 5 personal facts relevant to the query
 
-Model configuration ([models.ts](../src/lib/chat/models.ts)): All plan tiers (free, premium, premium+) use the same model (`x-ai/grok-4.3`) with the same `maxSteps(10)`. The only difference is the persona prompt appended to the system prompt. Cost: $1.25/M input tokens, $2.50/M output tokens, logged to ai_traces after every response ([route.ts, L813-823](../src/app/api/chat/route.ts#L813-L823)).
+Model configuration ([models.ts](../src/lib/chat/models.ts)): All plan tiers (free, premium, premium+) use the same model (`x-ai/grok-4.3`) with the same `maxSteps(10)`. The only difference is the persona prompt appended to the system prompt. Cost: $1.25/M input tokens, $2.50/M output tokens, logged to ai_traces after every response ([route.ts, L854-878](../src/app/api/chat/route.ts#L854-L878)).
 
-Date handling in cycle tools supports natural language input via `normalizeDateInput()` ([cycle-tools.ts, L184-261](../src/lib/cycle-tools.ts#L184-L261)): "today", "yesterday", "May 3", "1/15/2025", ISO dates, and more. All timezone-aware via Intl.DateTimeFormat.
+Date handling in cycle tools supports natural language input via `normalizeDateInput()` ([cycle-tools.ts, L187-264](../src/lib/cycle-tools.ts#L187-L264)): "today", "yesterday", "May 3", "1/15/2025", ISO dates, and more. All timezone-aware via Intl.DateTimeFormat.
 
 ### 5.5 Structured response rendering
 
@@ -326,7 +329,7 @@ The AI assistant can produce structured responses in OpenUI DSL (a domain-specif
 
 ### 5.6 Authentication
 
-Auth.js v5 with Credentials provider only (email + password), JWT strategy (7-day maxAge), bcryptjs password hashing ([auth.ts](../src/auth.ts)). User existence is verified on every JWT refresh callback, forcing re-authentication if the user has been deleted ([auth.ts, L44-49](../src/auth.ts#L44-L49)).
+Auth.js v5 with Credentials provider only (email + password), JWT strategy (7-day maxAge), bcryptjs password hashing ([auth.ts](../src/auth.ts)). User existence is verified on every JWT refresh callback, forcing re-authentication if the user has been deleted ([auth.ts, L52-63](../src/auth.ts#L52-L63)).
 
 ### 5.7 Rate limiting
 
@@ -626,21 +629,21 @@ The contribution of this work is not a validated prediction system. It is a conc
 
 [17] Perplexity Deep Research. Condition-specific priors with quantitative tables and explicit evidence quality ratings. Internal research document (`research/perplexit-deep-research.md`). Najmabadi et al. pooled cohort data for general population. Perimenopause from Holman 2006 (Treloar/Tremin re-analysis) with year-by-year means. PCOS from Nutrients 2026 trial (51±15d) and MOS2 cohort (range 21-111d). Endometriosis: OR data only, no distributional data. Thyroid: no published mean±SD. Highest quality of the three internal research documents.
 
-## Appendix A: Smoothing constants and thresholds
+## Appendix A: smoothing constants and thresholds
 
 | Constant | Value | Source |
 |---|---|---|
-| ALPHA_MIN | 0.1 | Domain heuristic ([engine.ts, L222](../src/lib/prediction/engine.ts#L222)) |
-| ALPHA_MAX | 0.5 | Domain heuristic ([engine.ts, L223](../src/lib/prediction/engine.ts#L223)) |
-| KAPPA | 5.0 | MAD scale factor ([engine.ts, L224](../src/lib/prediction/engine.ts#L224)) |
-| DEFAULT_SKIP_THRESHOLD | 45 | General-population maximum ([engine.ts, L225](../src/lib/prediction/engine.ts#L225)) |
-| OUTLIER_SIGMA | 2.5 | Soft-clamp width ([engine.ts, L226](../src/lib/prediction/engine.ts#L226)) |
-| Cold-start α | 0.3 | Default for empty residuals ([engine.ts, L231](../src/lib/prediction/engine.ts#L231)) |
-| Prior fade-out | n ≥ 6 | Heuristic cutoff ([engine.ts, L243](../src/lib/prediction/engine.ts#L243)) |
-| Variance floor | 4.0 (σ ≥ 2d) | Prevent tight convergence ([engine.ts, L288](../src/lib/prediction/engine.ts#L288)) |
-| MAD window | 5 observations | Balance responsiveness/smoothness ([engine.ts, L321](../src/lib/prediction/engine.ts#L321)) |
+| ALPHA_MIN | 0.1 | Domain heuristic ([engine.ts, L449](../src/lib/prediction/engine.ts#L449)) |
+| ALPHA_MAX | 0.5 | Domain heuristic ([engine.ts, L450](../src/lib/prediction/engine.ts#L450)) |
+| KAPPA | 5.0 | MAD scale factor ([engine.ts, L451](../src/lib/prediction/engine.ts#L451)) |
+| DEFAULT_SKIP_THRESHOLD | 45 | General-population maximum ([engine.ts, L452](../src/lib/prediction/engine.ts#L452)) |
+| OUTLIER_SIGMA | 2.5 | Soft-clamp width ([engine.ts, L453](../src/lib/prediction/engine.ts#L453)) |
+| Cold-start α | 0.3 | Default for empty residuals ([engine.ts, L460](../src/lib/prediction/engine.ts#L460)) |
+| Prior fade-out | n ≥ 6 | Heuristic cutoff ([engine.ts, L474](../src/lib/prediction/engine.ts#L474)) |
+| Variance floor | 4.0 (σ ≥ 2d) | Prevent tight convergence ([engine.ts, L520](../src/lib/prediction/engine.ts#L520)) |
+| MAD window | 5 observations | Balance responsiveness/smoothness ([engine.ts, L555](../src/lib/prediction/engine.ts#L555)) |
 
-## Appendix B: Condition prior parameters (full)
+## Appendix B: condition prior parameters (full)
 
 | Condition | Cycle μ | Cycle σ² | Period μ | Period σ² | Follicular μ | Follicular σ² | Luteal μ | Luteal σ² | maxCL | Anov |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -649,15 +652,15 @@ The contribution of this work is not a validated prediction system. It is a conc
 | pcod | 45 | 169 | 6 | 4 | 24 | 81 | 13 | 4 | 120 | Yes |
 | endometriosis | 27 | 16 | 7.5 | 4 | 14 | 9 | 12 | 4 | 45 | No |
 | thyroid | 35 | 225 | 6 | 4 | 20 | 100 | 12 | 9 | 90 | Yes |
-| hormonal_bc | 28 | 1 | 4.5 | 2.25 | — | — | — | — | 35 | Yes |
+| hormonal_bc | 28 | 1 | 4.5 | 2.25 | -- | -- | -- | -- | 35 | Yes |
 | irregular | 30 | 225 | 5.5 | 4 | 18 | 100 | 12 | 9 | 90 | Yes |
 | perimenopause | 45 | 400 | 6 | 4 | 31 | 225 | 13 | 9 | 120 | Yes |
 | perimenopause_early | 30 | 64 | 6 | 4 | 17 | 64 | 13 | 9 | 60 | No |
 | perimenopause_late | 80 | 900 | 6 | 9 | 60 | 625 | 13 | 9 | 180 | Yes |
 
-*Table B1: Full condition prior parameters as defined in [engine.ts, L52-230](../src/lib/prediction/engine.ts#L52-L230). "--" indicates null (not applicable). maxCL = maxCycleLength. Anov = anovulatoryCommon. The `perimenopause` key is a backward-compatibility alias resolved via `perimenoStage` metadata; new users should select `perimenopause_early` or `perimenopause_late` directly.*
+*Table B1: Full condition prior parameters as defined in [engine.ts, L56-230](../src/lib/prediction/engine.ts#L56-L230). "--" indicates null (not applicable). maxCL = maxCycleLength. Anov = anovulatoryCommon. The `perimenopause` key is a backward-compatibility alias resolved via `perimenoStage` metadata; new users should select `perimenopause_early` or `perimenopause_late` directly.*
 
-## Appendix C: Implementation gaps found and fixed
+## Appendix C: implementation gaps found and fixed
 
 Seven implementation bugs were identified and fixed during development:
 
@@ -665,13 +668,13 @@ Seven implementation bugs were identified and fixed during development:
 
 2. Predictions used general-population parameters regardless of the user's condition profile. Fix: conditions are now fetched and passed to `predictNextCycle()` ([dashboard/page.tsx](../src/app/(app)/dashboard/page.tsx)).
 
-3. The anomaly detection computed the isAnomaly flag but did not write it to the database. Fix: anomaly flag is now included in the updates map and persisted ([cycle-tools.ts, L504-510](../src/lib/cycle-tools.ts#L504-L510) and [L541-547](../src/lib/cycle-tools.ts#L541-L547)).
+3. The anomaly detection computed the isAnomaly flag but did not write it to the database. Fix: anomaly flag is now included in the updates map and persisted ([cycle-tools.ts, L519-522](../src/lib/cycle-tools.ts#L519-L522) and [L562-569](../src/lib/cycle-tools.ts#L562-L569)).
 
-4. The blended object was mutated in-place in the `predictNextCycle` n≥6 path, causing confusing behavior when the same object was referenced elsewhere. Fix: return fresh objects from each path ([engine.ts, L424-428](../src/lib/prediction/engine.ts#L424-L428)).
+4. The blended object was mutated in-place in the `predictNextCycle` n≥6 path, causing confusing behavior when the same object was referenced elsewhere. Fix: return fresh objects from each path ([engine.ts, L747-760](../src/lib/prediction/engine.ts#L747-L760)).
 
 5. After bulk-inserting imported cycles, derived columns and predictions were not recomputed. Fix: `refreshCycleAnalytics()` called after import ([import/route.ts](../src/app/api/data/import/route.ts)).
 
-6. Gated anomaly observations contributed near-zero residuals to the MAD computation, artificially lowering α and making the smoother unresponsive to genuine regime changes. Fix: only push residuals from non-anomaly observations ([engine.ts, L331-338](../src/lib/prediction/engine.ts#L331-L338)).
+6. Gated anomaly observations contributed near-zero residuals to the MAD computation, artificially lowering α and making the smoother unresponsive to genuine regime changes. Fix: only push residuals from non-anomaly observations ([engine.ts, L569-571](../src/lib/prediction/engine.ts#L569-L571)).
 
 7. Naive phase forward-fill from predicted phases could overlap with actual cycle data, producing contradictory calendar markers. Fix: predicted phases are only rendered for future dates beyond the last actual data point ([dashboard/page.tsx](../src/app/(app)/dashboard/page.tsx)).
 
@@ -686,7 +689,7 @@ Seven implementation bugs were identified and fixed during development:
 12. Admin email was hardcoded in the email library source. Fix: moved to `process.env.ADMIN_EMAIL` with the personal email as fallback ([email/index.ts](../src/lib/email/index.ts)).
 
 
-## Appendix D: Version history
+## Appendix D: version history
 
 The changelog ([changelog.ts](../src/lib/changelog.ts)) documents versions spanning May 4-19, 2026:
 
@@ -706,6 +709,9 @@ The changelog ([changelog.ts](../src/lib/changelog.ts)) documents versions spann
 | 0.7.2--0.7.4 | 2026-05-07 | fix | Peer-review fixes, mixture priors, phase coupling, 68 vitest tests |
 | 0.8.0--0.9.6 | 2026-05-07--11 | feat/fix | Chat UI overhaul, PWA support, mobile fixes |
 | 0.9.7 | 2026-05-19 | fix | Security audit fixes (Kiro): Redis rate limiting, CSP hardening, Zod import validation, conditions allowlist, third-party timeouts, admin email env var |
+| 0.9.8 | 2026-05-19 | fix | Fix Zod v4 z.record() build error in import route to unblock Vercel production build |
+| 0.9.9 | 2026-05-19 | fix | Move CSP from static headers to middleware with unique nonces, resolving inline hydration script blocks |
+| 0.9.10 | 2026-05-21 | fix | Audit and verify prediction engine mathematical derivations, resolve mixture prior blending equations, check relative links/dashes across all papers |
 
 *Note: Version numbers in package.json are kept in sync with changelog.ts from v0.7.0 onward.*
 
