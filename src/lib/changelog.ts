@@ -8,6 +8,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.13",
+    date: "2026-05-27",
+    type: "fix",
+    title: "Fix CSP nonce verification failure on client-side routes",
+    description:
+      "Separated landing, login, signup, forgot-password, reset-password, onboarding, chat, and settings pages into Server Component entry points and Client Component implementations. This allows Next.js to respect the `export const dynamic = 'force-dynamic'` configuration on the server page level, forcing request-time dynamic rendering and allowing the CSP nonces to be correctly stamped onto Next.js inline scripts.",
+  },
+  {
+    version: "0.9.12",
+    date: "2026-05-27",
+    type: "fix",
+    title: "Fix CSP nonce not applied to inline scripts on public pages",
+    description:
+      "Added `export const dynamic = 'force-dynamic'` to all public client-component pages (login, signup, forgot-password, reset-password, landing, onboarding). CSP nonces only work on dynamically rendered pages -- static pre-rendering builds HTML without the nonce, causing the browser to block every inline script.",
+  },
+  {
     version: "0.9.11",
     date: "2026-05-21",
     type: "fix",
