@@ -17,18 +17,32 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        console.log("[Auth] authorize() called with email:", credentials?.email);
+        if (!credentials?.email || !credentials?.password) {
+          console.log("[Auth] Missing email or password");
+          return null;
+        }
 
         const userRecord = await db.query.users.findFirst({
-          where: eq(users.email, credentials.email as string),
+          where: eq(users.email, (credentials.email as string).toLowerCase().trim()),
         });
 
-        if (!userRecord || !userRecord.passwordHash) return null;
+        if (!userRecord) {
+          console.log("[Auth] User record not found for:", credentials.email);
+          return null;
+        }
+
+        if (!userRecord.passwordHash) {
+          console.log("[Auth] User has no password hash set");
+          return null;
+        }
 
         const isValid = await compare(
           credentials.password as string,
           userRecord.passwordHash,
         );
+
+        console.log("[Auth] Password is valid:", isValid);
 
         if (!isValid) return null;
 

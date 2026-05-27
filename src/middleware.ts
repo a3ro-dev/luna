@@ -69,6 +69,12 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
+  // API routes do not require CSP headers and returning a plain NextResponse.next()
+  // prevents Next.js from dropping POST request bodies during header cloning.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   return buildCspResponse(req);
 });
 

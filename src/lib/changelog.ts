@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.14",
+    date: "2026-05-27",
+    type: "fix",
+    title: "Fix service worker errors and middleware credentials body drop",
+    description:
+      "Fixed three bugs: (1) Added HTTP/HTTPS scheme filter in the service worker to prevent caching requests from chrome-extensions; (2) Added range request check (response.status !== 206) in service worker to prevent Cache.put error on partial content responses (videos/audio); (3) Bypassed CSP header creation in middleware for all API routes, preventing Next.js from dropping request bodies on POST requests (such as NextAuth credentials sign-in).",
+  },
+  {
     version: "0.9.13",
     date: "2026-05-27",
     type: "fix",

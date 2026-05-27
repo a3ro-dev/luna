@@ -19,7 +19,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const { email, password, name } = parsed.data;
+    const { email: rawEmail, password, name } = parsed.data;
+    const email = rawEmail.toLowerCase().trim();
 
     // Check if user already exists
     const existing = await db.query.users.findFirst({
