@@ -1,6 +1,6 @@
 # Luna project -- comprehensive source index
 
-> Last updated: 2026-05-21 · Repository version: v0.9.11 (with third-party infrastructure documentation)
+> Last updated: 2026-05-27 · Repository version: v0.9.13 (with route dynamic rendering fix for CSP nonces)
 
 ---
 
@@ -23,7 +23,7 @@ All paths relative to repository root. Line counts from final commit (23a0e8e).
 | [accent.ts, L1-43](../src/lib/theme/accent.ts#L1-L43) | Plan-based accent colors: free=#FFB5C0 (pink), premium=#B8A9E8 (purple), premium+=#E8C547 (gold). | 43 |
 | [rate-limit.ts, L1-144](../src/lib/rate-limit.ts#L1-L144) | In-memory sliding-window rate limiter. Auto-cleanup every 5 minutes. Per-process only (not cross-instance in serverless). | 144 |
 | [utils.ts, L1-21](../src/lib/utils.ts#L1-L21) | `cn()` (clsx + tailwind-merge) and `logError()` (full object in dev, message-only in prod). | 21 |
-| [changelog.ts, L1-303](../src/lib/changelog.ts#L1-L303) | Version history from 0.0.1 (2026-05-04, project init) through 0.9.11 (2026-05-21, pnpm workspace overrides fix). | 303 |
+| [changelog.ts, L1-318](../src/lib/changelog.ts#L1-L318) | Version history from 0.0.1 (2026-05-04, project init) through 0.9.13 (2026-05-27, route dynamic rendering fix). | 318 |
 | [auth.ts, L1-77](../src/auth.ts#L1-L77) | Auth.js v5 config with credentials provider (email + password), JWT strategy, DrizzleAdapter, user-existence check on every token refresh. | 77 |
 | [middleware.ts, L1-86](../src/middleware.ts#L1-L86) | Auth middleware with route protection, rate limiting on login (5 req/60s per IP), public/cron/api route exemptions. | 86 |
 | [dashboard/page.tsx, L1-335](../src/app/(app)/dashboard/page.tsx#L1-L335) | Server-rendered dashboard with condition-aware predictions. Fetches user conditions, computes predictions via `predictNextCycle()`, renders calendar with phase color-coding. | 335 |
@@ -34,6 +34,22 @@ All paths relative to repository root. Line counts from final commit (23a0e8e).
 | [onboarding/route.ts, L1-133](../src/app/api/user/onboarding/route.ts#L1-L133) | Onboarding flow: DOB, timezone, conditions, push notifications. DOB first-set doesn't count as edit. | 133 |
 | [next.config.ts, L1-26](../next.config.ts#L1-L26) | Security headers (CSP, HSTS, X-Frame-Options: DENY, etc.), `serverExternalPackages: ['@opentelemetry/api']`. | 26 |
 | [package.json, L1-95](../package.json#L1-L95) | Dependencies and scripts. Core deps: Next.js 16.2.4, AI SDK v6, Auth.js 5.0.0-beta.31, Drizzle 0.45.2, React 19. | 95 |
+| [page.tsx, L1-9](../src/app/page.tsx#L1-L9) | Landing page entry point. Forces dynamic rendering to stamp CSP nonces correctly. | 9 |
+| [home-client.tsx, L1-799](../src/app/home-client.tsx#L1-L799) | Client implementation of landing page with GSAP scroll animations and canvas frame sequencing. | 799 |
+| [login/page.tsx, L1-9](../src/app/login/page.tsx#L1-L9) | Login page entry point. Forces dynamic rendering to stamp CSP nonces correctly. | 9 |
+| [login/login-client.tsx, L1-124](../src/app/login/login-client.tsx#L1-L124) | Client implementation of login form and authentication triggers. | 124 |
+| [signup/page.tsx, L1-9](../src/app/signup/page.tsx#L1-L9) | Signup page entry point. Forces dynamic rendering to stamp CSP nonces. | 9 |
+| [signup/signup-client.tsx, L1-148](../src/app/signup/signup-client.tsx#L1-L148) | Client implementation of signup form and registration triggers. | 148 |
+| [forgot-password/page.tsx, L1-9](../src/app/forgot-password/page.tsx#L1-L9) | Forgot password entry point. Forces dynamic rendering. | 9 |
+| [forgot-password/forgot-password-client.tsx, L1-141](../src/app/forgot-password/forgot-password-client.tsx#L1-L141) | Client implementation of password reset request form. | 141 |
+| [reset-password/page.tsx, L1-9](../src/app/reset-password/page.tsx#L1-L9) | Reset password entry point. Forces dynamic rendering. | 9 |
+| [reset-password/reset-password-client.tsx, L1-236](../src/app/reset-password/reset-password-client.tsx#L1-L236) | Client implementation of new password setup form. | 236 |
+| [onboarding/page.tsx, L1-9](../src/app/onboarding/page.tsx#L1-L9) | Onboarding page entry point. Forces dynamic rendering. | 9 |
+| [onboarding/onboarding-client.tsx, L1-416](../src/app/onboarding/onboarding-client.tsx#L1-L416) | Client implementation of user onboarding flow. | 416 |
+| [chat/page.tsx, L1-9](../src/app/(app)/chat/page.tsx#L1-L9) | Chat page entry point. Forces dynamic rendering. | 9 |
+| [chat/chat-client.tsx, L1-368](../src/app/(app)/chat/chat-client.tsx#L1-L368) | Client implementation of the AI chat window. | 368 |
+| [settings/page.tsx, L1-9](../src/app/(app)/settings/page.tsx#L1-L9) | Settings page entry point. Forces dynamic rendering. | 9 |
+| [settings/settings-client.tsx, L1-747](../src/app/(app)/settings/settings-client.tsx#L1-L747) | Client implementation of preferences and account settings. | 747 |
 
 
 ---
