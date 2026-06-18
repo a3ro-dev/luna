@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.15",
+    date: "2026-06-18",
+    type: "feat",
+    title: "Consent screen, transparency page & onboarding compliance",
+    description:
+      "Added mandatory consent step to onboarding with clear plain-language summaries of Terms, Privacy, and Limitations. Created /transparency page explaining honestly how Luna works, what it can and can't do, and how data is processed by each third-party service. Added consent tracking (consent_given, consent_given_at, consent_version) to the database. Consent is enforced for all existing users via middleware — unconsented users are redirected to onboarding. Consent is re-required on re-do onboarding. If consent is declined, onboarding stops entirely. Added minimal cookie consent banner (essential cookies only — no tracking, no ads). Updated privacy policy cookies section.",
+  },
+  {
     version: "0.9.14",
     date: "2026-05-27",
     type: "fix",

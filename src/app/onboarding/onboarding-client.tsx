@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 
 const TIMEZONES = [
   "Asia/Kolkata",
@@ -75,7 +76,11 @@ export default function OnboardingPageClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const totalSteps = 3;
+  // Consent state
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [consentDeclined, setConsentDeclined] = useState(false);
+
+  const totalSteps = 4;
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -123,6 +128,8 @@ export default function OnboardingPageClient() {
             ? perimenoStage
             : undefined,
           pushNotificationsEnabled: false,
+          consentGiven: true,
+          consentVersion: "2026-06",
         }),
       });
       if (!res.ok) {
@@ -142,6 +149,56 @@ export default function OnboardingPageClient() {
     return (
       <div className="min-h-screen bg-[#FFF9F9] flex items-center justify-center selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
         <div className="w-5 h-5 border-2 border-[#FFB5C0]/30 border-t-[#FFB5C0] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // ── Consent declined: exit screen ──────────────────
+  if (consentDeclined) {
+    return (
+      <div className="min-h-screen bg-[#FFF9F9] flex flex-col items-center justify-center font-sans p-4 selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
+        <motion.div
+          initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          transition={{ type: "spring", duration: 0.45, bounce: 0 }}
+          className="w-full max-w-md text-center"
+        >
+          <div className="relative mb-10">
+            <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-[#FFDDE0] to-[#D6CBE3] flex items-center justify-center text-3xl">
+              🌙
+            </div>
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#FFDDE0]/40 to-[#D6CBE3]/40 blur-xl -z-10" />
+          </div>
+
+          <h1 className="font-serif text-[clamp(2rem,6vw,2.8rem)] font-light text-[#6D5A60] leading-[1.1] mb-4">
+            We understand
+          </h1>
+          <p className="text-base font-light text-[#8E7D82] leading-relaxed max-w-xs mx-auto mb-10">
+            Luna requires your consent to process data and provide predictions.
+            Without it, we can&apos;t offer the service safely. You&apos;re
+            always welcome to change your mind.
+          </p>
+
+          <Link
+            href="/"
+            className="inline-flex h-12 items-center gap-2 rounded-full border border-[#FFDDE0]/60 px-8 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] transition hover:bg-[#FFF5F7]"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            Back to home
+          </Link>
+        </motion.div>
       </div>
     );
   }
@@ -199,8 +256,131 @@ export default function OnboardingPageClient() {
               </motion.div>
             )}
 
-            {/* ── Step 1: Quick setup ────────────────────── */}
+            {/* ── Step 1: Your consent ──────────────────── */}
             {step === 1 && (
+              <motion.div
+                key="consent"
+                {...enter}
+                className="flex-1 flex flex-col"
+              >
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#FFB5C0] mb-3"
+                >
+                  Before you continue
+                </motion.p>
+                <h2 className="font-serif text-2xl font-light text-[#6D5A60] mb-1">
+                  We take your privacy seriously
+                </h2>
+                <p className="text-sm font-light text-[#8E7D82] mb-6">
+                  Here&apos;s what you should know before using Luna.
+                </p>
+
+                {/* Info cards */}
+                <motion.div
+                  variants={stagger}
+                  initial="initial"
+                  animate="animate"
+                  className="space-y-3 mb-6"
+                >
+                  <motion.div
+                    variants={staggerChild}
+                    className="rounded-2xl border border-[#FFDDE0]/30 bg-[#FFF9F9] p-4"
+                  >
+                    <p className="text-sm font-medium text-[#6D5A60] mb-1">
+                      Not medical advice
+                    </p>
+                    <p className="text-xs font-light text-[#8E7D82] leading-relaxed mb-2">
+                      Luna is not a medical device, not FDA-approved, and not a
+                      substitute for a healthcare provider. Predictions are
+                      statistical estimates — they can be wrong.
+                    </p>
+                    <Link
+                      href="/terms"
+                      target="_blank"
+                      className="text-[11px] font-light text-[#FFB5C0] hover:text-[#6D5A60] transition-colors"
+                    >
+                      Read Terms of Use →
+                    </Link>
+                  </motion.div>
+
+                  <motion.div
+                    variants={staggerChild}
+                    className="rounded-2xl border border-[#FFDDE0]/30 bg-[#FFF9F9] p-4"
+                  >
+                    <p className="text-sm font-medium text-[#6D5A60] mb-1">
+                      AI & data processing
+                    </p>
+                    <p className="text-xs font-light text-[#8E7D82] leading-relaxed mb-2">
+                      Your messages go through HackClub&apos;s AI proxy to xAI
+                      and Anthropic. Your cycle data lives in Neon PostgreSQL.
+                      We don&apos;t sell your data. HackClub logs conversations.
+                    </p>
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      className="text-[11px] font-light text-[#FFB5C0] hover:text-[#6D5A60] transition-colors"
+                    >
+                      Read Privacy Policy →
+                    </Link>
+                  </motion.div>
+
+                  <motion.div
+                    variants={staggerChild}
+                    className="rounded-2xl border border-[#FFDDE0]/30 bg-[#FFF9F9] p-4"
+                  >
+                    <p className="text-sm font-medium text-[#6D5A60] mb-1">
+                      Limitations
+                    </p>
+                    <p className="text-xs font-light text-[#8E7D82] leading-relaxed mb-2">
+                      Luna has no clinical validation, no accuracy benchmarks,
+                      and no published user studies. We&apos;re honest about
+                      what we don&apos;t know.
+                    </p>
+                    <Link
+                      href="/transparency"
+                      target="_blank"
+                      className="text-[11px] font-light text-[#FFB5C0] hover:text-[#6D5A60] transition-colors"
+                    >
+                      Read full transparency →
+                    </Link>
+                  </motion.div>
+                </motion.div>
+
+                {/* Checkbox */}
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={consentChecked}
+                    onChange={(e) => setConsentChecked(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded-md border-[#FFDDE0]/60 text-[#FFB5C0] focus:ring-[#FFB5C0]/30 cursor-pointer accent-[#FFB5C0]"
+                  />
+                  <span className="text-xs font-light text-[#8E7D82] leading-relaxed group-hover:text-[#6D5A60] transition-colors">
+                    I understand and agree to the{" "}
+                    <Link
+                      href="/terms"
+                      target="_blank"
+                      className="text-[#FFB5C0] hover:underline"
+                    >
+                      Terms of Use
+                    </Link>
+                    ,{" "}
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      className="text-[#FFB5C0] hover:underline"
+                    >
+                      Privacy Policy
+                    </Link>
+                    , and the limitations described above.
+                  </span>
+                </label>
+              </motion.div>
+            )}
+
+            {/* ── Step 2: Quick setup ────────────────────── */}
+            {step === 2 && (
               <motion.div
                 key="setup"
                 {...enter}
@@ -260,8 +440,8 @@ export default function OnboardingPageClient() {
               </motion.div>
             )}
 
-            {/* ── Step 2: Your rhythm ────────────────────── */}
-            {step === 2 && (
+            {/* ── Step 3: Your rhythm ────────────────────── */}
+            {step === 3 && (
               <motion.div
                 key="rhythm"
                 {...enter}
@@ -349,7 +529,26 @@ export default function OnboardingPageClient() {
               <div />
             )}
 
-            {step < totalSteps - 1 ? (
+            {step === 1 ? (
+              /* Step 1: Consent — special navigation */
+              <div className="flex flex-col items-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep((s) => s + 1)}
+                  disabled={!consentChecked}
+                  className="h-12 px-8 rounded-full text-[10px] font-semibold uppercase tracking-widest transition duration-200 disabled:opacity-40 cursor-pointer bg-[#6D5A60] text-white shadow-[0_12px_24px_rgba(109,90,96,0.2)] hover:bg-[#8E7D82] disabled:hover:bg-[#6D5A60]"
+                >
+                  I agree & continue
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConsentDeclined(true)}
+                  className="text-[10px] font-light text-[#8E7D82]/50 hover:text-[#FFB5C0] transition-colors cursor-pointer"
+                >
+                  I do not agree
+                </button>
+              </div>
+            ) : step < totalSteps - 1 ? (
               <button
                 type="button"
                 onClick={() => setStep((s) => s + 1)}

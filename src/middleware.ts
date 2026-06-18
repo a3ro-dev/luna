@@ -52,10 +52,16 @@ export default auth((req) => {
     "/signup",
     "/forgot-password",
     "/reset-password",
+    "/privacy",
+    "/terms",
+    "/transparency",
   ];
   const isPublic = publicRoutes.some(
     (r) => pathname === r || pathname.startsWith("/api/auth/"),
   );
+
+  // Onboarding is always accessible when logged in (consent happens here)
+  const isOnboarding = pathname === "/onboarding";
 
   // Cron routes use their own Bearer token auth
   const isCron = pathname.startsWith("/api/cron/");
@@ -63,10 +69,28 @@ export default auth((req) => {
   // Subscribe is public
   const isPublicApi = pathname === "/api/subscribe";
 
+  // ── Auth gate ──────────────────────────────────
   if (!isLoggedIn && !isPublic && !isCron && !isPublicApi) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // ── Consent gate: existing users who haven't consented ──
+  // Only enforce on protected pages, not public/onboarding/api
+  if (
+    isLoggedIn &&
+    !isPublic &&
+    !isOnboarding &&
+    !isCron &&
+    !isPublicApi &&
+    !pathname.startsWith("/api/")
+  ) {
+    const consentGiven = (req.auth?.user as Record<string, unknown> | undefined)
+      ?.consentGiven;
+    if (consentGiven === false || consentGiven === undefined) {
+      return NextResponse.redirect(new URL("/onboarding", req.url));
+    }
   }
 
   // API routes do not require CSP headers and returning a plain NextResponse.next()

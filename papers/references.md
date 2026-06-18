@@ -1,6 +1,6 @@
 # Luna project -- comprehensive source index
 
-> Last updated: 2026-05-27 · Repository version: v0.9.14 (with service worker and middleware API routes fix)
+> Last updated: 2026-06-18 · Repository version: v0.9.15 (with consent tracking and transparency page)
 
 ---
 
@@ -13,43 +13,47 @@ All paths relative to repository root. Line counts from final commit (23a0e8e).
 | [engine.ts, L1-780](../src/lib/prediction/engine.ts#L1-L780) | Condition-aware adaptive exponential smoothing engine. 10 condition-specific priors (including perimenopause_early/late), population prior, `resolveEffectivePrior()`, `resolvePerimenopausePrior()`, `skipGate()`, `exponentialSmooth()`, `blendWithPrior()`, `calculateJackknifeCI()`, `predictNextCycle()`. | 780 |
 | [cycle-tools.ts, L1-1271](../src/lib/cycle-tools.ts#L1-L1271) | 10 AI tools for cycle logging, prediction, stats. Date parsing, timezone resolution, note merging, `refreshCycleAnalytics()`, `refreshPredictionParam()`, `buildPredictionPayload()`, `buildAveragesFromParams()`, all tool entry functions. | 1271 |
 | [route.ts, L1-884](../src/app/api/chat/route.ts#L1-L884) | Chat streaming API with context assembly (recent messages + summary + keyword snippets + Supermemory recall), 10 tool definitions, AI tracing (cost, latency, tokens), session management, auto-summarization, image upload handling. | 884 |
-| [schema.ts, L1-173](../src/lib/db/schema.ts#L1-L173) | Drizzle ORM schema for 8 tables: `users` (with perimenoStage), `cycles`, `predictionParams`, `aiTraces`, `chatSessions`, `chatMessages`, `chatSummaries`, `uploadedImages`. Custom `pgDate` type for Neon Date-object bug. | 173 |
+| [schema.ts, L1-176](../src/lib/db/schema.ts#L1-L176) | Drizzle ORM schema for 8 tables: `users` (with perimenoStage, consent tracking), `cycles`, `predictionParams`, `aiTraces`, `chatSessions`, `chatMessages`, `chatSummaries`, `uploadedImages`. Custom `pgDate` type for Neon Date-object bug. | 176 |
 | [prompt.ts, L1-334](../src/lib/chat/prompt.ts#L1-L334) | Base system prompt with OpenUI DSL specification, condition-aware prediction context, persona integration. | 334 |
 | [models.ts, L1-77](../src/lib/chat/models.ts#L1-L77) | Plan-tier model configuration. Same model (`x-ai/grok-4.3`) for all tiers; differences are persona prompts (free=practical, premium=warm, premium+=empathetic). | 77 |
 | [openui.ts, L1-5](../src/lib/chat/openui.ts#L1-L5) | OpenUI language detection via `looksLikeOpenUiLang()` -- checks if text starts with `root =`. | 5 |
 | [images.ts, L1-74](../src/lib/chat/images.ts#L1-L74) | Image storage with 7-day TTL. `storeImage()`, `cleanupExpiredImages()`, `getImage()` with expiry check. | 74 |
 | [email/index.ts, L1-528](../src/lib/email/index.ts#L1-L528) | Resend email templates: welcome, login notification (with IP geolocation + user-agent parsing), password reset, OTP, subscription request. HTML shell with inline styles. | 528 |
-| [schemas/auth.ts, L1-79](../src/lib/schemas/auth.ts#L1-L79) | Zod validation schemas for registration, password reset, profile update, and onboarding. Password max 128 chars (bcrypt DoS prevention). | 79 |
+| [schemas/auth.ts, L1-81](../src/lib/schemas/auth.ts#L1-L81) | Zod validation schemas for registration, password reset, profile update, and onboarding. Password max 128 chars (bcrypt DoS prevention). Onboarding schema includes consent fields. | 81 |
 | [accent.ts, L1-43](../src/lib/theme/accent.ts#L1-L43) | Plan-based accent colors: free=#FFB5C0 (pink), premium=#B8A9E8 (purple), premium+=#E8C547 (gold). | 43 |
 | [rate-limit.ts, L1-144](../src/lib/rate-limit.ts#L1-L144) | In-memory sliding-window rate limiter. Auto-cleanup every 5 minutes. Per-process only (not cross-instance in serverless). | 144 |
 | [utils.ts, L1-21](../src/lib/utils.ts#L1-L21) | `cn()` (clsx + tailwind-merge) and `logError()` (full object in dev, message-only in prod). | 21 |
-| [changelog.ts, L1-326](../src/lib/changelog.ts#L1-L326) | Version history from 0.0.1 (2026-05-04, project init) through 0.9.14 (2026-05-27, service worker and middleware fix). | 326 |
-| [auth.ts, L1-90](../src/auth.ts#L1-L90) | Auth.js v5 config with credentials provider (email + password), JWT strategy, DrizzleAdapter, user-existence check on every token refresh, and login authorization check. | 90 |
-| [middleware.ts, L1-91](../src/middleware.ts#L1-L91) | Auth middleware with route protection, rate limiting on login (5 req/60s per IP), public/cron/api route exemptions, and API route bypass for CSP header cloning. | 91 |
+| [changelog.ts, L1-337](../src/lib/changelog.ts#L1-L337) | Version history from 0.0.1 (2026-05-04, project init) through 0.9.15 (2026-06-18, consent tracking and transparency page). | 337 |
+| [auth.ts, L1-96](../src/auth.ts#L1-L96) | Auth.js v5 config with credentials provider (email + password), JWT strategy, DrizzleAdapter, user-existence check on every token refresh, and consent tracking in JWT/session. | 96 |
+| [middleware.ts, L1-108](../src/middleware.ts#L1-L108) | Auth middleware with route protection, consent gate (redirects unconsented users to onboarding), public/cron/api route exemptions, and API route bypass for CSP header cloning. | 108 |
 | [dashboard/page.tsx, L1-335](../src/app/(app)/dashboard/page.tsx#L1-L335) | Server-rendered dashboard with condition-aware predictions. Fetches user conditions, computes predictions via `predictNextCycle()`, renders calendar with phase color-coding. | 335 |
 | [import/route.ts, L1-514](../src/app/api/data/import/route.ts#L1-L514) | Multi-format cycle data import: Luna JSON, Period Calendar, Clue CSV, Flo CSV/TXT, Apple Health XML. Timezone-safe date parsing. | 514 |
 | [export/route.ts, L1-32](../src/app/api/data/export/route.ts#L1-L32) | JSON cycle data export (all user cycles, ascending by mStart). | 32 |
 | [cleanup-images/route.ts, L1-38](../src/app/api/cron/cleanup-images/route.ts#L1-L38) | Cron job for expired image cleanup. Bearer token auth via CRON_SECRET. | 38 |
 | [profile/route.ts, L1-228](../src/app/api/user/profile/route.ts#L1-L228) | Profile CRUD with DOB edit limits (max 2 edits after initial set), email uniqueness check, password change with current-password verification. | 228 |
-| [onboarding/route.ts, L1-133](../src/app/api/user/onboarding/route.ts#L1-L133) | Onboarding flow: DOB, timezone, conditions, push notifications. DOB first-set doesn't count as edit. | 133 |
+| [onboarding/route.ts, L1-139](../src/app/api/user/onboarding/route.ts#L1-L139) | Onboarding flow: DOB, timezone, conditions, push notifications, consent tracking. DOB first-set doesn't count as edit. Stores consent as `consentGiven`, `consentGivenAt`, `consentVersion` on every completion. | 139 |
 | [next.config.ts, L1-26](../next.config.ts#L1-L26) | Security headers (CSP, HSTS, X-Frame-Options: DENY, etc.), `serverExternalPackages: ['@opentelemetry/api']`. | 26 |
-| [package.json, L1-95](../package.json#L1-L95) | Dependencies and scripts. Core deps: Next.js 16.2.4, AI SDK v6, Auth.js 5.0.0-beta.31, Drizzle 0.45.2, React 19. | 95 |
+| [package.json, L1-97](../package.json#L1-L97) | Dependencies and scripts. Core deps: Next.js 16.2.4, AI SDK v6, Auth.js 5.0.0-beta.31, Drizzle 0.45.2, React 19. | 97 |
 | [page.tsx, L1-9](../src/app/page.tsx#L1-L9) | Landing page entry point. Forces dynamic rendering to stamp CSP nonces correctly. | 9 |
 | [home-client.tsx, L1-799](../src/app/home-client.tsx#L1-L799) | Client implementation of landing page with GSAP scroll animations and canvas frame sequencing. | 799 |
 | [login/page.tsx, L1-9](../src/app/login/page.tsx#L1-L9) | Login page entry point. Forces dynamic rendering to stamp CSP nonces correctly. | 9 |
 | [login/login-client.tsx, L1-124](../src/app/login/login-client.tsx#L1-L124) | Client implementation of login form and authentication triggers. | 124 |
 | [signup/page.tsx, L1-9](../src/app/signup/page.tsx#L1-L9) | Signup page entry point. Forces dynamic rendering to stamp CSP nonces. | 9 |
-| [signup/signup-client.tsx, L1-148](../src/app/signup/signup-client.tsx#L1-L148) | Client implementation of signup form and registration triggers. | 148 |
+| [signup/signup-client.tsx, L1-172](../src/app/signup/signup-client.tsx#L1-L172) | Client implementation of signup form and registration triggers. Includes legal links to Terms, Privacy, and Transparency. | 172 |
 | [forgot-password/page.tsx, L1-9](../src/app/forgot-password/page.tsx#L1-L9) | Forgot password entry point. Forces dynamic rendering. | 9 |
 | [forgot-password/forgot-password-client.tsx, L1-141](../src/app/forgot-password/forgot-password-client.tsx#L1-L141) | Client implementation of password reset request form. | 141 |
 | [reset-password/page.tsx, L1-9](../src/app/reset-password/page.tsx#L1-L9) | Reset password entry point. Forces dynamic rendering. | 9 |
 | [reset-password/reset-password-client.tsx, L1-236](../src/app/reset-password/reset-password-client.tsx#L1-L236) | Client implementation of new password setup form. | 236 |
 | [onboarding/page.tsx, L1-9](../src/app/onboarding/page.tsx#L1-L9) | Onboarding page entry point. Forces dynamic rendering. | 9 |
-| [onboarding/onboarding-client.tsx, L1-416](../src/app/onboarding/onboarding-client.tsx#L1-L416) | Client implementation of user onboarding flow. | 416 |
+| [onboarding/onboarding-client.tsx, L1-436](../src/app/onboarding/onboarding-client.tsx#L1-L436) | Client implementation of onboarding flow with 4 steps: Welcome, Consent (new), Quick Setup, Your Rhythm. Includes consent decline exit screen. | 436 |
 | [chat/page.tsx, L1-9](../src/app/(app)/chat/page.tsx#L1-L9) | Chat page entry point. Forces dynamic rendering. | 9 |
 | [chat/chat-client.tsx, L1-368](../src/app/(app)/chat/chat-client.tsx#L1-L368) | Client implementation of the AI chat window. | 368 |
 | [settings/page.tsx, L1-9](../src/app/(app)/settings/page.tsx#L1-L9) | Settings page entry point. Forces dynamic rendering. | 9 |
 | [settings/settings-client.tsx, L1-747](../src/app/(app)/settings/settings-client.tsx#L1-L747) | Client implementation of preferences and account settings. | 747 |
+| [privacy/privacy-client.tsx, L1-374](../src/app/privacy/privacy-client.tsx#L1-L374) | Interactive privacy policy with collapsible accordion sections, sticky TOC, and paper-backed data-handling details for Neon, HackClub, Supermemory, and Resend. | 374 |
+| [terms/terms-client.tsx, L1-312](../src/app/terms/terms-client.tsx#L1-L312) | Interactive Terms of Use with collapsible sections, prediction engine overview, third-party service disclosure, and consent requirements. | 312 |
+| [transparency/page.tsx, L1-7](../src/app/transparency/page.tsx#L1-L7) | Transparency page entry point. Forces dynamic rendering. | 7 |
+| [transparency/transparency-client.tsx, L1-516](../src/app/transparency/transparency-client.tsx#L1-L516) | Interactive transparency page with accordion sections, condition prior table with evidence quality ratings, data flow summary table, and full third-party infrastructure disclosure. | 516 |
 
 
 ---

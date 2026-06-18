@@ -75,4 +75,6 @@ export const onboardingSchema = z.object({
   ).max(20).optional(),
   perimenoStage: z.enum(["early", "late", "unknown"]).optional(),
   pushNotificationsEnabled: z.boolean().optional(),
+  consentGiven: z.boolean().optional(),
+  consentVersion: z.string().optional(),
 });

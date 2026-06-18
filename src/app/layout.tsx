@@ -3,6 +3,7 @@ import { Instrument_Serif, DM_Sans, Figtree } from "next/font/google";
 import "./globals.css";
 import AppSessionProvider from "@/components/SessionProvider";
 import PWAProvider from "@/components/PWAProvider";
+import CookieConsent from "@/components/CookieConsent";
 import { cn } from "@/lib/utils";
 
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
@@ -73,6 +74,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-sans bg-[#FCFBFB]">
         <AppSessionProvider>
           <PWAProvider />
+          <CookieConsent />
           {children}
         </AppSessionProvider>
       </body>

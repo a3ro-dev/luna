@@ -130,6 +130,34 @@ export default function SignupPageClient() {
                 "Create Account"
               )}
             </button>
+
+            <p className="text-[11px] font-light text-[#8E7D82]/60 text-center leading-relaxed mt-4">
+              By signing up, you agree to our{" "}
+              <Link
+                href="/terms"
+                target="_blank"
+                className="text-[#FFB5C0] hover:text-[#6D5A60] transition-colors"
+              >
+                Terms of Use
+              </Link>
+              ,{" "}
+              <Link
+                href="/privacy"
+                target="_blank"
+                className="text-[#FFB5C0] hover:text-[#6D5A60] transition-colors"
+              >
+                Privacy Policy
+              </Link>
+              , and acknowledge our{" "}
+              <Link
+                href="/transparency"
+                target="_blank"
+                className="text-[#FFB5C0] hover:text-[#6D5A60] transition-colors"
+              >
+                Transparency
+              </Link>{" "}
+              page.
+            </p>
           </form>
         </div>
 

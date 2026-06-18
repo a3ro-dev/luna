@@ -64,6 +64,9 @@ export const users = pgTable("users", {
   // which could allow a password-reset token to be used as an OTP or vice versa.
   otpToken: text("otp_token"),
   otpExpiry: timestamp("otp_expiry", { withTimezone: true }),
+  consentGiven: boolean("consent_given").default(false),
+  consentGivenAt: timestamp("consent_given_at", { withTimezone: true }),
+  consentVersion: text("consent_version"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 

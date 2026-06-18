@@ -33,6 +33,7 @@ export async function POST(req: Request) {
       conditions,
       perimenoStage,
       pushNotificationsEnabled,
+      consentGiven,
     } = parsed.data;
 
     const userRecord = await db.query.users.findFirst({
@@ -48,6 +49,13 @@ export async function POST(req: Request) {
       onboardingCompleted: true,
       onboardingVersion: 1,
     };
+
+    // Always update consent on onboarding completion
+    if (consentGiven) {
+      updates.consentGiven = true;
+      updates.consentGivenAt = new Date().toISOString();
+      updates.consentVersion = "2026-06";
+    }
 
     // Handle DOB with edit count restriction
     if (dateOfBirth) {

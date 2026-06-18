@@ -14,7 +14,7 @@ Luna is a free, open-source web app that lets you track your menstrual cycle by 
 
 Luna does a handful of things:
 
-1. Tracks your cycle through conversation. You type naturally -- "period started on March 5," "ovulation today," "bad cramps after coffee" -- and the AI logs it to your cycle history.
+1. Tracks your cycle through conversation. You type naturally -- "period started on March 5," "ovulation today," "bad cramps after coffee" -- and the AI logs it to your cycle history. Before tracking begins, you must explicitly consent to how Luna processes your data and acknowledge its limitations. Users who decline consent cannot use the app.
 
 2. Predicts your next period and ovulation. After it learns enough about your cycles, it estimates when your next one might start, along with a range (confidence interval) showing how certain it is.
 
@@ -25,6 +25,8 @@ Luna does a handful of things:
 5. Exports your data. You can download all your cycle data as a file, or import data from other apps (Period Calendar, Clue, Flo, Apple Health, or Luna's own format).
 
 6. Searches the web. If you ask a question it can't answer from your data, it searches the web for information.
+
+7. Is transparent about its limitations. A dedicated [transparency page](../src/app/transparency/page.tsx) explains honestly what Luna is, what it isn't, how predictions work, how each third-party service processes your data, and what we still don't know. Onboarding now includes a mandatory consent step summarizing this information. Users who decline are not allowed to use the app.
 
 What it does not do:
 

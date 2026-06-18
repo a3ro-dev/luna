@@ -62,24 +62,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.consentGiven = (user as Record<string, unknown>).consentGiven as boolean;
       }
       // Verify user still exists on every token refresh
       // This runs on initial sign-in and on session access
       if (token.id) {
         const userExists = await db.query.users.findFirst({
           where: eq(users.id, token.id as string),
-          columns: { id: true },
+          columns: { id: true, consentGiven: true },
         });
         if (!userExists) {
           // Force re-authentication by clearing the id
           return { ...token, id: undefined };
         }
+        token.consentGiven = userExists.consentGiven;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
+        (session.user as { consentGiven?: boolean }).consentGiven =
+          token.consentGiven as boolean | undefined;
       }
       return session;
     },
