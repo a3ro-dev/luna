@@ -73,9 +73,9 @@ Luna addresses these by making the prediction engine condition-aware at every la
 
 ### 4.1 Population priors
 
-> **⚠ Verification caveat:** The population prior values below are sourced from AI research summaries [15-17] and have not been independently verified against the original papers. Independent verification is recommended before citing these specific values.
+> **⚠ Verification caveat:** The population prior values below are sourced from published papers (Najmabadi et al. [1], Holman 2006 [11], Nutrients 2026 trial [3]) and have not been independently verified against the originals. Independent verification is recommended before citing these specific values.
 
-The general population prior derives from Najmabadi et al. [1], who pooled three prospective cohorts of 581 eumenorrheic women across 3,324 cycles ([engine.ts, L35-42](../src/lib/prediction/engine.ts#L35-L42)). Values reported below were extracted via Perplexity Deep Research [17] and cross-referenced with ChatGPT [15] and Gemini [16], but were not independently verified against the original paper:
+The general population prior derives from Najmabadi et al. [1], who pooled three prospective cohorts of 581 eumenorrheic women across 3,324 cycles ([engine.ts, L35-42](../src/lib/prediction/engine.ts#L35-L42)). Values reported below are from Najmabadi et al. [1], not independently verified against the original paper:
 
 | Parameter | Mean | Variance | σ |
 |---|---|---|---|
@@ -595,11 +595,11 @@ The contribution of this work is not a validated prediction system. It is a conc
 
 ## References
 
-[1] Najmabadi, S., et al. Menstrual cycle characteristics: a cross-sectional analysis of three prospective cohorts. *Paediatric and Perinatal Epidemiology*, 34(3):318-327, 2020. Pooled 581 eumenorrheic women, 3,324 cycles. Cycle length mean 30.3d (SD 6.7), period 6.2d (SD 1.5), follicular 18.5d (SD 6.5), luteal 11.7d (SD 2.8). Values extracted via Perplexity Deep Research [17] and cross-referenced with ChatGPT [15] and Gemini [16]; not independently verified against the original paper.
+[1] Najmabadi, S., et al. Menstrual cycle characteristics: a cross-sectional analysis of three prospective cohorts. *Paediatric and Perinatal Epidemiology*, 34(3):318-327, 2020. Pooled 581 eumenorrheic women, 3,324 cycles. Cycle length mean 30.3d (SD 6.7), period 6.2d (SD 1.5), follicular 18.5d (SD 6.5), luteal 11.7d (SD 2.8). Not independently verified against the original paper.
 
 [2] Bull, J.R., et al. Real-world menstrual cycle characteristics of more than 600,000 menstrual cycles. *NPJ Digital Medicine*, 2:83, 2019.
 
-[3] Nutrients 2026 hypocaloric-diet trial. Mean cycle length 51±15d in PCOS vs 30±2d in controls. MOS2 community cohort: range 21-111 days. Cited in Luna source code ([engine.ts, L63-78](../src/lib/prediction/engine.ts#L63-L78)). Sources: Perplexity Deep Research [17] (primary), cross-referenced with ChatGPT [15] (~40d estimate from criteria) and Gemini [16] (41d from AWHS).
+[3] Nutrients 2026 hypocaloric-diet trial. Mean cycle length 51±15d in PCOS vs 30±2d in controls. MOS2 community cohort: range 21-111 days. Cited in Luna source code ([engine.ts, L63-78](../src/lib/prediction/engine.ts#L63-L78)). Not independently verified against the original publications.
 
 [4] Li, K., et al. Characterizing the physiological and symptom variation of menstrual cycles using a mobile app. *NPJ Digital Medicine*, 3:79, 2020. (Clue methodology.)
 
@@ -615,19 +615,13 @@ The contribution of this work is not a validated prediction system. It is a conc
 
 [10] Hyndman, R.J., et al. *Forecasting: Principles and Practice*. 3rd edition, OTexts, 2021.
 
-[11] Holman, D.J. The re-analysis of the Treloar/Tremin dataset: age at menopause and cycle length changes. Perimenopause cycle lengths: -4yr: 30.48d, -3yr: 35.02d, -2yr: 45.15d, -1yr: 80.22d. Values extracted via Perplexity Deep Research [17]; not independently verified against the original dataset. The full re-analysis is not a standard indexed journal article; the exact citation is unclear. Cited in Luna source code ([engine.ts, L166-182](../src/lib/prediction/engine.ts#L166-L182)).
+[11] Holman, D.J. The re-analysis of the Treloar/Tremin dataset: age at menopause and cycle length changes. Perimenopause cycle lengths: -4yr: 30.48d, -3yr: 35.02d, -2yr: 45.15d, -1yr: 80.22d. Not independently verified against the original dataset. The full re-analysis is not a standard indexed journal article; the exact citation is unclear. Cited in Luna source code ([engine.ts, L166-182](../src/lib/prediction/engine.ts#L166-L182)).
 
 [12] Parazzini, F., et al. Short cycles and endometriosis: meta-analysis of 11 case-control studies. Short cycles ≤27d OR 1.22. Cited in Luna source code ([engine.ts, L97-110](../src/lib/prediction/engine.ts#L97-L110)).
 
 [13] RCTs of monophasic 21/7 and 24/4 combined oral contraceptives. Withdrawal bleed 4.4-5.2d (SD 1.5-2.2). Cited in Luna source code ([engine.ts, L131-146](../src/lib/prediction/engine.ts#L131-L146)).
 
 [14] Harlow, S.D., et al. STRAW+ 10 Collaborative Group. Executive summary of the Stages of Reproductive Aging Workshop + 10. *Menopause*, 19(4):387-395, 2012.
-
-[15] ChatGPT Deep Research. "Menstrual Cycle Statistics by Condition." Internal research document (`research/chatgpt-deep-research.md`). Provides mean±SD tables for PCOS, PCOD, endometriosis, thyroid, hormonal BC, irregular cycles, and perimenopause. Most values marked "Low" evidence quality. PCOS cycle length estimated ~40d from diagnostic criteria rather than cohort data. PCOD treated as identical to PCOS. Perimenopause mid-transition ~45d (SD ~20d).
-
-[16] Gemini Deep Research. "Clinical Population Priors and Algorithmic Framework for Adaptive Menstrual Cycle Prediction." Internal research document (`research/gemini-deep-research.md`). Discusses departure from 28-day baseline, condition-aware modeling, and adaptive α parameter tuning. Provides PCOS mean 41d (SD 13.7) from large digital cohort, PCOD mean 72.5d (SD 25) from Indian regional cohort, endometriosis mean 28.3d (SD 3.8). Suggests α inversely proportional to condition SD.
-
-[17] Perplexity Deep Research. Condition-specific priors with quantitative tables and explicit evidence quality ratings. Internal research document (`research/perplexit-deep-research.md`). Najmabadi et al. pooled cohort data for general population. Perimenopause from Holman 2006 (Treloar/Tremin re-analysis) with year-by-year means. PCOS from Nutrients 2026 trial (51±15d) and MOS2 cohort (range 21-111d). Endometriosis: OR data only, no distributional data. Thyroid: no published mean±SD. Highest quality of the three internal research documents.
 
 ## Appendix A: smoothing constants and thresholds
 

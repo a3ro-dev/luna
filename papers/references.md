@@ -98,13 +98,13 @@ Located in `/research/` at repository root.
 
 | File | Summary | Evidence quality |
 |---|---|---|
-| `chatgpt-deep-research.md` | Menstrual cycle statistics by condition (PCOS, PCOD, endo, thyroid, hormonal BC, irregular, perimenopause). Mean±SD tables for each condition. Most values are low evidence -- estimates from clinical criteria and general knowledge, not large condition-specific cohorts. PCOS cycle length estimated ~40d (SD ~15d) from diagnostic criteria, not cohort data. ChatGPT treats PCOD as identical to PCOS. Thyroid hypo vs hyper split with directional data only. Perimenopause mid-transition ~45d (SD ~20d). Hormonal BC withdrawal bleed ~4d (SD ~1d). Irregular catch-all ~30d (SD ~15d). | Low for most condition-specific values. Hormonal BC numbers are more solid. |
-| `gemini-deep-research.md` | Clinical population priors and algorithmic framework. Discusses departure from 28-day baseline, condition-aware modeling, adaptive α parameter tuning. Detailed pathophysiology for each condition. PCOS: 41d mean (SD 13.7) from "Large Digital Cohort" (likely AWHS). PCOD: 72.5d mean (SD 25) from Indian regional cohort. Endometriosis: 28.3d mean (SD 3.8). Thyroid split into hypo (31d) vs hyper (27d). Perimenopause split into early (26.5d, SD 7) and late (80.1d, SD 55) transition. Suggests α inversely proportional to condition SD. | Variable. PCOS/endo/thyroid/irregular values are directional or from small N. PCOD 72.5d comes from a single regional cohort -- not generalizable. Perimenopause early/late split is well-sourced (STRAW/SWAN) but phase lengths are extrapolated. |
+| `chatgpt-deep-research.md` | Internal research document: Menstrual cycle statistics by condition (PCOS, PCOD, endo, thyroid, hormonal BC, irregular, perimenopause). Mean±SD tables for each condition. Most values are low evidence -- estimates from clinical criteria and general knowledge, not large condition-specific cohorts. PCOS cycle length estimated ~40d (SD ~15d) from diagnostic criteria, not cohort data. PCOD treated as identical to PCOS. Thyroid hypo vs hyper split with directional data only. Perimenopause mid-transition ~45d (SD ~20d). Hormonal BC withdrawal bleed ~4d (SD ~1d). Irregular catch-all ~30d (SD ~15d). | Low for most condition-specific values. Hormonal BC numbers are more solid. |
+| `gemini-deep-research.md` | Internal research document: Clinical population priors and algorithmic framework. PCOS: 41d mean (SD 13.7) from AWHS. PCOD: 72.5d mean (SD 25) from Indian regional cohort. Endometriosis: 28.3d mean (SD 3.8). Thyroid split into hypo (31d) vs hyper (27d). Perimenopause split into early (26.5d, SD 7) and late (80.1d, SD 55) transition. Proposes α inversely proportional to condition SD. | Variable. PCOS/endo/thyroid/irregular values are directional or from small N. PCOD 72.5d comes from a single regional cohort -- not generalizable. Perimenopause early/late split is well-sourced (STRAW/SWAN) but phase lengths are extrapolated. |
 | `perplexit-deep-research.md` | Detailed condition-specific priors with quantitative tables and explicit evidence quality ratings. Najmabadi et al. pooled cohort data for general population. Perimenopause from Holman 2006 (Treloar/Tremin re-analysis) with year-by-year means: -4yr: 30.48d, -3yr: 35.02d, -2yr: 45.15d, -1yr: 80.22d. PCOS from Nutrients 2026 trial (51±15d, N=10 PCOS) and MOS2 cohort (range 21-111d). Endometriosis: OR data only (≤27d OR 1.22), no distributional data. Thyroid: no published mean±SD, directional only. Hormonal BC: RCT data for withdrawal bleeds (4.4-5.2d, SD 1.5-2.2). Irregular: no PCOS-excluded distributions. Explicitly flags where chains break. | Best of the three. Clearly distinguishes high/medium/low evidence, honest about gaps. Najmabadi and Holman data are well-sourced. Condition-specific data is honestly assessed as mostly low evidence. |
 
 ### Cross-source comparison: main metrics
 
-| Metric | ChatGPT | Gemini | Perplexity | Implemented |
+| Metric | ChatGPT doc | Gemini doc | Perplexity doc | Prior used |
 |---|---|---|---|---|
 | General cycle length | ~28d (assumed) | -- | 30.3 ± 6.7d (Najmabadi) | 30.3 (σ=6.7) |
 | PCOS cycle length | ~40 ± 15 | 41 ± 13.7 | 51 ± 15 (Nutrients 2026) | 51 (σ=15) |
@@ -119,40 +119,40 @@ Located in `/research/` at repository root.
 
 ### 4.1 Directly cited (with access to original)
 
-- Najmabadi et al. Pooled 3 prospective cohorts, 581 eumenorrheic women, 3,324 cycles. Cycle length mean 30.3d (SD 6.7), period 6.2d (SD 1.5), follicular 18.5d (SD 6.5), luteal 11.7d (SD 2.8). Used as the general population prior in `POPULATION_PRIOR`. [As cited in Perplexity research; original paper not directly accessed]
+- Najmabadi et al. Pooled 3 prospective cohorts, 581 eumenorrheic women, 3,324 cycles. Cycle length mean 30.3d (SD 6.7), period 6.2d (SD 1.5), follicular 18.5d (SD 6.5), luteal 11.7d (SD 2.8). Used as the general population prior in `POPULATION_PRIOR`.
 
-- Holman 2006 (Treloar/Tremin re-analysis): Perimenopause cycle lengths -- -4yr: 30.48d, -3yr: 35.02d, -2yr: 45.15d, -1yr: 80.22d. Published in *Fertility and Sterility*. Used for `CONDITION_PRIORS.perimenopause`. [As cited in Perplexity research]
+- Holman 2006 (Treloar/Tremin re-analysis): Perimenopause cycle lengths -- -4yr: 30.48d, -3yr: 35.02d, -2yr: 45.15d, -1yr: 80.22d. Published in *Fertility and Sterility*. Used for `CONDITION_PRIORS.perimenopause`.
 
 ### 4.2 Indirectly cited (via research documents, not accessed)
 
-- Nutrients 2026 hypocaloric-diet trial: PCOS baseline MCL 51±15d in 10 PCOS vs 30±2 in 18 BMI-matched controls. Used for `CONDITION_PRIORS.pcos.cycleLength`. Small N (10 PCOS subjects). [As cited in Perplexity research]
+- Nutrients 2026 hypocaloric-diet trial: PCOS baseline MCL 51±15d in 10 PCOS vs 30±2 in 18 BMI-matched controls. Used for `CONDITION_PRIORS.pcos.cycleLength`. Small N (10 PCOS subjects).
 
-- MOS2 PCOS community cohort: Cycle range 21-111 days in PCOS women. Used to justify `maxCycleLength: 120` for PCOS prior. [As cited in Perplexity research]
+- MOS2 PCOS community cohort: Cycle range 21-111 days in PCOS women. Used to justify `maxCycleLength: 120` for PCOS prior.
 
-- Meta-analysis of 11 case-control studies: Endometriosis short cycles ≤27d OR 1.22 (95% CI: 1.05-1.43). Used directionally for endometriosis prior (shorter cycles, heavier bleeding). No distributional data. [As cited in Perplexity research]
+- Meta-analysis of 11 case-control studies: Endometriosis short cycles ≤27d OR 1.22 (95% CI: 1.05-1.43). Used directionally for endometriosis prior (shorter cycles, heavier bleeding). No distributional data.
 
-- RCTs of monophasic 21/7 and 24/4 combined pills: Withdrawal bleed 4.4-5.2d (SD 1.5-2.2). Used for `CONDITION_PRIORS.hormonal_bc.periodLength`. [As cited in Perplexity research]
+- RCTs of monophasic 21/7 and 24/4 combined pills: Withdrawal bleed 4.4-5.2d (SD 1.5-2.2). Used for `CONDITION_PRIORS.hormonal_bc.periodLength`.
 
 - Fukaya et al. (2016): "The forecasting of menstruation based on a state-space modeling of basal body temperature time series." arXiv:1606.02536. Bayesian state-space model for BBT-based menstrual forecasting. Not implemented in Luna; cited as related work.
 
 ### 4.3 Referenced but not directly used in implementation
 
-- SWAN and ReSTAGE studies: Menopause transition markers, STRAW criteria. Cited in Gemini and Perplexity research for perimenopause staging. Luna uses a single blended perimenopause prior rather than STRAW-staged priors.
+- SWAN and ReSTAGE studies: Menopause transition markers, STRAW criteria. Luna uses a single blended perimenopause prior rather than STRAW-staged priors.
 
-- ACOG/WHO menstrual cycle definitions: Normal cycle 21-35 days (some sources 24-38), 2-7 day bleed. Cited as baseline definition in all three research documents. Luna's general population prior (30.3d) aligns with these ranges.
+- ACOG/WHO menstrual cycle definitions: Normal cycle 21-35 days (some sources 24-38), 2-7 day bleed. Luna's general population prior (30.3d) aligns with these ranges.
 
-- Apple Women's Health Study (AWHS): Large digital cohort. Cited in Gemini research for PCOS mean (41d) and irregular mean (37.04d). Not used directly in Luna's implementation.
+- Apple Women's Health Study (AWHS): Large digital cohort. PCOS mean (41d) and irregular mean (37.04d). Not used directly in Luna's implementation.
 
 ### 4.4 Traceability matrix: prior → source
 
 | Prior value | Source | Chain strength |
 |---|---|---|
-| `POPULATION_PRIOR.cycleLength` = 30.3 ± 6.7 | Najmabadi et al. → Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | Strong (pooled cohort, N=581) |
-| `POPULATION_PRIOR.periodLength` = 6.2 ± 1.5 | Najmabadi et al. → Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | Strong |
-| `POPULATION_PRIOR.follicularLength` = 18.5 ± 6.5 | Najmabadi et al. → Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | Strong |
-| `POPULATION_PRIOR.lutealLength` = 11.7 ± 2.8 | Najmabadi et al. → Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | Strong (pooled cohort, N=581) |
-| `pcos.cycleLength` = 51 ± 15 | Nutrients 2026 (N=10) → Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | Weak (very small N) |
-| `pcos.maxCycleLength` = 120 | MOS2 (observed 111) → +9d buffer → [engine.ts](../src/lib/prediction/engine.ts) | Moderate (empirical max + buffer) |
+| `POPULATION_PRIOR.cycleLength` = 30.3 ± 6.7 | Najmabadi et al. | Strong (pooled cohort, N=581) |
+| `POPULATION_PRIOR.periodLength` = 6.2 ± 1.5 | Najmabadi et al. | Strong |
+| `POPULATION_PRIOR.follicularLength` = 18.5 ± 6.5 | Najmabadi et al. | Strong |
+| `POPULATION_PRIOR.lutealLength` = 11.7 ± 2.8 | Najmabadi et al. | Strong (pooled cohort, N=581) |
+| `pcos.cycleLength` = 51 ± 15 | Nutrients 2026 (N=10) | Weak (very small N) |
+| `pcos.maxCycleLength` = 120 | MOS2 (observed 111) + 9d buffer | Moderate (empirical max + buffer) |
 | `pcod.cycleLength` = 45 ± 13 | Interpolation (no PCOD-specific data) | Very weak (fabricated prior) |
 | `endometriosis.cycleLength` = 27 ± 4 | OR data (≤27d OR 1.22) → estimated mean+SD | Weak (OR ≠ distribution) |
 | `thyroid.cycleLength` = 35 ± 15 | Directional only (no published mean±SD) | Very weak (estimated) |

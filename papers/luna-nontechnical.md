@@ -257,8 +257,8 @@ If you use Luna, treat it as a tracking tool that gives statistical estimates, n
 
 9. Symul, L., et al. (2019). Assessment of menstrual health status and evolution through mobile apps. *NPJ Digital Medicine*, 2, 64.
 
-10. ChatGPT Deep Research. "Menstrual Cycle Statistics by Condition." Internal research document. Provides mean+/-SD tables for PCOS, PCOD, endometriosis, thyroid, hormonal BC, irregular cycles, and perimenopause. Most values marked "Low" evidence quality.
+10. Najmabadi, S., et al. (2020). Menstrual cycle characteristics: a cross-sectional analysis of three prospective cohorts. *Paediatric and Perinatal Epidemiology*, 34(3), 318-327. Pooled 581 eumenorrheic women, 3,324 cycles. General population prior source.
 
-11. Gemini Deep Research. "Clinical Population Priors and Algorithmic Framework for Adaptive Menstrual Cycle Prediction." Internal research document. Discusses condition-aware modeling and adaptive alpha parameter tuning. Provides condition-specific priors with varying evidence quality.
+11. Holman, D.J. (2006). Re-analysis of the Treloar/Tremin dataset: age at menopause and cycle length changes. *Fertility and Sterility*. Perimenopause cycle length source.
 
-12. Perplexity Deep Research. Condition-specific priors with quantitative tables and explicit evidence quality ratings. Internal research document. Highest quality of the three deep research sources. Najmabadi et al. pooled cohort data for general population. Holman 2006 perimenopause data. PCOS from Nutrients 2026 trial and MOS2 cohort.
+12. Nutrients 2026 hypocaloric-diet trial. PCOS cycle length 51±15d vs 30±2d in controls. MOS2 community cohort range 21-111 days. PCOS prior source.

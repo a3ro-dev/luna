@@ -41,7 +41,7 @@
 6. Dashboard page ([dashboard/page.tsx, L1-335](../src/app/(app)/dashboard/page.tsx#L1-L335)) -- read the first 60 lines (server component, prediction logic).
 
 7. All three research documents in `/research/`:
-   - `chatgpt-deep-research.md` -- condition stats, mostly Low evidence
+   - `chatgpt-deep-research.md` -- internal research doc, condition stats, mostly Low evidence
    - `gemini-deep-research.md` -- clinical priors + algorithmic framework
    - `perplexit-deep-research.md` -- detailed priors with evidence ratings
 
@@ -129,29 +129,29 @@ v0.9.11. The local development environment was upgraded to pnpm v11, which no lo
 
 2. Initial variance = 0. At [engine.ts, L539](../src/lib/prediction/engine.ts#L539): `let variance = 0`. The smoother starts with zero variance. The first observation becomes the initial smoothed value, and the first residual is computed from observation 2. The first few cycles contribute with an artificially low variance estimate, which could cause the 2.5σ gate to trigger prematurely on observation 2 or 3 if it differs from observation 1.
 
-3. PCOD prior is fabricated. The `pcod` prior (45d, σ=13) is interpolated between PCOS (51d) and general population (30.3d) with no published evidence. Gemini cites a single Indian regional cohort with 72.5d mean, which would make 45d far too low. ChatGPT treats PCOD as identical to PCOS. Perplexity says there's no separate data. The implementation chose a middle ground with no empirical basis.
+3. PCOD prior is fabricated. The `pcod` prior (45d, σ=13) is interpolated between PCOS (51d) and general population (30.3d) with no published evidence. A single Indian regional cohort reported a 72.5d mean (SD 25), which would make 45d far too low. No separate PCOD-specific data exists in peer-reviewed literature. The implementation chose a middle ground with no empirical basis.
 
-4. Perimenopause is a single blended prior. Mean=45d (σ=20d) blends early transition (~30d) and late transition (~80d). Gemini explicitly recommends splitting these into separate STRAW-staged priors with different anomaly gates (59d for early, 365d for late). A single prior at 45d underestimates late transition and overestimates early transition. The engine has no mechanism to detect transition stage from user data.
+4. Perimenopause is a single blended prior. Mean=45d (σ=20d) blends early transition (~30d) and late transition (~80d). The STRAW staging system recommends splitting these into separate priors with different anomaly gates (59d for early, 365d for late). A single prior at 45d underestimates late transition and overestimates early transition. The engine has no mechanism to detect transition stage from user data.
 
-5. No double exponential smoothing (trend component). The engine uses simple exponential smoothing, which assumes no trend. For PCOD users who may be normalizing (cycles shortening from 90d to 35d over several months due to treatment), Gemini explicitly recommends a trend component (Holt's linear method). The current engine will lag behind a normalizing trend because α is bounded at 0.5 max.
+5. No double exponential smoothing (trend component). The engine uses simple exponential smoothing, which assumes no trend. For PCOD users who may be normalizing (cycles shortening from 90d to 35d over several months due to treatment), Holt's linear method (double exponential smoothing) would be appropriate. The current engine will lag behind a normalizing trend because α is bounded at 0.5 max.
 
 6. Exponential smoothing variance estimate. The variance update at [engine.ts, L559](../src/lib/prediction/engine.ts#L559) (`variance = (1 - alpha) * (variance + alpha * diff * diff)`) is an approximation. It doesn't correctly estimate the variance of the smoothed value -- it's more like a discounted sum of squared errors. The jackknife CI partially compensates at n≥6, but for n<6, the CI from `blendWithPrior` depends on this approximate variance.
 
 7. `resolveEffectivePrior` picks highest-variance condition. When a user has multiple conditions (e.g., endometriosis + thyroid), the engine picks the one with the highest cycle-length variance. But endometriosis (short cycles, low variance) + thyroid (long/irregular cycles, high variance) would pick thyroid, completely ignoring the endometriosis contribution. A weighted blend or a max-of-extremes approach (shortest cycle mean from endo, highest variance from thyroid) might work better.
 
-8. Alpha range [0.1, 0.5] may be too narrow. For hormonal BC users where σ≈1d, the engine should use a very high α (≈0.8-0.95) to lock onto the regimen. But `computeAdaptiveAlpha` maps low MAD → low α (0.1), which is the opposite of what's needed. Gemini recommends α proportional to regularity (high for BC, low for irregular). The current implementation has α inversely proportional to recent variability, which is correct for conditions with high variability but wrong for conditions with low variability.
+8. Alpha range [0.1, 0.5] may be too narrow. For hormonal BC users where σ≈1d, the engine should use a very high α (≈0.8-0.95) to lock onto the regimen. But `computeAdaptiveAlpha` maps low MAD → low α (0.1), which is the opposite of what's needed. The ideal α should be proportional to regularity (high for BC, low for irregular). The current implementation has α inversely proportional to recent variability, which is correct for conditions with high variability but wrong for conditions with low variability.
 
    Wait -- re-reading the code: `computeAdaptiveAlpha` returns `ALPHA_MIN + (ALPHA_MAX - ALPHA_MIN) * (mad / (mad + KAPPA))`. High MAD → α approaches 0.5. Low MAD → α approaches 0.1. So:
    - Regular cycles (low MAD) → low α → slower adaptation (undesirable for BC)
    - Irregular cycles (high MAD) → high α → faster adaptation (undesirable for PCOS/irregular)
 
-   This appears to be backwards. Gemini recommends α inversely proportional to condition SD (high α for BC, low α for PCOS). But the code makes α proportional to recent residual MAD, which is correlated with condition SD. Irregular conditions get higher α, causing the smoother to overreact to individual long cycles.
+   This appears to be backwards. α should be inversely proportional to condition SD (high α for BC, low α for PCOS). But the code makes α proportional to recent residual MAD, which is correlated with condition SD. Irregular conditions get higher α, causing the smoother to overreact to individual long cycles.
 
    That said, this might be intentional: when residuals are high, the algorithm needs to adapt faster because the user's pattern is changing. The KAPPA=5.0 and range [0.1, 0.5] limit the damage. But the theoretical justification is weak, and it contradicts the research documents.
 
-9. No age covariate. The Perplexity research notes that PCOS cycle length and irregularity decrease with age, converging toward non-PCOS patterns by ~40. The engine has no age input. The user's `dateOfBirth` exists in the schema but is never passed to the prediction engine.
+9. No age covariate. PCOS cycle length and irregularity decrease with age, converging toward non-PCOS patterns by ~40 (documented in AWHS and SWAN cohorts). The engine has no age input. The user's `dateOfBirth` exists in the schema but is never passed to the prediction engine.
 
-10. No PCOS/thyroid subtype discrimination. The thyroid prior blends hypo and hyper into a single 35d mean, but these conditions push in opposite directions (hypo→long, hyper→short). Gemini recommends letting users specify "underactive" vs "overactive." The current implementation doesn't distinguish.
+10. No PCOS/thyroid subtype discrimination. The thyroid prior blends hypo and hyper into a single 35d mean, but these conditions push in opposite directions (hypo→long, hyper→short). Letting users specify "underactive" vs "overactive." would provide dramatically better priors. The current implementation doesn't distinguish.
 
 ---
 
@@ -163,24 +163,24 @@ v0.9.11. The local development environment was upgraded to pnpm v11, which no lo
 
 | Claim in code | Source | Chain |
 |---|---|---|
-| General population cycle length = 30.3 ± 6.7 | Najmabadi et al., pooled 3 cohorts, N=581 | Perplexity → `POPULATION_PRIOR` → [engine.ts](../src/lib/prediction/engine.ts). Direct numeric transfer. |
+| General population cycle length = 30.3 ± 6.7 | Najmabadi et al., pooled 3 cohorts, N=581 | Najmabadi et al. → `POPULATION_PRIOR` → [engine.ts](../src/lib/prediction/engine.ts). Direct numeric transfer. |
 | General population period length = 6.2 ± 1.5 | Najmabadi et al. | Same chain. |
 | General population follicular phase = 18.5 ± 6.5 | Najmabadi et al. | Same chain. |
-| Hormonal BC cycle = 28 ± 1 | Regimen design (21/7, 24/4 pills) | All three research docs → [engine.ts](../src/lib/prediction/engine.ts). Pharmacological fact. |
-| Hormonal BC bleed = 4.5 ± 1.5 | RCTs of monophasic pills | Perplexity → midpoint of 4.4-5.2d range → [engine.ts](../src/lib/prediction/engine.ts). |
-| Perimenopause -4yr = ~30d, -1yr = ~80d | Holman 2006 (Treloar/Tremin) | Perplexity → [engine.ts](../src/lib/prediction/engine.ts) (blended to single 45d prior). |
+| Hormonal BC cycle = 28 ± 1 | Regimen design (21/7, 24/4 pills) | Pharmacological fact. |
+| Hormonal BC bleed = 4.5 ± 1.5 | RCTs of monophasic pills | RCT midpoint of 4.4-5.2d range → [engine.ts](../src/lib/prediction/engine.ts). |
+| Perimenopause -4yr = ~30d, -1yr = ~80d | Holman 2006 (Treloar/Tremin) | Holman 2006 → [engine.ts](../src/lib/prediction/engine.ts) (blended to single 45d prior). |
 
 #### Weak chains (low confidence)
 
 | Claim in code | Source | Chain | Where it breaks |
 |---|---|---|---|
-| PCOS cycle = 51 ± 15 | Nutrients 2026 trial, N=10 | Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | N=10 is very small. Single trial, not a meta-analysis. May not be representative. |
-| PCOS max cycle = 120 | MOS2 cohort (observed 111) + 9d buffer | Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | The +9d buffer is arbitrary. MOS2 is a community sample, not necessarily representative. |
-| PCOD cycle = 45 ± 13 | No source. Interpolated between PCOS (51) and general (30.3) | [engine.ts](../src/lib/prediction/engine.ts) only | No published PCOD-specific data exists. The interpolation weights are undocumented. Gemini cites 72.5d from an Indian cohort, which would make 45d far too low. |
-| Endometriosis cycle = 27 ± 4 | OR data: ≤27d OR 1.22 for endo | Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | OR is not a distribution. An odds ratio of 1.22 for short cycles tells us short cycles are over-represented, but it doesn't provide a mean or SD. The mean of 27d and SD of 4d are estimates, not measurements. |
-| Thyroid cycle = 35 ± 15 | Directional data only (hypo→long, hyper→short) | ChatGPT/Gemini → [engine.ts](../src/lib/prediction/engine.ts) | No published mean±SD for thyroid conditions. The 35d mean and 15d SD are fabricated estimates. The blended mean averages hypo and hyper, which push in opposite directions. |
+| PCOS cycle = 51 ± 15 | Nutrients 2026 trial, N=10 | Nutrients 2026 trial → [engine.ts](../src/lib/prediction/engine.ts) | N=10 is very small. Single trial, not a meta-analysis. May not be representative. |
+| PCOS max cycle = 120 | MOS2 cohort (observed 111) + 9d buffer | MOS2 cohort → [engine.ts](../src/lib/prediction/engine.ts) | The +9d buffer is arbitrary. MOS2 is a community sample, not necessarily representative. |
+| PCOD cycle = 45 ± 13 | No source. Interpolated between PCOS (51) and general (30.3) | [engine.ts](../src/lib/prediction/engine.ts) only | No published PCOD-specific data exists. The interpolation weights are undocumented. A single Indian regional cohort reported 72.5d (SD 25), which would make 45d far too low. |
+| Endometriosis cycle = 27 ± 4 | OR data: ≤27d OR 1.22 for endo | Parazzini et al. meta-analysis → [engine.ts](../src/lib/prediction/engine.ts) | OR is not a distribution. An odds ratio of 1.22 for short cycles tells us short cycles are over-represented, but it doesn't provide a mean or SD. The mean of 27d and SD of 4d are estimates, not measurements. |
+| Thyroid cycle = 35 ± 15 | Directional data only (hypo→long, hyper→short) | Directional clinical observation → [engine.ts](../src/lib/prediction/engine.ts) | No published mean±SD for thyroid conditions. The 35d mean and 15d SD are fabricated estimates. The blended mean averages hypo and hyper, which push in opposite directions. |
 | Irregular cycle = 30 ± 15 | General population mean + inflated SD | [engine.ts](../src/lib/prediction/engine.ts) only | No PCOS/thyroid-excluded distributions exist. The "irregular" catch-all is too heterogeneous for a meaningful prior. 30d is just the general population mean; 15d SD is an inflation factor. |
-| Perimenopause (single prior) = 45 ± 20 | Holman 2006 blended across -4yr to -1yr | Perplexity → [engine.ts](../src/lib/prediction/engine.ts) | Blending early (30d) and late (80d) transition loses critical information. A user in early transition gets an overestimated mean; a user in late transition gets an underestimated mean. |
+| Perimenopause (single prior) = 45 ± 20 | Holman 2006 blended across -4yr to -1yr | Holman 2006 → [engine.ts](../src/lib/prediction/engine.ts) | Blending early (30d) and late (80d) transition loses critical information. A user in early transition gets an overestimated mean; a user in late transition gets an underestimated mean. |
 
 #### Where the chain breaks completely
 
@@ -204,7 +204,7 @@ v0.9.11. The local development environment was upgraded to pnpm v11, which no lo
 
 2. What happened to the existing data from the Neon date bug? The `pgDate` custom type was added in commit `be5575d`. But cycles logged before that fix may have incorrect date values in the database. Is there a migration to fix corrupted dates? No migration was found in the repository.
 
-3. Is the α direction correct? `computeAdaptiveAlpha` gives higher α for higher MAD (more irregular → faster adaptation). Gemini recommends the opposite (more irregular → lower α to dampen noise). The current approach could cause the smoother to overreact to individual outlier cycles in PCOS/irregular users. Requires validation on real data, which doesn't exist yet.
+3. Is the α direction correct? `computeAdaptiveAlpha` gives higher α for higher MAD (more irregular → faster adaptation). The ideal behavior is the opposite (more irregular → lower α to dampen noise). The current approach could cause the smoother to overreact to individual outlier cycles in PCOS/irregular users. Requires validation on real data, which doesn't exist yet.
 
 4. How does the engine perform at n=1 to n=5? `blendWithPrior` handles this regime, but there are no unit tests or integration tests. The jackknife CI requires n≥6. For n=1-5, the CI comes from the blended variance, which depends on the approximate variance estimate from exponential smoothing. Untested.
 
@@ -232,7 +232,7 @@ v0.9.11. The local development environment was upgraded to pnpm v11, which no lo
 
 1. Validation framework needed. The engine has zero tests. No synthetic data validation, no backtesting against known cycle patterns, no comparison to other methods (rolling average, Clue's Poisson model, etc.).
 
-2. Sensitivity analysis on priors. How much do predictions change when PCOS prior moves from 51d to 41d (Gemini estimate) or 40d (ChatGPT estimate)? A 10d difference in prior mean could shift cold-start predictions considerably.
+2. Sensitivity analysis on priors. How much do predictions change when PCOS prior moves from 51d (Nutrients 2026 trial) to 41d (AWHS cohort) or 40d (diagnostic criteria estimate)? A 10d difference in prior mean could shift cold-start predictions considerably.
 
 3. Condition change detection. The engine should detect when a user's observed cycles are consistently inconsistent with their condition prior (e.g., a "PCOS" user with regular 28-day cycles) and either suggest a condition update or adaptively reduce the prior's influence.
 

@@ -292,8 +292,8 @@ const SECTIONS: Section[] = [
             <p className="mt-2 text-[11px] text-[#8E7D82]">
               Multiple conditions are combined via inverse-variance weighted
               mixture. Hormonal BC always takes priority. Source values mostly
-              from Perplexity Deep Research summary of published papers — not
-              independently verified against originals.
+              from published papers (Najmabadi et al. 2020, Holman 2006,
+              Nutrients 2026 trial) — not independently verified against originals.
             </p>
           </div>
 

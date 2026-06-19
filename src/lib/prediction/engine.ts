@@ -31,7 +31,8 @@ export interface ConditionPrior {
 
 // ─── Reference (general population) prior ─────────────────────────
 // Updated with better evidence: Najmabadi et al. pooled 3 prospective
-// cohorts of 581 eumenorrheic women, 3,324 cycles (Perplexity research).
+// cohorts of 581 eumenorrheic women, 3,324 cycles. Najmabadi S, et al.
+// Paediatric Perinatal Epidemiol. 2020;34(3):318-327.
 export const POPULATION_PRIOR = {
   cycleLength: { mean: 30.3, variance: 44.89 }, // σ≈6.7d
   periodLength: { mean: 6.2, variance: 2.25 }, // σ≈1.5d
