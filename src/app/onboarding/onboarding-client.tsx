@@ -63,7 +63,7 @@ const staggerChild = {
 };
 
 export default function OnboardingPageClient() {
-  const { data: session, status: authStatus } = useSession();
+  const { data: session, status: authStatus, update } = useSession();
   const router = useRouter();
 
   const [step, setStep] = useState(0);
@@ -124,9 +124,11 @@ export default function OnboardingPageClient() {
           dateOfBirth: dateOfBirth || undefined,
           timezone,
           conditions: selectedConditions,
-          perimenoStage: selectedConditions.includes("perimenopause")
-            ? perimenoStage
-            : undefined,
+          perimenoStage:
+            selectedConditions.includes("perimenopause_early") ||
+            selectedConditions.includes("perimenopause_late")
+              ? perimenoStage
+              : undefined,
           pushNotificationsEnabled: false,
           consentGiven: true,
           consentVersion: "2026-06",
@@ -137,6 +139,12 @@ export default function OnboardingPageClient() {
         setError(data.error || "Something went wrong.");
         setIsSubmitting(false);
         return;
+      }
+      // Refresh session so JWT picks up consentGiven before dashboard navigation
+      try {
+        await update();
+      } catch {
+        // Non-fatal — middleware will re-fetch consent from DB on next request
       }
       router.push("/dashboard");
     } catch {
@@ -225,7 +233,13 @@ export default function OnboardingPageClient() {
                 {...enter}
                 className="flex-1 flex flex-col items-center justify-center text-center"
               >
-                {/* Breathing glow orb */}
+                {error && (
+                <div className="rounded-2xl bg-[#FFB5C0]/10 px-4 py-3 text-sm text-[#FFB5C0] text-center mb-6 w-full">
+                  {error}
+                </div>
+              )}
+
+              {/* Breathing glow orb */}
                 <div className="relative mb-10">
                   <motion.div
                     className="w-24 h-24 rounded-full bg-gradient-to-br from-[#FFDDE0] to-[#D6CBE3] flex items-center justify-center text-4xl"
@@ -276,6 +290,12 @@ export default function OnboardingPageClient() {
                 <p className="text-sm font-light text-[#8E7D82] mb-6">
                   Here&apos;s what you should know before using Luna.
                 </p>
+
+                {error && (
+                  <div className="rounded-2xl bg-[#FFB5C0]/10 px-4 py-3 text-sm text-[#FFB5C0] text-center mb-4">
+                    {error}
+                  </div>
+                )}
 
                 {/* Info cards */}
                 <motion.div

@@ -8,6 +8,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.9.17",
+    date: "2026-06-23",
+    type: "fix",
+    title: "Fix service worker crashed page errors on network disconnect",
+    description:
+      "Fixed a bug in public/sw.js where a network fetch failure would cause a TypeError: Failed to convert value to 'Response' because the catch handler resolved with undefined when the page was not cached. Now returns a premium styled fallback error response.",
+  },
+  {
+    version: "0.9.16",
+    date: "2026-06-19",
+    type: "fix",
+    title: "Fix onboarding 'something went wrong' errors and perimenopause stage sync",
+    description:
+      "Fixed 5 bugs in the onboarding flow: (1) Perimenopause stage was never sent to the API because the condition check looked for 'perimenopause' but the UI uses 'perimenopause_early'/'perimenopause_late' IDs. (2) Removed router.refresh() after router.push() in signup-client to prevent race conditions during post-registration navigation. (3) Added error display to all onboarding steps (previously only steps 2 and 3 showed errors). (4) Changed consentGivenAt from .toISOString() to a Date object for safer Drizzle/Neon timestamp serialization. (5) Added explicit session.update() call after onboarding completion to ensure the JWT picks up consentGiven=true before the dashboard redirect, preventing middleware from redirecting back to onboarding.",
+  },
+  {
     version: "0.9.15",
     date: "2026-06-18",
     type: "feat",

@@ -80,6 +80,17 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(request))
+      .catch(() =>
+        caches.match(request).then((cached) => {
+          if (cached) return cached;
+          return new Response(
+            "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width, initial-scale=1'><title>Service Unavailable</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#FFF9F9;color:#6D5A60;text-align:center;padding:50px 20px;}h1{font-weight:300;}p{color:#8E7D82;}</style></head><body><h1>Connection Error</h1><p>Luna is temporarily unable to connect to the server. Please check your connection and try again.</p></body></html>",
+            {
+              status: 503,
+              headers: { "Content-Type": "text/html" },
+            }
+          );
+        })
+      )
   );
 });

@@ -44,8 +44,7 @@ export default function SignupPageClient() {
         // Account created but auto-login failed — send to login
         router.push("/login");
       } else {
-        router.push("/onboarding");
-        router.refresh();
+        router.replace("/onboarding");
       }
     } catch {
       setError("Something went wrong. Please try again.");

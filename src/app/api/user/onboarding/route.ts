@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     // Always update consent on onboarding completion
     if (consentGiven) {
       updates.consentGiven = true;
-      updates.consentGivenAt = new Date().toISOString();
+      updates.consentGivenAt = new Date();
       updates.consentVersion = "2026-06";
     }
 
