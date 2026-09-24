@@ -13,35 +13,38 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import { Attachments } from "@/components/ai-elements/attachments";
+import type { UserPlan } from "@/lib/theme/accent";
 
 interface ChatComposerProps {
+  plan: UserPlan;
   onSubmit: (message: PromptInputMessage) => void;
   status: ChatStatus;
   onStop: () => void;
 }
 
 export const ChatComposer = memo(function ChatComposer({
+  plan,
   onSubmit,
   status,
   onStop,
 }: ChatComposerProps) {
   return (
-    <div className="shrink-0 border-t border-[#FFDDE0]/20 bg-white/80 backdrop-blur-sm safe-area-bottom">
+    <div className="shrink-0 border-t border-[var(--tier-line)] bg-[var(--tier-surface)] safe-area-bottom">
       <div className="mx-auto max-w-3xl px-3 py-3 sm:px-4 sm:py-4">
         <PromptInput
           onSubmit={onSubmit}
           accept="image/*"
           multiple
           maxFiles={4}
-          className="bg-[#FFF9F9] border border-[#FFDDE0]/30 rounded-2xl shadow-[0_2px_8px_rgba(255,181,192,0.06)] focus-within:ring-2 focus-within:ring-[#FFB5C0]/30 focus-within:border-[#FFB5C0]/50 transition-shadow duration-200"
+          className="bg-[var(--tier-bg)] border border-[var(--tier-line)] rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-[var(--tier-accent)] transition-shadow duration-200"
         >
           <PromptInputHeader>
             <Attachments variant="inline" />
           </PromptInputHeader>
           <PromptInputBody>
             <PromptInputTextarea
-              placeholder="How are you feeling today?"
-              className="text-[#6D5A60] font-light placeholder:text-[#8E7D82]/40"
+              placeholder={plan === "free" ? "Log a date or ask Luna..." : plan === "premium" ? "How are you feeling today?" : "What’s on your mind?"}
+              className="text-[var(--tier-ink)] placeholder:text-[var(--tier-muted)]"
             />
           </PromptInputBody>
           <PromptInputFooter>
@@ -55,7 +58,7 @@ export const ChatComposer = memo(function ChatComposer({
           </PromptInputFooter>
         </PromptInput>
         <div className="mt-1.5 px-1">
-          <span className="block text-[11px] leading-relaxed text-[#8E7D82]/50">
+          <span className="block text-xs leading-relaxed text-[var(--tier-muted)]">
             Luna can make mistakes. Verify important info.
           </span>
         </div>

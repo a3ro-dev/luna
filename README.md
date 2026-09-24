@@ -24,7 +24,7 @@ Luna is an AI-native menstrual cycle companion and rhythm engine. instead of tap
 
 the prediction engine combines a broad population starting point with each person's usable history in an explainable posterior-predictive model. it reports an 80% likely window for the next cycle, stays deliberately wide with sparse or variable data, and withholds calendar ovulation estimates when they would be misleading. it pairs this with persistent cross-session memory via Supermemory v4 and dynamic OpenUI structured components for cycle cards and calendar phases.
 
-we made an explicit choice on tiering: free users get the exact same Grok 4.3 model and full prediction capabilities as paid tiers. the difference is purely how Luna listens and holds space, not whether your health data is gated.
+we made an explicit choice on tiering: free users get the exact same Grok 4.3 model and full prediction capabilities as paid tiers. plans change Luna's layout and conversational voice, while your health data and tools stay available on every plan.
 
 ---
 
@@ -36,7 +36,7 @@ we made an explicit choice on tiering: free users get the exact same Grok 4.3 mo
 | **Prediction Engine** | Versioned posterior-predictive forecasts with explicit likely windows and provenance |
 | **Context Memory** | Persistent cross-session facts and emotional context recall via Supermemory v4 |
 | **Dynamic UI** | Generative OpenUI component rendering for predictions, cycle stats, and calendar phase maps |
-| **Persona Tiers** | Persona-only differentiation across plans (free users keep 100% of intelligence & models) |
+| **Plan Experiences** | Distinct dashboard, chat, and settings layouts and companion voices; every plan keeps the same model and tools |
 | **Data Mobility** | Complete import/export support for Apple Health, Clue, Flo, Period Calendar, and raw JSON |
 
 ---
@@ -85,7 +85,7 @@ we made an explicit choice on tiering: free users get the exact same Grok 4.3 mo
 - **Adaptive Time-Series Predictions** — Statistical forecasts for period start, ovulation window, follicular, and luteal phases that adapt as your logged history grows.
 - **Persistent AI Memory** — Luna retains conversational nuances, habits, and user context across sessions using Supermemory v4 semantic recall.
 - **Generative UI Elements** — Seamlessly embeds interactive prediction cards, phase timelines, and cycle health summaries into the chat using OpenUI DSL.
-- **Zero-Paywall Health Intelligence** — All forecasting and analysis features are unlocked for every user; tiering only alters the companion's conversational persona.
+- **Zero-Paywall Health Intelligence** — All forecasting and analysis features are unlocked for every user; tiering changes the layout and companion's conversational persona.
 - **Private & Mobile-Ready** — Zero ad-tracking, client JWT auth, automatic timezone adjustment, and complete data export/import capabilities.
 
 ---
@@ -104,9 +104,9 @@ $$\hat{y}_{t+1} = \alpha_t y_t + (1 - \alpha_t) \hat{y}_t$$
 
 ---
 
-## 💎 Persona-Only Tiering
+## 💎 Plan Experiences
 
-Everyone gets the same capable model (Grok 4.3) and identical prediction math. The difference is purely how Luna speaks:
+Everyone gets the same capable model (Grok 4.3), identical prediction math, and the same tools. Each plan has its own dashboard, chat, and settings layout, as well as a different conversational voice:
 
 | Plan | Price | Personality & Register |
 |---|---|---|

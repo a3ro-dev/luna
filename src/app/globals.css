@@ -166,3 +166,109 @@
 .group-is-user-bg {
     background-color: #ffeef1;
 }
+
+/* Each plan has its own composition. These tokens keep the shared controls
+   readable and familiar as the surrounding layout changes. */
+.tier-app {
+    --tier-bg: oklch(0.985 0.012 355);
+    --tier-surface: oklch(0.997 0.004 355);
+    --tier-ink: oklch(0.40 0.035 355);
+    --tier-muted: oklch(0.52 0.025 355);
+    --tier-accent: oklch(0.76 0.09 354);
+    --tier-tint: oklch(0.965 0.025 355);
+    --tier-line: oklch(0.91 0.025 355);
+    min-height: 100dvh;
+    background: var(--tier-bg);
+    color: var(--tier-ink);
+}
+
+.tier-app[data-plan="premium"] {
+    --tier-bg: oklch(0.982 0.014 300);
+    --tier-surface: oklch(0.996 0.006 300);
+    --tier-ink: oklch(0.38 0.045 300);
+    --tier-muted: oklch(0.51 0.03 300);
+    --tier-accent: oklch(0.69 0.095 300);
+    --tier-tint: oklch(0.95 0.028 300);
+    --tier-line: oklch(0.90 0.03 300);
+}
+
+.tier-app[data-plan="premium+"] {
+    --tier-bg: oklch(0.976 0.017 78);
+    --tier-surface: oklch(0.995 0.007 78);
+    --tier-ink: oklch(0.38 0.045 64);
+    --tier-muted: oklch(0.51 0.028 64);
+    --tier-accent: oklch(0.72 0.085 83);
+    --tier-tint: oklch(0.945 0.037 80);
+    --tier-line: oklch(0.88 0.034 80);
+}
+
+.tier-panel {
+    background: var(--tier-surface);
+    border: 1px solid var(--tier-line);
+    border-radius: 1.5rem;
+    box-shadow: 0 12px 32px oklch(0.40 0.025 355 / 0.035);
+}
+
+.tier-primary-action {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    background: var(--tier-ink);
+    color: var(--tier-surface);
+    padding: 0.7rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 180ms cubic-bezier(0.25, 1, 0.5, 1), transform 180ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.tier-primary-action:hover {
+    background: var(--tier-muted);
+}
+
+.tier-primary-action:active {
+    transform: scale(0.98);
+}
+
+.tier-app :is(a, button, input, textarea, select, summary):focus-visible {
+    outline: 3px solid var(--tier-accent);
+    outline-offset: 3px;
+}
+
+.tier-settings section:not(#account-actions) {
+    background: var(--tier-surface);
+    border-color: var(--tier-line);
+    backdrop-filter: none;
+}
+
+.tier-settings section:not(#account-actions) h2 {
+    color: var(--tier-ink);
+}
+
+.tier-settings :is(input, select, textarea) {
+    background-color: var(--tier-bg);
+    color: var(--tier-ink);
+    border-color: var(--tier-line);
+}
+
+.tier-app[data-plan="premium"] .group-is-user-bg {
+    background-color: var(--tier-tint);
+}
+
+.tier-app[data-plan="premium+"] .group-is-user-bg {
+    background-color: var(--tier-tint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tier-app *,
+    .tier-app *::before,
+    .tier-app *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+}

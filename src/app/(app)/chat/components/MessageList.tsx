@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowDownIcon } from "lucide-react";
 import { Suggestions, Suggestion } from "@/components/ai-elements/suggestion";
 import Image from "next/image";
+import type { UserPlan } from "@/lib/theme/accent";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -55,14 +56,16 @@ const MessageItem = memo(function MessageItem({
 
 interface EmptyStateProps {
   onSuggestionClick: (text: string) => void;
+  plan: UserPlan;
 }
 
 const EmptyState = memo(function EmptyState({
   onSuggestionClick,
+  plan,
 }: EmptyStateProps) {
   return (
     <div className="flex size-full flex-col items-center justify-center gap-4 p-8 text-center">
-      <div className="w-12 h-12 rounded-full bg-[#FFB5C0] flex items-center justify-center">
+      <div className="w-12 h-12 rounded-full bg-[var(--tier-tint)] flex items-center justify-center">
         <Image
           src="/luna.png"
           alt="Luna"
@@ -72,13 +75,12 @@ const EmptyState = memo(function EmptyState({
         />
       </div>
       <div className="space-y-1">
-        <h3 className="font-serif font-light text-lg text-[#6D5A60]">
-          Hi lovely, I&apos;m Luna
+        <h3 className="font-serif font-light text-xl text-[var(--tier-ink)]">
+          {plan === "free" ? "Hi, I’m Luna" : plan === "premium" ? "I’m here with you" : "Take your time. I’m here."}
         </h3>
       </div>
-      <p className="text-sm font-light text-[#8E7D82] max-w-xs">
-        Log your cycle, ask about symptoms, or just chat about how you&apos;re
-        feeling.
+      <p className="text-sm leading-relaxed text-[var(--tier-muted)] max-w-xs">
+        {plan === "free" ? "Log a date, ask about your cycle, or start a conversation." : plan === "premium" ? "Log what changed, ask about a pattern, or tell me how you’re feeling." : "Start with what’s on your mind. We can look at your cycle together."}
       </p>
       <div className="mt-1">
         <Suggestions>
@@ -101,6 +103,7 @@ const EmptyState = memo(function EmptyState({
 /* ------------------------------------------------------------------ */
 
 interface MessageListProps {
+  plan: UserPlan;
   messages: UIMessage[];
   isStreaming: boolean;
   isBusy: boolean;
@@ -108,6 +111,7 @@ interface MessageListProps {
 }
 
 export const MessageList = memo(function MessageList({
+  plan,
   messages,
   isStreaming,
   isBusy,
@@ -202,7 +206,7 @@ export const MessageList = memo(function MessageList({
         >
           {messages.length === 0 ? (
             <div className="min-h-full flex">
-              <EmptyState onSuggestionClick={onSuggestionClick} />
+              <EmptyState plan={plan} onSuggestionClick={onSuggestionClick} />
             </div>
           ) : (
             messages.map((m) => (

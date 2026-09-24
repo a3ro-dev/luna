@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import SignOutButton from "@/components/SignOutButton";
+import type { UserPlan } from "@/lib/theme/accent";
 
 /* ─── Types ─── */
 interface CycleRow {
@@ -17,6 +18,7 @@ interface CycleRow {
 }
 
 interface CalendarDay {
+  iso: string;
   day: number;
   isToday: boolean;
   isPeriod: boolean;
@@ -28,6 +30,7 @@ interface CalendarDay {
 }
 
 interface DashboardClientProps {
+  plan: UserPlan;
   userName: string;
   nextPeriodDate: string;
   nextPeriodWindow: string | null;
@@ -87,48 +90,51 @@ const shimmerKeyframes = `
 
 /* ─── Sub-components ─── */
 
-function Nav() {
+function Nav({ plan, vertical = false }: { plan: UserPlan; vertical?: boolean }) {
+  const shouldReduceMotion = useReducedMotion();
   return (
     <motion.nav
-      className="flex items-center justify-between gap-3 mb-10 md:mb-14 min-w-0"
-      {...enterFade}
+      aria-label="Main navigation"
+      className={vertical ? "flex min-w-0 flex-col gap-4 lg:sticky lg:top-10" : "flex min-w-0 flex-wrap items-center justify-between gap-3"}
+      {...(shouldReduceMotion ? {} : enterFade)}
     >
       <Link
         href="/dashboard"
-        className="font-serif text-2xl font-light text-[#6D5A60] hover:opacity-70 transition-opacity duration-150"
+        className="font-serif text-2xl font-light text-[var(--tier-ink)] hover:opacity-70 transition-opacity duration-150"
       >
-        Luna
+        Luna <span className="ml-2 font-sans text-xs font-medium uppercase tracking-widest">{plan === "free" ? "Free" : plan === "premium" ? "Premium" : "Premium+"}</span>
       </Link>
-      <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 min-w-0">
+      <div className={vertical ? "flex flex-wrap gap-2 lg:flex-col lg:items-start" : "flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2"}>
         <Link
           href="/dashboard"
-          className="h-9 rounded-full px-4 sm:px-5 text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest inline-flex items-center transition-all duration-150 bg-[#6D5A60] text-white shadow-[0_4px_12px_rgba(109,90,96,0.15)]"
+          aria-current="page"
+          className="min-h-11 rounded-full px-4 sm:px-5 text-xs font-semibold uppercase tracking-wide inline-flex items-center transition-colors duration-150 bg-[var(--tier-ink)] text-[var(--tier-surface)]"
         >
           Dashboard
         </Link>
         <Link
           href="/chat"
-          className="h-9 rounded-full border border-[#FFDDE0]/60 px-5 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] transition-all duration-150 hover:bg-[#FFF5F7] hover:border-[#FFDDE0] hover:shadow-[0_2px_8px_rgba(255,181,192,0.1)] inline-flex items-center"
+          className="min-h-11 rounded-full border border-[var(--tier-line)] px-5 text-xs font-semibold uppercase tracking-wide text-[var(--tier-ink)] transition-colors duration-150 hover:bg-[var(--tier-tint)] inline-flex items-center"
         >
           Chat
         </Link>
         <Link
           href="/settings"
-          className="h-9 rounded-full border border-[#FFDDE0]/60 px-5 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] transition-all duration-150 hover:bg-[#FFF5F7] hover:border-[#FFDDE0] hover:shadow-[0_2px_8px_rgba(255,181,192,0.1)] inline-flex items-center"
+          className="min-h-11 rounded-full border border-[var(--tier-line)] px-5 text-xs font-semibold uppercase tracking-wide text-[var(--tier-ink)] transition-colors duration-150 hover:bg-[var(--tier-tint)] inline-flex items-center"
         >
           Settings
         </Link>
-        <SignOutButton className="h-9 rounded-full border border-[#FFDDE0]/60 px-5 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60] transition-all duration-150 hover:bg-[#FFF5F7] hover:border-[#FFDDE0] hover:shadow-[0_2px_8px_rgba(255,181,192,0.1)] inline-flex items-center" />
+        <SignOutButton className="min-h-11 rounded-full border border-[var(--tier-line)] px-5 text-xs font-semibold uppercase tracking-wide text-[var(--tier-ink)] transition-colors duration-150 hover:bg-[var(--tier-tint)] inline-flex items-center" />
       </div>
     </motion.nav>
   );
 }
 
-function Hero({ userName }: { userName: string }) {
+function Hero({ userName, plan }: { userName: string; plan: UserPlan }) {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <header className="mb-12 md:mb-16">
+    <header className="mb-8 md:mb-10">
       <motion.h1
         className="font-serif text-[clamp(2.5rem,5vw,3.5rem)] font-light text-[#6D5A60] tracking-tight"
         initial={
@@ -151,7 +157,7 @@ function Hero({ userName }: { userName: string }) {
         animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
         transition={{ type: "spring", duration: 0.45, bounce: 0, delay: 0.08 }}
       >
-        Here&apos;s what&apos;s coming up for you.
+        {plan === "free" ? "Your calendar and the next things to know." : plan === "premium" ? "A gentle look at your rhythm today." : "A little space to see your rhythm, one cycle at a time."}
       </motion.p>
     </header>
   );
@@ -176,7 +182,7 @@ function PredictionCard({
 
   return (
     <motion.div
-      className="rounded-3xl border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl group cursor-default will-change-transform"
+      className="rounded-3xl border border-[var(--tier-line)] bg-[var(--tier-surface)] p-8 group cursor-default"
       initial={
         shouldReduceMotion
           ? { opacity: 0 }
@@ -189,23 +195,13 @@ function PredictionCard({
         bounce: 0,
         delay: 0.15 + index * 0.08,
       }}
-      whileHover={
-        shouldReduceMotion
-          ? {}
-          : { y: -2, boxShadow: "0 24px 48px rgba(255,181,192,0.1)" }
-      }
-      whileTap={
-        shouldReduceMotion
-          ? {}
-          : { y: 0, boxShadow: "0 12px 24px rgba(255,181,192,0.06)" }
-      }
     >
       <p
         className={`text-[10px] font-semibold uppercase tracking-widest ${labelColor}`}
       >
         {label}
       </p>
-      <p className="mt-3 font-serif text-[clamp(1.5rem,3vw,2rem)] font-light text-[#6D5A60]">
+      <p className="mt-3 font-serif text-[clamp(1.5rem,3vw,2rem)] font-light text-[var(--tier-ink)]">
         {date}
       </p>
       <p className="mt-2 text-sm font-light text-[#8E7D82]">{subtitle}</p>
@@ -223,7 +219,7 @@ function AskLunaCard({ index }: { index: number }) {
 
   return (
     <motion.div
-      className="rounded-3xl border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl flex flex-col items-center justify-center text-center will-change-transform"
+      className="rounded-3xl border border-[var(--tier-line)] bg-[var(--tier-surface)] p-8 flex flex-col items-center justify-center text-center"
       initial={
         shouldReduceMotion
           ? { opacity: 0 }
@@ -236,18 +232,8 @@ function AskLunaCard({ index }: { index: number }) {
         bounce: 0,
         delay: 0.15 + index * 0.08,
       }}
-      whileHover={
-        shouldReduceMotion
-          ? {}
-          : { y: -2, boxShadow: "0 24px 48px rgba(255,181,192,0.1)" }
-      }
-      whileTap={
-        shouldReduceMotion
-          ? {}
-          : { y: 0, boxShadow: "0 12px 24px rgba(255,181,192,0.06)" }
-      }
     >
-      <p className="font-serif text-lg font-light text-[#6D5A60] mb-5">
+      <p className="font-serif text-lg font-light text-[var(--tier-ink)] mb-5">
         Have a question?
       </p>
       <Link
@@ -282,18 +268,18 @@ function Calendar({
 
   return (
     <motion.section
-      className="rounded-3xl border border-white/60 bg-white/50 p-6 sm:p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl mb-14"
-      {...enterFade}
-      transition={{ ...enterFade.transition, delay: 0.3 }}
+      className="rounded-3xl border border-[var(--tier-line)] bg-[var(--tier-surface)] p-6 sm:p-8"
+      {...(shouldReduceMotion ? {} : enterFade)}
+      transition={shouldReduceMotion ? undefined : { ...enterFade.transition, delay: 0.3 }}
     >
-      <h2 className="font-serif text-2xl font-light text-[#6D5A60] mb-6">
+      <h2 className="font-serif text-2xl font-light text-[var(--tier-ink)] mb-6">
         {monthName}
       </h2>
       <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div
             key={d}
-            className="text-[9px] font-semibold uppercase tracking-widest text-[#8E7D82]/50 pb-3"
+            className="text-xs font-semibold uppercase tracking-wide text-[var(--tier-muted)] pb-3"
           >
             {d}
           </div>
@@ -307,6 +293,7 @@ function Calendar({
             if (!dayData) return <div key={i} />;
 
             const {
+              iso,
               day,
               isToday,
               isPeriod,
@@ -317,18 +304,18 @@ function Calendar({
               isLuteal,
             } = dayData;
 
-            let bg = "hover:bg-[#FFDDE0]/10";
-            let text = "text-[#8E7D82]";
+            let bg = "hover:bg-[var(--tier-tint)]";
+            let text = "text-[var(--tier-muted)]";
             let extra = "";
             let predictedStyle = "";
 
             if (isPeriod) {
-              bg = "bg-[#FFB5C0]";
-              text = "text-white";
+              bg = "bg-[var(--tier-accent)]";
+              text = "text-[var(--tier-ink)]";
             } else if (isPredicted) {
               bg = "bg-transparent";
-              text = "text-[#FFB5C0]";
-              predictedStyle = "border border-dashed border-[#FFB5C0]";
+              text = "text-[var(--tier-ink)]";
+              predictedStyle = "border border-dashed border-[var(--tier-accent)]";
               if (!shouldReduceMotion) {
                 predictedStyle +=
                   " animate-[predictedPulse_3s_ease-in-out_infinite]";
@@ -355,12 +342,14 @@ function Calendar({
             }
 
             return (
-              <div
+              <time
                 key={i}
+                dateTime={iso}
+                aria-label={`${new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}${isToday ? ", today" : ""}${isPeriod ? ", logged period" : isPredicted ? ", likely start window" : isOvulation ? ", logged ovulation" : isPredictedOvulation ? ", estimated ovulation" : ""}`}
                 className={`h-12 md:h-16 rounded-2xl flex items-center justify-center text-sm font-light transition-colors cursor-default ${bg} ${text} ${extra} ${predictedStyle}`}
               >
                 {day}
-              </div>
+              </time>
             );
           },
         )}
@@ -368,10 +357,10 @@ function Calendar({
 
       <div className="mt-8 flex flex-wrap gap-4 sm:gap-5 text-[10px] font-semibold uppercase tracking-widest text-[#8E7D82]/60">
         <span className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full bg-[#FFB5C0]" /> Period
+          <span className="h-3 w-3 rounded-full bg-[var(--tier-accent)]" /> Period
         </span>
         <span className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full border border-dashed border-[#FFB5C0]" />{" "}
+          <span className="h-3 w-3 rounded-full border border-dashed border-[var(--tier-accent)]" />{" "}
           Likely start window
         </span>
         <span className="flex items-center gap-2">
@@ -463,7 +452,7 @@ function RhythmSection({
 
   return (
     <motion.section
-      className="rounded-3xl border border-white/60 bg-white/50 p-6 sm:p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl mb-14"
+      className="rounded-3xl border border-white/60 bg-white/50 p-6 sm:p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl"
       {...enterFade}
       transition={{ ...enterFade.transition, delay: 0.38 }}
     >
@@ -589,6 +578,7 @@ function RecentCycles({ cycles }: { cycles: CycleRow[] }) {
 
 export default function DashboardClient(props: DashboardClientProps) {
   const {
+    plan,
     userName,
     nextPeriodDate,
     nextPeriodWindow,
@@ -607,71 +597,108 @@ export default function DashboardClient(props: DashboardClientProps) {
     cycles,
   } = props;
 
+  const nextPeriod = (
+    <PredictionCard
+      label="Next period"
+      labelColor="text-[#B45A75]"
+      date={nextPeriodDate}
+      subtitle={nextPeriodWindow ?? forecastStatus}
+      detail={nextPeriodWindow ? forecastStatus : forecastBasis}
+      index={0}
+    />
+  );
+  const ovulation = nextOvulationWindow != null ? (
+    <PredictionCard
+      label="Estimated ovulation"
+      labelColor="text-[#8A6B25]"
+      date={nextOvulationWindow}
+      subtitle="Rough calendar estimate, not confirmed ovulation"
+      index={1}
+    />
+  ) : (
+    <PredictionCard
+      label="Ovulation"
+      labelColor="text-[#8A6B25]"
+      date="Not estimated"
+      subtitle={ovulationNote ?? "There is not enough suitable information for a useful estimate."}
+      index={1}
+    />
+  );
+  const ask = <AskLunaCard index={2} />;
+  const calendar = <Calendar monthName={monthName} calendarDays={calendarDays} firstDayOffset={firstDayOffset} />;
+  const rhythm = <RhythmSection avgCycleLength={avgCycleLength} avgPeriodLength={avgPeriodLength} cyclesTracked={cyclesTracked} consistency={consistency} />;
+  const history = <RecentCycles cycles={cycles} />;
+  const explanation = (
+    <section className="max-w-3xl" aria-label="How this forecast was made">
+      <p className="text-sm font-light leading-relaxed text-[#6D5A60]">{forecastBasis}</p>
+      {forecastCaveats.slice(0, 2).map((caveat) => (
+        <p key={caveat} className="mt-2 text-xs font-light leading-relaxed text-[#6D5A60]">{caveat}</p>
+      ))}
+    </section>
+  );
+
   return (
-    <div className="min-h-screen bg-[#FFF9F9] text-[#8E7D82] font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
+    <div className="tier-app font-sans" data-plan={plan}>
       {/* Inject keyframes for CSS animations */}
       <style dangerouslySetInnerHTML={{ __html: shimmerKeyframes }} />
-
-      <div className="mx-auto max-w-5xl px-5 py-8 md:px-12 md:py-12">
-        <Nav />
-        <Hero userName={userName} />
-
-        {/* Prediction cards */}
-        <div className="grid gap-5 md:grid-cols-3 mb-14">
-          <PredictionCard
-            label="Next Period"
-            labelColor="text-[#FFB5C0]"
-            date={nextPeriodDate}
-            subtitle={nextPeriodWindow ?? forecastStatus}
-            detail={nextPeriodWindow ? forecastStatus : forecastBasis}
-            index={0}
-          />
-          {nextOvulationWindow != null ? (
-            <PredictionCard
-              label="Estimated Ovulation"
-              labelColor="text-[#FBE6B6]"
-              date={nextOvulationWindow}
-              subtitle="Rough calendar estimate, not confirmed ovulation"
-              index={1}
-            />
-          ) : (
-            <PredictionCard
-              label="Ovulation"
-              labelColor="text-[#FBE6B6]"
-              date="Not estimated"
-              subtitle={ovulationNote ?? "There is not enough suitable information for a useful estimate."}
-              index={1}
-            />
-          )}
-          <AskLunaCard index={2} />
+      {plan === "free" ? (
+        <div className="mx-auto max-w-[1360px] space-y-8 px-5 py-8 md:px-10 md:py-10">
+          <Nav plan={plan} />
+          <main>
+            <Hero userName={userName} plan={plan} />
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(290px,0.85fr)]">
+              {calendar}
+              <div className="space-y-6">{nextPeriod}{ovulation}{history}{ask}</div>
+            </div>
+            <div className="mt-8 space-y-6">{explanation}{rhythm}</div>
+          </main>
         </div>
-
-        <section className="mb-10 max-w-3xl" aria-label="How this forecast was made">
-          <p className="text-sm font-light leading-relaxed text-[#8E7D82]">
-            {forecastBasis}
-          </p>
-          {forecastCaveats.slice(0, 2).map((caveat) => (
-            <p key={caveat} className="mt-1 text-xs font-light leading-relaxed text-[#8E7D82]/80">
-              {caveat}
-            </p>
-          ))}
-        </section>
-
-        <Calendar
-          monthName={monthName}
-          calendarDays={calendarDays}
-          firstDayOffset={firstDayOffset}
-        />
-
-        <RhythmSection
-          avgCycleLength={avgCycleLength}
-          avgPeriodLength={avgPeriodLength}
-          cyclesTracked={cyclesTracked}
-          consistency={consistency}
-        />
-
-        <RecentCycles cycles={cycles} />
-      </div>
+      ) : plan === "premium" ? (
+        <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-8 md:px-10 lg:grid-cols-[210px_minmax(0,1fr)] lg:gap-10 lg:py-10">
+          <Nav plan={plan} vertical />
+          <main className="min-w-0">
+            <Hero userName={userName} plan={plan} />
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(290px,0.72fr)_minmax(0,1fr)]">
+              <div className="space-y-6">
+                <section className="border-b border-[var(--tier-line)] pb-5">
+                  <h2 className="font-serif text-2xl text-[var(--tier-ink)]">Today</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--tier-muted)]">Your forecast, calendar, and recent logs are together below.</p>
+                </section>
+                {nextPeriod}{ovulation}{history}{ask}
+              </div>
+              {calendar}
+            </div>
+            <div className="mt-8 space-y-6">{explanation}{rhythm}</div>
+          </main>
+        </div>
+      ) : (
+        <div className="mx-auto max-w-[1440px] space-y-9 px-5 py-8 md:px-10 md:py-10">
+          <Nav plan={plan} />
+          <main className="grid min-w-0 gap-8 xl:grid-cols-[minmax(300px,0.72fr)_minmax(0,1.28fr)] xl:gap-10">
+            <div className="space-y-7">
+              <Hero userName={userName} plan={plan} />
+              {nextPeriod}{ovulation}{ask}{history}
+            </div>
+            <div className="space-y-7">
+              {calendar}{rhythm}
+              <section className="rounded-3xl border border-[var(--tier-line)] bg-[var(--tier-surface)] p-6 sm:p-8" aria-labelledby="timeline-heading">
+                <h2 id="timeline-heading" className="font-serif text-2xl text-[var(--tier-ink)]">Cycle timeline</h2>
+                <ol className="mt-5 space-y-4 border-l border-[var(--tier-line)] pl-5 text-sm text-[var(--tier-muted)]">
+                  {cycles.slice(0, 3).reverse().map((cycle) => (
+                    <li key={cycle.id} className="relative before:absolute before:-left-[25px] before:top-1 before:size-2 before:rounded-full before:bg-[var(--tier-accent)]">
+                      <span className="font-medium text-[var(--tier-ink)]">{new Date(`${cycle.mStart}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}</span> · Period logged
+                    </li>
+                  ))}
+                  <li className="relative before:absolute before:-left-[25px] before:top-1 before:size-2 before:rounded-full before:border before:border-[var(--tier-accent)] before:bg-[var(--tier-surface)]">
+                    {nextPeriodWindow ?? "Next period estimate is still learning"}
+                  </li>
+                </ol>
+              </section>
+              {explanation}
+            </div>
+          </main>
+        </div>
+      )}
     </div>
   );
 }

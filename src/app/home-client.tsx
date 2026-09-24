@@ -572,7 +572,7 @@ export default function HomeClient() {
       </section>
 
       {/* ── Pricing ── */}
-      <section className="relative bg-[#FFF9F9] px-5 py-32 md:px-12 z-10">
+      <section id="pricing" className="relative bg-[#FFF9F9] px-5 py-32 md:px-12 z-10">
         <div className="mx-auto max-w-5xl text-center">
           <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.3em] text-[#FFB5C0]">
             Choose your companion
@@ -595,8 +595,7 @@ export default function HomeClient() {
                   </span>
                 </div>
                 <p className="text-sm font-light text-[#8E7D82] leading-relaxed mb-8">
-                  Friendly, practical, gets the job done. Perfect for starting
-                  your tracking journey.
+                  A focused calendar-first space with a practical, direct Luna.
                 </p>
                 <ul className="space-y-3 text-left mb-8">
                   <li className="flex items-start gap-2 text-sm font-light text-[#8E7D82]">
@@ -612,7 +611,7 @@ export default function HomeClient() {
                     calendar
                   </li>
                   <li className="flex items-start gap-2 text-sm font-light text-[#8E7D82]">
-                    <span className="text-[#FFB5C0] mt-0.5">✓</span> Web search
+                    <span className="text-[#FFB5C0] mt-0.5">✓</span> Chat, images, and web search
                   </li>
                 </ul>
                 <Link
@@ -641,29 +640,23 @@ export default function HomeClient() {
                   <span className="text-sm font-light text-[#8E7D82]">/mo</span>
                 </div>
                 <p className="text-sm font-light text-[#8E7D82] leading-relaxed mb-8">
-                  Warm, caring, deeply attentive. Luna remembers the little
-                  things and circles back to them.
+                  A guided layout and a warmer companion who takes more time with you.
                 </p>
                 <ul className="space-y-3 text-left mb-8">
                   <li className="flex items-start gap-2 text-sm font-light text-[#8E7D82]">
-                    <span className="text-[#D6CBE3] mt-0.5">✓</span> Everything
-                    in Free
+                    <span className="text-[#D6CBE3] mt-0.5">✓</span> Same features as Free
                   </li>
                   <li className="flex items-start gap-2 text-sm font-light text-[#8E7D82]">
-                    <span className="text-[#D6CBE3] mt-0.5">✓</span> Softer,
-                    more caring companion
+                    <span className="text-[#D6CBE3] mt-0.5">✓</span> Guided dashboard layout
                   </li>
                   <li className="flex items-start gap-2 text-sm font-light text-[#8E7D82]">
-                    <span className="text-[#D6CBE3] mt-0.5">✓</span> Image
-                    understanding
+                    <span className="text-[#D6CBE3] mt-0.5">✓</span> Lavender chat space
                   </li>
                   <li className="flex items-start gap-2 text-sm font-light text-[#8E7D82]">
-                    <span className="text-[#D6CBE3] mt-0.5">✓</span> Deeper
-                    reasoning
+                    <span className="text-[#D6CBE3] mt-0.5">✓</span> Warmer conversation style
                   </li>
                   <li className="flex items-start gap-2 text-sm font-light text-[#8E7D82]">
-                    <span className="text-[#D6CBE3] mt-0.5">✓</span> Push
-                    notifications
+                    <span className="text-[#D6CBE3] mt-0.5">✓</span> Same predictions and tools
                   </li>
                 </ul>
                 <button
@@ -690,29 +683,23 @@ export default function HomeClient() {
                   <span className="text-sm font-light text-[#8E7D82]">/mo</span>
                 </div>
                 <p className="text-sm font-light text-[#8E7D82] leading-relaxed mb-8">
-                  The softest, most intuitive Luna. A presence that feels like
-                  home.
+                  A spacious, reflective layout with Luna&apos;s gentlest voice.
                 </p>
                 <ul className="space-y-3 text-left mb-8">
                   <li className="flex items-start gap-2 text-sm font-light text-[#8E7D82]">
-                    <span className="text-[#FBE6B6] mt-0.5">✓</span> Everything
-                    in Premium
+                    <span className="text-[#FBE6B6] mt-0.5">✓</span> Same features as every plan
                   </li>
                   <li className="flex items-start gap-2 text-sm font-light text-[#8E7D82]">
-                    <span className="text-[#FBE6B6] mt-0.5">✓</span> Deepest
-                    empathy & intuition
+                    <span className="text-[#FBE6B6] mt-0.5">✓</span> Spacious dashboard and timeline
                   </li>
                   <li className="flex items-start gap-2 text-sm font-light text-[#8E7D82]">
-                    <span className="text-[#FBE6B6] mt-0.5">✓</span> Extended
-                    reasoning
+                    <span className="text-[#FBE6B6] mt-0.5">✓</span> Cycle context beside chat
                   </li>
                   <li className="flex items-start gap-2 text-sm font-light text-[#8E7D82]">
-                    <span className="text-[#FBE6B6] mt-0.5">✓</span> Priority
-                    support
+                    <span className="text-[#FBE6B6] mt-0.5">✓</span> Gentlest conversation style
                   </li>
                   <li className="flex items-start gap-2 text-sm font-light text-[#8E7D82]">
-                    <span className="text-[#FBE6B6] mt-0.5">✓</span> Early
-                    access to features
+                    <span className="text-[#FBE6B6] mt-0.5">✓</span> Same model and predictions
                   </li>
                 </ul>
                 <button

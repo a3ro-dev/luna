@@ -618,9 +618,9 @@ const SECTIONS: Section[] = [
       <p>
         Luna has three pricing tiers (Free, Premium at $5/month, Premium+ at
         $12/month), but all use the same AI model — Grok 4.3 via HackClub proxy.
-        The only difference is the tone of the AI&apos;s responses (practical vs.
-        warm vs. empathetic). Predictions, accuracy, and capabilities are
-        identical across all tiers. You are not getting worse predictions on
+        The differences are the interface layout and the tone of the AI&apos;s
+        responses (practical, warm, or empathetic). Predictions, accuracy, and
+        capabilities are identical across all tiers. You are not getting worse predictions on
         the free plan. The persona prompts are defined in{" "}
         <Link
           href="https://github.com/a3ro-dev/luna/blob/main/src/lib/chat/models.ts"

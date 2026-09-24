@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo, useCallback } from "react";
+import React, { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -49,8 +49,8 @@ const SessionItem = memo(function SessionItem({
     <div
       className={`group flex items-center gap-1 rounded-xl px-3 py-2.5 text-sm transition-colors duration-150 cursor-pointer ${
         isActive
-          ? "bg-[#FFEEF1] text-[#6D5A60]"
-          : "text-[#8E7D82] hover:bg-[#FFF5F7]"
+          ? "bg-[var(--tier-tint)] text-[var(--tier-ink)]"
+          : "text-[var(--tier-muted)] hover:bg-[var(--tier-tint)]"
       }`}
     >
       <button
@@ -105,9 +105,9 @@ export const ChatSidebar = memo(function ChatSidebar({
   onDeleteSession,
 }: ChatSidebarProps) {
   return (
-    <aside className="w-[260px] shrink-0 border-r border-[#FFDDE0]/40 bg-white/80 px-4 py-6 hidden md:flex md:flex-col gap-4">
+    <aside className="w-[260px] shrink-0 border-r border-[var(--tier-line)] bg-[var(--tier-surface)] px-4 py-6 hidden md:flex md:flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="font-serif text-base text-[#6D5A60]">Chats</h2>
+        <h2 className="font-serif text-xl text-[var(--tier-ink)]">Chats</h2>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

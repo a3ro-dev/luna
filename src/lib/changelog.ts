@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.11.0",
+    date: "2026-09-24",
+    type: "feat",
+    title: "Distinct layouts for each Luna plan",
+    description:
+      "Free, Premium, and Premium+ now have their own dashboard, chat, and settings layouts, with plan-specific color and navigation. Every plan keeps the same cycle data, forecasts, chat tools, and account controls.",
+  },
+  {
     version: "0.10.2",
     date: "2026-09-24",
     type: "docs",

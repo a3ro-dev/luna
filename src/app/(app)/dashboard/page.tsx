@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { addDaysToIsoDate, getUserForecast } from "@/lib/cycle-tools";
 import { formatRange, resolveForecastPrior } from "@/lib/prediction/forecast";
 import DashboardClient from "./DashboardClient";
+import { getUserPlan } from "@/lib/theme/server-plan";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default async function DashboardPage() {
   const { forecast, text, profile, rows, today } = await getUserForecast(
     session.user.id,
   );
+  const plan = await getUserPlan(session.user.id);
 
   const [year, month] = today.split("-").map(Number);
   const firstOfMonth = `${today.slice(0, 8)}01`;
@@ -82,6 +84,7 @@ export default async function DashboardPage() {
       index + 1,
     ).padStart(2, "0")}`;
     return {
+      iso,
       day: index + 1,
       isToday: iso === today,
       isPeriod: periodDays.has(iso),
@@ -118,6 +121,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClient
+      plan={plan}
       userName={
         session.user.name || session.user.email?.split("@")[0] || "lovely"
       }

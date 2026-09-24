@@ -5,22 +5,27 @@ import Link from "next/link";
 import Image from "next/image";
 import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import type { UserPlan } from "@/lib/theme/accent";
 
 interface ChatHeaderProps {
   onOpenSessions: () => void;
+  showDesktopSessions: boolean;
+  plan: UserPlan;
 }
 
 export const ChatHeader = memo(function ChatHeader({
   onOpenSessions,
+  showDesktopSessions,
+  plan,
 }: ChatHeaderProps) {
   const { status: authStatus } = useSession();
 
   return (
-    <header className="py-2 px-4 md:py-3 md:px-6 border-b border-[#FFDDE0]/30 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+    <header className="sticky top-0 z-10 border-b border-[var(--tier-line)] bg-[var(--tier-surface)] px-4 py-2 md:px-6 md:py-3">
       <div className="mx-auto max-w-3xl flex items-center justify-between gap-2">
         {/* Logo */}
         <div className="flex items-center gap-1.5">
-          <h1 className="flex items-center gap-1.5 font-serif text-xl md:text-2xl font-light text-[#6D5A60]">
+          <h1 className="flex items-center gap-1.5 font-serif text-xl md:text-2xl font-light text-[var(--tier-ink)]">
             <Image
               src="/luna.png"
               alt=""
@@ -30,8 +35,8 @@ export const ChatHeader = memo(function ChatHeader({
             />
             Luna
           </h1>
-          <span className="text-xs font-light text-[#8E7D82] hidden sm:inline">
-            Your caring health companion
+          <span className="hidden text-xs font-medium text-[var(--tier-muted)] sm:inline">
+            {plan === "free" ? "Free" : plan === "premium" ? "Premium" : "Premium+"}
           </span>
         </div>
 
@@ -41,6 +46,7 @@ export const ChatHeader = memo(function ChatHeader({
             variant="ghost"
             size="icon-sm"
             onClick={onOpenSessions}
+            aria-label="Open chats"
             className="size-9 text-[#8E7D82] hover:text-[#6D5A60] hover:bg-[#FFF5F7] cursor-pointer"
           >
             <svg
@@ -107,6 +113,9 @@ export const ChatHeader = memo(function ChatHeader({
 
         {/* Desktop: text nav */}
         <div className="hidden md:flex items-center gap-2">
+          {showDesktopSessions && (
+            <Button variant="outline" size="sm" onClick={onOpenSessions} className="min-h-11 rounded-full border-[var(--tier-line)] text-[var(--tier-ink)] cursor-pointer">Chats</Button>
+          )}
           <Link href="/dashboard">
             <Button
               variant="outline"

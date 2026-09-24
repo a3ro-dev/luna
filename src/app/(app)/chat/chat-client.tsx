@@ -23,6 +23,8 @@ import { MobileSidebar } from "./components/MobileSidebar";
 import { MessageList } from "./components/MessageList";
 import { ChatComposer } from "./components/ChatComposer";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import type { UserPlan } from "@/lib/theme/accent";
+import Link from "next/link";
 
 /* ------------------------------------------------------------------ */
 /*  Session API helpers (module-level — no recreation on render)       */
@@ -65,7 +67,12 @@ async function deleteSessionApi(sessionId: string): Promise<boolean> {
 /*  Main Chat Page Client                                              */
 /* ------------------------------------------------------------------ */
 
-export default function ChatPageClient() {
+interface ChatPageClientProps {
+  plan: UserPlan;
+  cycleContext: { nextPeriod: string; window: string | null; status: string } | null;
+}
+
+export default function ChatPageClient({ plan, cycleContext }: ChatPageClientProps) {
   const { messages, sendMessage, status, setMessages, stop } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
@@ -209,8 +216,10 @@ export default function ChatPageClient() {
   /* ---------------------------------------------------------------- */
   const handleSelectSession = useCallback(
     async (sessionId: string) => {
-      if (sessionId === activeSessionId) return;
-      if (sessionId === loadedSessionRef.current) return;
+      if (sessionId === activeSessionId || sessionId === loadedSessionRef.current) {
+        setIsSessionsOpen(false);
+        return;
+      }
 
       setActiveSessionId(sessionId);
       setIsSessionsOpen(false);
@@ -285,9 +294,9 @@ export default function ChatPageClient() {
   return (
     <ThemeProvider>
       <TooltipProvider>
-        <div className="h-dvh overflow-hidden bg-[#FFF9F9] flex font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
+        <div className="tier-app h-dvh overflow-hidden flex font-sans selection:bg-[var(--tier-tint)] selection:text-[var(--tier-ink)]" data-plan={plan}>
           {/* Desktop sidebar */}
-          <ChatSidebar
+          {plan === "premium" && <ChatSidebar
             sessions={sessions}
             activeSessionId={activeSessionId}
             isLoading={isLoadingSessions}
@@ -295,13 +304,23 @@ export default function ChatPageClient() {
             onNewSession={handleNewSession}
             onRenameSession={handleRenameSession}
             onDeleteSession={(id) => setDeleteTarget(id)}
-          />
+          />}
 
           {/* Main chat area */}
           <div className="flex-1 flex flex-col min-w-0 min-h-0">
-            <ChatHeader onOpenSessions={() => setIsSessionsOpen(true)} />
+            <ChatHeader onOpenSessions={() => setIsSessionsOpen(true)} showDesktopSessions={plan !== "premium"} plan={plan} />
+
+            {plan === "premium+" && cycleContext && (
+              <details className="mx-4 mt-3 rounded-2xl border border-[var(--tier-line)] bg-[var(--tier-surface)] p-3 text-sm text-[var(--tier-muted)] xl:hidden">
+                <summary className="cursor-pointer font-medium text-[var(--tier-ink)]">Your cycle context</summary>
+                <p className="mt-2">Next period: {cycleContext.nextPeriod}</p>
+                <p className="mt-1">{cycleContext.window ?? cycleContext.status}</p>
+                <Link href="/dashboard" className="mt-2 inline-flex min-h-11 items-center font-medium text-[var(--tier-ink)] underline underline-offset-4">Open dashboard</Link>
+              </details>
+            )}
 
             <MessageList
+              plan={plan}
               messages={messages}
               isStreaming={isStreaming}
               isBusy={isBusy}
@@ -311,15 +330,33 @@ export default function ChatPageClient() {
             />
 
             <ChatComposer
+              plan={plan}
               onSubmit={handlePromptSubmit}
               status={status}
               onStop={stop}
             />
           </div>
 
+          {plan === "premium+" && cycleContext && (
+            <aside className="hidden w-[280px] shrink-0 flex-col gap-6 border-l border-[var(--tier-line)] bg-[var(--tier-surface)] px-6 py-8 xl:flex" aria-label="Cycle context">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--tier-muted)]">Your rhythm</p>
+                <h2 className="mt-3 font-serif text-2xl text-[var(--tier-ink)]">A little context</h2>
+              </div>
+              <div className="border-t border-[var(--tier-line)] pt-5">
+                <h3 className="text-sm font-semibold text-[var(--tier-ink)]">Next period</h3>
+                <p className="mt-2 font-serif text-xl text-[var(--tier-ink)]">{cycleContext.nextPeriod}</p>
+                <p className="mt-2 text-sm leading-relaxed text-[var(--tier-muted)]">{cycleContext.window ?? cycleContext.status}</p>
+              </div>
+              <Link href="/dashboard" className="tier-primary-action self-start">See calendar</Link>
+              <p className="mt-auto text-xs leading-relaxed text-[var(--tier-muted)]">Luna&apos;s calendar estimates are uncertain. Your logged dates stay in your dashboard.</p>
+            </aside>
+          )}
+
           {/* Mobile sidebar overlay */}
           <MobileSidebar
             open={isSessionsOpen}
+            desktopEnabled={plan !== "premium"}
             onClose={() => setIsSessionsOpen(false)}
             sessions={sessions}
             activeSessionId={activeSessionId}

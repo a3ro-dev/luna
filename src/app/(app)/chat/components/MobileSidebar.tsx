@@ -13,6 +13,7 @@ import type { ChatSession } from "./ChatSidebar";
 
 interface MobileSidebarProps {
   open: boolean;
+  desktopEnabled?: boolean;
   onClose: () => void;
   sessions: ChatSession[];
   activeSessionId: string | null;
@@ -40,8 +41,8 @@ const MobileSessionItem = memo(function MobileSessionItem({
     <div
       className={`group flex items-center gap-1 rounded-xl px-3 py-2.5 text-sm transition-colors duration-150 cursor-pointer ${
         isActive
-          ? "bg-[#FFEEF1] text-[#6D5A60]"
-          : "text-[#8E7D82] hover:bg-[#FFF5F7]"
+          ? "bg-[var(--tier-tint)] text-[var(--tier-ink)]"
+          : "text-[var(--tier-muted)] hover:bg-[var(--tier-tint)]"
       }`}
     >
       <button
@@ -88,6 +89,7 @@ const MobileSessionItem = memo(function MobileSessionItem({
 
 export const MobileSidebar = memo(function MobileSidebar({
   open,
+  desktopEnabled = false,
   onClose,
   sessions,
   activeSessionId,
@@ -112,9 +114,10 @@ export const MobileSidebar = memo(function MobileSidebar({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 md:hidden">
+    <div className={`fixed inset-0 z-50 ${desktopEnabled ? "" : "md:hidden"}`} role="dialog" aria-modal="true" aria-label="Chats">
       {/* Backdrop */}
-      <div
+      <button
+        type="button"
         className="absolute inset-0 bg-black/20"
         onClick={onClose}
         aria-label="Close chat list"
@@ -123,11 +126,11 @@ export const MobileSidebar = memo(function MobileSidebar({
       {/* Panel — CSS transition instead of Framer Motion for performance */}
       <div
         ref={panelRef}
-        className="absolute right-0 top-0 h-full w-[78%] max-w-[320px] bg-white/95 border-l border-[#FFDDE0]/40 px-4 py-6 flex flex-col gap-4 animate-slide-in-right"
+        className="absolute right-0 top-0 h-full w-[78%] max-w-[320px] bg-[var(--tier-surface)] border-l border-[var(--tier-line)] px-4 py-6 flex flex-col gap-4 animate-slide-in-right"
       >
         <div className="flex items-center justify-between">
           <h2 className="font-serif text-base text-[#6D5A60]">Chats</h2>
-          <Button
+          <div className="flex items-center gap-2"><Button
             variant="ghost"
             size="sm"
             onClick={onNewSession}
@@ -135,6 +138,7 @@ export const MobileSidebar = memo(function MobileSidebar({
           >
             New
           </Button>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close chats" className="min-h-11 cursor-pointer">Close</Button></div>
         </div>
         <Separator className="bg-[#FFDDE0]/40" />
         <div className="flex-1 overflow-y-auto overscroll-contain">

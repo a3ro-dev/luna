@@ -1,5 +1,9 @@
 export type UserPlan = "free" | "premium" | "premium+";
 
+export function normalizeUserPlan(plan: string | null | undefined): UserPlan {
+  return plan === "premium" || plan === "premium+" ? plan : "free";
+}
+
 export interface AccentTheme {
   accent: string;
   accentSecondary: string;

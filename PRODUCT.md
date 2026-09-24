@@ -37,15 +37,15 @@ Warm, caring, supportive. Simple language, friendly reassurance, no medical clai
 Feminine-minimal, soft, airy, calm. Spacious layouts, delicate typography, blush tones, gentle contrast. The product should feel like a quiet personal space, not a dashboard. Never clinical, never corporate, and definitely not cute.
 
 ## Tiered plans
-Everyone gets the same capable model (Grok 4.3). The difference is in how Luna speaks, not how it thinks.
+Everyone gets the same capable model (Grok 4.3), cycle data, and tools. Each plan has its own interface layout and a different conversational tone.
 
-| Plan | Price | Personality |
-|---|---|---|
-| Luna | Free | Practical, to the point. The friend who says "got it, here's what you need to know." |
-| Luna Premium | $5/mo | Warm, caring, attentive. Remembers the little things and circles back. |
-| Luna Premium+ | $12/mo | The softest, most intuitive presence. Holds space, picks up on what's unsaid. |
+| Plan | Price | Personality | Interface |
+|---|---|---|---|
+| Luna | Free | Practical, to the point. The friend who says "got it, here's what you need to know." | Focused, calendar-first dashboard and direct chat. |
+| Luna Premium | $5/mo | Warm, caring, attentive. Remembers the little things and circles back. | Guided dashboard, session rail, and sectioned settings. |
+| Luna Premium+ | $12/mo | The softest, most intuitive presence. Holds space, picks up on what's unsaid. | Spacious dashboard, cycle context beside chat, and wider settings layout. |
 
-Persona-only differentiation. No model gating, no feature gating, no capability differences. Free users get the same brain. Premium gets a companion who listens differently.
+Layout and persona differentiation. No model gating, no feature gating, no capability differences. Free users get the same brain, predictions, and tools.
 
 ## Features
 

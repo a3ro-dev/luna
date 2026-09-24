@@ -204,6 +204,12 @@ Reduced motion is not an afterthought. Every animated component checks `prefers-
 
 Restrained. One accent (rose #FFB5C0) for labels, state indicators, and primary actions only. Honey and lavender support secondary categories (ovulation, follicular phase). Mauve (#6D5A60) carries buttons and headings. Neutral tint goes toward the brand hue, never pure gray.
 
+## Plan layouts
+
+Free uses blush neutrals and puts the calendar first. Premium uses a lavender tint, a dashboard navigation rail, a persistent chat-session rail, and settings section links. Premium+ uses warm parchment and honey, with a split dashboard, a cycle-context panel beside chat on wide screens, and two-column settings. On small screens, supporting panels stack or move behind an explicit control. All three layouts expose the same cycle records, forecasts, chat tools, and settings.
+
+Plan color tokens live in `.tier-app` in `src/app/globals.css`. Shared controls use those tokens so focus, text contrast, and active states remain consistent within each layout. Estimated calendar dates retain dashed outlines in every palette to distinguish them from logged dates. Reduced-motion preferences suppress repeated animation and preserve content order.
+
 ## Typography
 
 Serif (Instrument Serif) for headings and emotional moments. Sans (DM Sans) for body, labels, buttons, and data. One family per role, no mixing within a single element. Scale ratio is tight (1.125-1.2) for product UI consistency. Tabular nums for any numerical data that aligns.

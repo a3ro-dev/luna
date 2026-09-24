@@ -1,8 +1,14 @@
 # What Luna can tell you about your cycle
 
-**Release:** 0.10.2 · **Reviewed:** 24 September 2026
+**Release:** 0.11.0 · **Reviewed:** 24 September 2026
 
 Luna lets you log periods and symptoms in chat and review them on a calendar. It uses your period starts to estimate when the next one might begin. It is a record-keeping and forecasting tool, not a medical device or a way to diagnose a condition.
+
+## Layouts for each plan
+
+Free opens with a calendar-led dashboard, a focused chat view, and a single-column settings page. Premium adds guided dashboard navigation, a persistent chat-session rail, and settings section navigation. Premium+ gives the dashboard a split forecast-and-calendar layout, adds cycle context beside chat on wide screens, and groups settings in two columns. Smaller screens stack these areas so the same information stays available.
+
+The three layouts use the same account records, forecast calculation, chat tools, and settings controls. Luna reads the saved account plan to choose a layout. The subscription request form described below does not change that saved plan or activate Premium access.
 
 ## Reading a forecast
 

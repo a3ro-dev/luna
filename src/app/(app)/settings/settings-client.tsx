@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { normalizeUserPlan } from "@/lib/theme/accent";
 
 const TIMEZONES = [
   "Asia/Kolkata",
@@ -67,17 +68,17 @@ const PLAN_INFO: Record<string, { label: string; description: string }> = {
   free: {
     label: "Luna Free",
     description:
-      "NLP cycle logging, predictions, dashboard, calendar, and web search.",
+      "A focused layout with your calendar first. All Luna features are included.",
   },
   premium: {
     label: "Luna Premium",
     description:
-      "Everything in Free, plus a softer companion, image understanding, deeper reasoning, and push notifications.",
+      "A guided layout and a warmer companion. The same tools and cycle data are available on every plan.",
   },
   "premium+": {
     label: "Luna Premium+",
     description:
-      "Everything in Premium, plus the most capable model and priority access to new features.",
+      "A spacious, reflective layout and Luna's gentlest voice. The same tools and cycle data are available on every plan.",
   },
 };
 
@@ -97,7 +98,7 @@ interface UserProfile {
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 export default function SettingsPageClient() {
-  const { data: session, status: authStatus } = useSession();
+  const { status: authStatus } = useSession();
   const router = useRouter();
 
   // Profile
@@ -277,19 +278,21 @@ export default function SettingsPageClient() {
   if (authStatus !== "authenticated") return null;
 
   const currentPlan = PLAN_INFO[plan] || PLAN_INFO.free;
+  const tier = normalizeUserPlan(plan);
   const maxDobEdits = 2;
   const dobEditsRemaining = dateOfBirth
     ? maxDobEdits - dobEditCount
     : maxDobEdits;
 
   return (
-    <div className="min-h-screen bg-[#FFF9F9] text-[#8E7D82] font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
-      <div className="mx-auto max-w-3xl px-5 py-10 md:px-12 md:py-16">
+    <div className="tier-app tier-settings font-sans" data-plan={tier}>
+      <div className={`mx-auto px-5 py-10 md:px-12 md:py-16 ${tier === "free" ? "max-w-3xl" : tier === "premium" ? "max-w-6xl" : "max-w-7xl"}`}>
         {/* Header */}
         <div className="mb-10 flex items-center gap-4">
           <Link
             href="/dashboard"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[#FFDDE0]/60 text-[#8E7D82] transition hover:bg-[#FFF5F7] hover:text-[#6D5A60] shrink-0"
+            aria-label="Back to dashboard"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--tier-line)] text-[var(--tier-ink)] transition hover:bg-[var(--tier-tint)] shrink-0"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -306,18 +309,36 @@ export default function SettingsPageClient() {
             </svg>
           </Link>
           <div>
-            <h1 className="font-serif text-[clamp(2rem,4vw,3rem)] font-light text-[#6D5A60] tracking-tight">
+            <h1 className="font-serif text-4xl font-light text-[var(--tier-ink)] tracking-tight">
               Settings
             </h1>
-            <p className="text-sm font-light text-[#8E7D82]">
-              Manage your account and preferences
+            <p className="text-sm font-light text-[var(--tier-muted)]">
+              {tier === "free" ? "Manage your account and preferences" : tier === "premium" ? "A comfortable place to tune your Luna experience" : "Your space, your preferences"}
             </p>
           </div>
         </div>
 
-        <div className="space-y-6">
+        {tier === "premium+" && (
+          <div className="mb-10 grid gap-6 border-b border-[var(--tier-line)] pb-10 md:grid-cols-[minmax(0,1fr)_minmax(240px,0.7fr)]">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--tier-muted)]">Luna Premium+</p>
+              <h2 className="mt-3 max-w-[18ch] font-serif text-3xl leading-tight text-[var(--tier-ink)]">Make Luna feel like your own quiet space.</h2>
+            </div>
+            <p className="self-end text-sm leading-relaxed text-[var(--tier-muted)]">Update your details, cycle context, and account settings at your own pace. Each change stays under your control.</p>
+          </div>
+        )}
+
+        <div className={tier === "premium" ? "grid gap-8 lg:grid-cols-[190px_minmax(0,1fr)]" : ""}>
+          {tier === "premium" && (
+            <nav aria-label="Settings sections" className="hidden self-start lg:sticky lg:top-8 lg:flex lg:flex-col lg:gap-1">
+              {[["profile", "Profile"], ["cycle", "Cycle"], ["notifications", "Notifications"], ["security", "Security"], ["plan", "Plan"], ["onboarding", "Onboarding"]].map(([id, label]) => (
+                <a key={id} href={`#${id}`} className="flex min-h-11 items-center rounded-full px-4 text-sm text-[var(--tier-muted)] transition-colors hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)]">{label}</a>
+              ))}
+            </nav>
+          )}
+        <div className={tier === "premium+" ? "grid gap-6 lg:grid-cols-2" : "space-y-6"}>
           {/* ── Profile ─────────────────────────────── */}
-          <section className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
+          <section id="profile" className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
             <h2 className="font-serif text-2xl font-light text-[#6D5A60] mb-6">
               Profile
             </h2>
@@ -376,7 +397,7 @@ export default function SettingsPageClient() {
           </section>
 
           {/* ── Cycle Preferences ───────────────────── */}
-          <section className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
+          <section id="cycle" className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
             <h2 className="font-serif text-2xl font-light text-[#6D5A60] mb-6">
               Cycle preferences
             </h2>
@@ -537,7 +558,7 @@ export default function SettingsPageClient() {
           </section>
 
           {/* ── Notifications ───────────────────────── */}
-          <section className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
+          <section id="notifications" className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
             <h2 className="font-serif text-2xl font-light text-[#6D5A60] mb-6">
               Notifications
             </h2>
@@ -584,7 +605,7 @@ export default function SettingsPageClient() {
           </section>
 
           {/* ── Password ────────────────────────────── */}
-          <section className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
+          <section id="security" className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
             <h2 className="font-serif text-2xl font-light text-[#6D5A60] mb-6">
               Password
             </h2>
@@ -664,7 +685,7 @@ export default function SettingsPageClient() {
           </section>
 
           {/* ── Plan ────────────────────────────────── */}
-          <section className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
+          <section id="plan" className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
             <h2 className="font-serif text-2xl font-light text-[#6D5A60] mb-6">
               Plan
             </h2>
@@ -690,7 +711,7 @@ export default function SettingsPageClient() {
           </section>
 
           {/* ── Onboarding ──────────────────────────── */}
-          <section className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
+          <section id="onboarding" className="rounded-[2.5rem] border border-white/60 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.06)] backdrop-blur-xl">
             <h2 className="font-serif text-2xl font-light text-[#6D5A60] mb-4">
               Onboarding
             </h2>
@@ -708,7 +729,7 @@ export default function SettingsPageClient() {
           </section>
 
           {/* ── Danger Zone ─────────────────────────── */}
-          <section className="rounded-[2.5rem] border border-[#FFB5C0]/30 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.04)] backdrop-blur-xl">
+          <section id="account-actions" className={`rounded-[2.5rem] border border-[#FFB5C0]/30 bg-white/50 p-8 shadow-[0_20px_40px_rgba(255,181,192,0.04)] backdrop-blur-xl ${tier === "premium+" ? "lg:col-span-2" : ""}`}>
             <h2 className="font-serif text-2xl font-light text-[#FFB5C0] mb-6">
               Danger zone
             </h2>
@@ -737,6 +758,7 @@ export default function SettingsPageClient() {
               </div>
             </div>
           </section>
+        </div>
         </div>
 
         {/* Footer spacing */}

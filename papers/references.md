@@ -1,6 +1,6 @@
 # Sources and evidence limits
 
-**Release:** 0.10.2 · **Reviewed:** 24 September 2026
+**Release:** 0.11.0 · **Reviewed:** 24 September 2026
 
 This index separates published observations from Luna's design choices. A population mean or SD does not, by itself, estimate a particular person's next cycle.
 
@@ -15,6 +15,7 @@ This index separates published observations from Luna's design choices. A popula
 | Regression tests | [forecast.test.ts](../src/lib/prediction/__tests__/forecast.test.ts), [backtest.test.ts](../src/lib/prediction/__tests__/backtest.test.ts), [engine.test.ts](../src/lib/prediction/__tests__/engine.test.ts) | Date, forecast, leakage, calibration, and retained-engine checks. |
 | Database profile | [db-profile.mts](../scripts/db-profile.mts) | Bounded, read-only aggregate queries and small-cell suppression. |
 | Dashboard and chat | [DashboardClient.tsx](<../src/app/(app)/dashboard/DashboardClient.tsx>), [chat route](../src/app/api/chat/route.ts) | Presentation and deterministic tool integration. |
+| Plan-specific layouts | [server-plan.ts](../src/lib/theme/server-plan.ts), [DashboardClient.tsx](<../src/app/(app)/dashboard/DashboardClient.tsx>), [chat-client.tsx](<../src/app/(app)/chat/chat-client.tsx>), [settings-client.tsx](<../src/app/(app)/settings/settings-client.tsx>), [globals.css](../src/app/globals.css) | Saved-plan lookup, three dashboard/chat/settings layouts, and plan color tokens. |
 | Subscription and reset | [home-client.tsx](../src/app/home-client.tsx), [subscribe route](../src/app/api/subscribe/route.ts), [forgot-password route](../src/app/api/auth/forgot-password/route.ts) | Request forms and email scheduling. |
 
 ## Primary studies
