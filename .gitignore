@@ -80,3 +80,5 @@ luna-logo-datauri.txt
 public/file.svg
 public/globe.svg
 public/window.svg
+
+.env*
