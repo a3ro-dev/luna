@@ -1,6 +1,6 @@
 # Sources and evidence limits
 
-**Release:** 0.11.0 · **Reviewed:** 24 September 2026
+**Release:** 0.11.1 · **Reviewed:** 24 September 2026
 
 This index separates published observations from Luna's design choices. A population mean or SD does not, by itself, estimate a particular person's next cycle.
 

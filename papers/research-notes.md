@@ -1,6 +1,6 @@
 # Forecast audit and reproducibility record
 
-**Release:** 0.10.2 · **Model:** `forecast-v2.0.0` · **Database snapshot:** 24 September 2026
+**Release:** 0.11.1 · **Model:** `forecast-v2.0.0` · **Database snapshot:** 24 September 2026
 
 **Conclusion:** Implementation checks pass; real-user predictive accuracy is undetermined.
 
@@ -91,5 +91,7 @@ The generator shares distributional choices with the candidate. These results de
 During this revision, `pnpm test` passed all 80 tests, and the seed 42 synthetic output reproduced the table above. These checks do not exercise email delivery, authenticated browser flows, or forecast performance in real users.
 
 Product fixes in release 0.10.1 are documented separately from the forecast evidence: the Premium buttons now render the subscription request form, and the password reset route schedules email after the response for a matched account. An unknown address intentionally receives the same public success response without sending mail. Neither behavior was measured in the forecast backtest. [Subscription flow](../src/app/home-client.tsx) · [Reset route](../src/app/api/auth/forgot-password/route.ts)
+
+Release 0.11.0 adds plan-specific dashboard, chat, and settings layouts. The saved account plan selects colors, navigation, and page composition; it does not select a different forecast model, data source, or tool set. This is a presentation change and was not part of the forecast evaluation. [Plan lookup](../src/lib/theme/server-plan.ts) · [Plan tokens](../src/app/globals.css)
 
 The next useful study needs consented, immutable forecast issuance records with issue time, model version, data cutoff, point and interval, profile state, and later outcome linkage. After enough users contribute prospective targets, compare the model with a personal median and rolling mean on a held-out chronological period. Report user-macro error and empirical interval coverage, including denominators and missing-outcome handling. Do not fit pooled priors or report condition subgroups without an adequate consent basis and privacy-safe counts.

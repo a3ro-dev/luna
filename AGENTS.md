@@ -14,7 +14,7 @@ impeccable ~\.agents\skills\impeccable
 # Luna Agent Guide
 
 ## Project Basics
-- Framework: Next.js 15.0.0 (App Router)
+- Framework: Next.js 16.2.4 (App Router)
 - Database: Neon Postgres + Drizzle ORM
 - Auth: Auth.js (NextAuth v5) — Credentials provider only (email + password), JWT strategy
 - AI: Vercel AI SDK v6 + HackClub AI proxy (`x-ai/grok-4.3` for chat, `~anthropic/claude-haiku-latest` for rename)
@@ -70,7 +70,7 @@ impeccable ~\.agents\skills\impeccable
 
 ## Next.js Config
 - `serverExternalPackages: ['@opentelemetry/api']` — prevents vendor chunk `MODULE_NOT_FOUND` crash
-- No `experimental.turbopack` (invalid key in Next.js 15.0.0)
+- No `experimental.turbopack` (invalid configuration key)
 - If `.next` cache corrupts: delete `.next` and `node_modules/.cache`, restart dev server
 
 ## AI Tools (10 total)
@@ -109,12 +109,11 @@ impeccable ~\.agents\skills\impeccable
 - Apply: `pnpm drizzle-kit migrate`
 
 ## Prediction Engine
-- Adaptive exponential smoothing with population priors (ACOG data)
-- Parameters: cycle_length, period_length, follicular, luteal
-- Skip/anomaly gate: cycles > 45 days flagged as missed logs
-- Outlier soft-clamp at 2.5σ
-- Cold start: blends with population prior until 6+ observations
-- `refreshCycleAnalytics()` recomputes all derived columns + prediction params on every cycle write
+- `forecast-v2.0.0` is the current dashboard and chat forecast path; the older smoother remains only as a comparator.
+- It models start-to-start intervals on a log scale, uses a cautious population starting point, and returns a central 80% next-start window.
+- It considers at most 12 usable intervals. Very short intervals and isolated long gaps may be set aside; repeated long gaps can become part of the pattern.
+- Calendar ovulation is an estimate, not an observation, and is withheld for profiles where date-based timing is especially unsuitable.
+- `refreshCycleAnalytics()` recomputes derived columns and retained prediction parameters on every cycle write.
 
 ## Response Style
 - Plain text responses in the UI by default

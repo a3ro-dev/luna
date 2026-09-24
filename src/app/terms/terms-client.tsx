@@ -56,7 +56,7 @@ export default function TermsOfUseClient() {
               Terms of Use
             </h1>
             <p className="text-sm font-light text-[#8E7D82]">
-              Last updated June 18, 2026
+              Last updated September 24, 2026
             </p>
           </div>
         </div>
@@ -243,7 +243,7 @@ const SECTIONS: Section[] = [
             >
               forecast.ts
             </Link>{" "}
-            and its 68 vitest tests in{" "}
+            and the forecast test suite in{" "}
             <Link
               href="https://github.com/a3ro-dev/luna/blob/main/src/lib/prediction/__tests__/engine.test.ts"
               target="_blank"

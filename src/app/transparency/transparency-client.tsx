@@ -56,7 +56,7 @@ export default function TransparencyClient() {
               Transparency
             </h1>
             <p className="text-sm font-light text-[#8E7D82]">
-              Last updated June 18, 2026
+              Last updated September 24, 2026
             </p>
           </div>
         </div>
@@ -215,8 +215,9 @@ const SECTIONS: Section[] = [
             Luna&apos;s predictions are. The automated suite and synthetic
             backtests verify the implementation, but the live dataset is too
             small for a responsible accuracy comparison. Predictions are
-            statistical estimates and may be wrong. There are 80 vitest tests,
-            but no clinical validation or publishable real-world benchmark.
+            statistical estimates and may be wrong. Automated regression tests
+            check the implementation, but there is no clinical validation or
+            publishable real-world benchmark.
           </li>
           <li>
             <strong>Not HIPAA-compliant.</strong> While Neon (our database)
@@ -368,8 +369,9 @@ const SECTIONS: Section[] = [
             </h3>
             <p>
               US 501(c)(3) nonprofit. Provides free AI and search to its
-              community. Luna&apos;s AI proxy sends prompts to OpenRouter
-              (routing to xAI, Anthropic). Search goes to Brave.
+              community. Luna&apos;s AI proxy sends prompts to OpenRouter, which
+              may route them to xAI or Anthropic. Web search requests use
+              HackClub&apos;s search API.
             </p>
             <div className="mt-2 flex items-start gap-2 p-2 rounded-lg bg-[#FFDDE0]/20">
               <span className="text-[#FFB5C0] shrink-0 text-base">⚠</span>
@@ -438,7 +440,7 @@ const SECTIONS: Section[] = [
               ["Cycle records", "Neon (AWS)", "—", "SOC 2 audited; no HIPAA"],
               ["Chat messages", "Neon (AWS)", "HackClub → OpenRouter → xAI/Anthropic", "Full prompt+response logged by HackClub"],
               ["Personal facts", "Supermemory", "Possibly OpenAI/Gemini", "No at-rest encryption documented"],
-              ["Web searches", "—", "HackClub → Brave", "Full query+headers logged"],
+              ["Web searches", "—", "HackClub search API", "Subject to HackClub's handling"],
               ["Auth credentials", "Neon (AWS)", "—", "bcryptjs hashed"],
             ].map(([type, stored, processed, logging]) => (
               <tr key={type} className="border-b border-[#FFDDE0]/10">
@@ -616,12 +618,13 @@ const SECTIONS: Section[] = [
     title: "Same AI model for all plans",
     content: (
       <p>
-        Luna has three pricing tiers (Free, Premium at $5/month, Premium+ at
-        $12/month), but all use the same AI model — Grok 4.3 via HackClub proxy.
-        The differences are the interface layout and the tone of the AI&apos;s
-        responses (practical, warm, or empathetic). Predictions, accuracy, and
-        capabilities are identical across all tiers. You are not getting worse predictions on
-        the free plan. The persona prompts are defined in{" "}
+        Luna has three pricing tiers: Free, Premium at $5/month, and Premium+
+        at $12/month. All use the same Grok 4.3 chat model through the
+        HackClub proxy, the same cycle data, the same forecast service, and
+        the same chat tools. Plans change page composition, color, navigation,
+        and conversational tone. Free is calendar-first; Premium adds guided
+        navigation and a chat rail; Premium+ adds a split dashboard and
+        wide-screen cycle context. The persona prompts are defined in{" "}
         <Link
           href="https://github.com/a3ro-dev/luna/blob/main/src/lib/chat/models.ts"
           target="_blank"

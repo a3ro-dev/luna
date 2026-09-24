@@ -2,7 +2,7 @@
 
 Thanks for taking the time to contribute.
 
-Luna is a soft, supportive menstrual cycle companion built with Next.js 15, Neon Postgres, and the Vercel AI SDK. Bug fixes, features, docs, ideas -- all welcome.
+Luna is a soft, supportive menstrual cycle companion built with Next.js 16, Neon Postgres, and the Vercel AI SDK. Bug fixes, features, docs, and ideas are welcome.
 
 ## Table of contents
 
@@ -35,7 +35,7 @@ Be kind, respectful, and constructive. This is a health app -- be mindful that d
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - pnpm 9+ (`npm i -g pnpm`)
 - Neon PostgreSQL database (free tier works)
 - API keys for: HackClub AI, Supermemory, Resend (see `.env.example`)
@@ -69,7 +69,7 @@ src/
     ├── cycle-tools.ts      # 10 AI tools (logging, predictions, stats)
     ├── db/                 # Drizzle schema, connection
     ├── email/              # Resend email templates
-    ├── prediction/         # Adaptive exponential smoothing engine
+    ├── prediction/         # forecast-v2 service, retained engine, and tests
     └── theme/              # Plan-based accent colors
 ```
 
@@ -97,7 +97,7 @@ src/
 
 - Tailwind v4 -- use utility classes, no custom CSS files unless necessary
 - Color palette: `#6D5A60` (mauve text), `#8E7D82` (dusk secondary), `#FFB5C0` (rose accent), `#FFDDE0` (blush border), `#FFF9F9` (cream bg)
-- Font: `font-serif` for headings (Instrument Serif), `font-sans` for body (Figtree)
+- Font: `font-serif` for headings (Instrument Serif), `font-sans` for body (DM Sans)
 - Border radius: `rounded-full` for pills, `rounded-2xl` or `rounded-3xl` for cards
 - Mobile-first: always design for mobile, then scale up with `md:` and `lg:` breakpoints
 

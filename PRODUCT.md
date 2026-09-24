@@ -52,9 +52,10 @@ Layout and persona differentiation. No model gating, no feature gating, no capab
 ### Cycle tracking
 - NLP logging via chat ("my period started today", "cramps after coffee")
 - 10 AI tools: logPeriodStart, logPeriodEnd, logOvulation, addNoteSymptom, fetchRecentCycles, computePredictions, fetchStats, exportData, rememberFact, searchWeb
-- Adaptive exponential smoothing with population priors (ACOG data)
-- Anomaly detection (cycles > 45 days flagged)
-- Cold start blends with population prior until 6+ observations
+- `forecast-v2.0.0`: a posterior-predictive next-start estimate with a central 80% likely window
+- A log-scale cycle model with cautious population starting values and up to 12 usable personal intervals
+- Short-gap and isolated-long-gap rules that preserve uncertain records while keeping them out of a forecast when appropriate
+- Calendar ovulation estimates withheld for profiles where date-based timing is especially unsuitable
 
 ### Chat
 - Session-based conversations with auto-rename
@@ -74,7 +75,7 @@ Layout and persona differentiation. No model gating, no feature gating, no capab
 - Profile (name, email)
 - Cycle preferences (DOB, timezone, week start, health conditions)
 - Password change with forgot-password flow
-- Plan display with upgrade path
+- Plan display with an upgrade path; the landing-page form requests follow-up and does not activate a plan
 - Redo onboarding from settings
 
 ### Onboarding

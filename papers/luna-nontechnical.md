@@ -1,6 +1,6 @@
 # What Luna can tell you about your cycle
 
-**Release:** 0.11.0 · **Reviewed:** 24 September 2026
+**Release:** 0.11.1 · **Reviewed:** 24 September 2026
 
 Luna lets you log periods and symptoms in chat and review them on a calendar. It uses your period starts to estimate when the next one might begin. It is a record-keeping and forecasting tool, not a medical device or a way to diagnose a condition.
 

@@ -56,7 +56,7 @@ export default function PrivacyPolicyClient() {
               Privacy Policy
             </h1>
             <p className="text-sm font-light text-[#8E7D82]">
-              Last updated June 18, 2026
+              Last updated September 24, 2026
             </p>
           </div>
         </div>
@@ -249,7 +249,7 @@ const SECTIONS: Section[] = [
         </div>
         <p className="mt-3 text-[#8E7D82] text-xs">
           Neon was acquired by Databricks in May 2025. Privacy policy now falls
-          under Databricks' legal framework. Luna uses Neon's HTTP
+          under Databricks&apos; legal framework. Luna uses Neon&apos;s HTTP
           serverless driver with <code>cache: no-store</code> to prevent Vercel
           from caching query results.{" "}
           <a
@@ -281,8 +281,8 @@ const SECTIONS: Section[] = [
         <p>
           All AI chat goes through HackClub&apos;s infrastructure, a US 501(c)(3)
           nonprofit. Their proxy forwards prompts to OpenRouter, which then routes
-          to xAI (Grok) and Anthropic (Claude). Web searches go through Brave Search
-          via HackClub&apos;s search API.
+          to xAI (Grok) and Anthropic (Claude). Web searches use HackClub&apos;s
+          search API.
         </p>
         <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4 mt-2 space-y-3 text-xs">
           <div className="flex items-start gap-3">

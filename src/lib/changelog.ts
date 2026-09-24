@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.11.1",
+    date: "2026-09-24",
+    type: "docs",
+    title: "Bring project documentation in line with the current release",
+    description:
+      "Updated repository and in-app documentation for Next.js 16, forecast-v2, the eight-table schema, and plan-specific layouts. The docs now state clearly that plans alter presentation, not forecasting or health features.",
+  },
+  {
     version: "0.11.0",
     date: "2026-09-24",
     type: "feat",

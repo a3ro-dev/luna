@@ -1,6 +1,6 @@
 # Luna's cycle forecast: model and evaluation
 
-**Release:** 0.10.2 · **Model:** `forecast-v2.0.0` · **Reviewed:** 24 September 2026
+**Release:** 0.11.1 · **Model:** `forecast-v2.0.0` · **Reviewed:** 24 September 2026
 
 **Status:** Implemented; predictive accuracy in real users is unknown.
 
@@ -14,7 +14,7 @@ The available database snapshot has 25 cycle rows from five users. Only four use
 
 A cycle length is the number of calendar days between consecutive period starts. Bleeding duration counts both the start and end date. A missing end date is not turned into a duration. The model uses ISO calendar dates; the caller supplies the current date in the user's timezone. The forecast excludes starts after that date and deduplicates equal starts. [Forecast implementation](../src/lib/prediction/forecast.ts)
 
-The service returns the model version, data cutoff, number of usable and set-aside intervals, next-start point date and window, status, caveats, and an optional calendar ovulation estimate. With no logged start, it does not invent a personal next-start date. The dashboard distinguishes logged events from estimates. [Shared service](../src/lib/cycle-tools.ts) · [Dashboard](<../src/app/(app)/dashboard/DashboardClient.tsx>)
+The service returns the model version, data cutoff, number of usable and set-aside intervals, next-start point date and window, status, caveats, and an optional calendar ovulation estimate. With no logged start, it does not invent a personal next-start date. The dashboard distinguishes logged events from estimates. The selected plan changes the dashboard, chat, and settings composition only; it does not change this service or its inputs. [Shared service](../src/lib/cycle-tools.ts) · [Dashboard](<../src/app/(app)/dashboard/DashboardClient.tsx>) · [Plan lookup](../src/lib/theme/server-plan.ts)
 
 Cycle writes reject impossible or future dates, reversed ranges, duplicate starts, overlapping bleeding ranges, and bleeding longer than 14 days. Import checks the prospective set before inserting. These are input rules, not claims about what bleeding durations are medically possible. [Cycle writes](../src/lib/cycle-tools.ts) · [Import route](../src/app/api/data/import/route.ts)
 
