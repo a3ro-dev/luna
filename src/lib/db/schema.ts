@@ -79,7 +79,7 @@ export const cycles = pgTable("cycles", {
   mEnd: pgDate("m_end"),
   ovulationDate: pgDate("ovulation_date"),
   cycleLength: integer("cycle_length"), // derived: this.mStart - prev.mStart
-  periodLength: integer("period_length"), // derived: mEnd - mStart
+  periodLength: integer("period_length"), // derived inclusive: mEnd - mStart + 1
   follicularLength: integer("follicular_length"), // derived: ovulation - mEnd
   lutealLength: integer("luteal_length"), // derived: nextStart - ovulation
   isAnomaly: boolean("is_anomaly").default(false), // flagged by skip gate

@@ -312,8 +312,6 @@ describe("resolveEffectivePrior", () => {
   it("mixture variance includes between-condition spread", () => {
     // Two conditions with very different means should have higher blended variance
     // than a simple inverse-variance pool (which would underestimate spread).
-    const pcosOnly = resolveEffectivePrior(["pcos"]);
-    const endoOnly = resolveEffectivePrior(["endometriosis"]);
     const combined = resolveEffectivePrior(["pcos", "endometriosis"]);
 
     // The combined variance should be larger than the simple inverse-variance
