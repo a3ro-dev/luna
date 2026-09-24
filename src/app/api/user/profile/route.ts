@@ -6,6 +6,7 @@ import { eq, and, ne } from "drizzle-orm";
 import { compare, hash } from "bcryptjs";
 import { profileUpdateSchema } from "@/lib/schemas/auth";
 import { logError } from "@/lib/utils";
+import { refreshCycleAnalytics } from "@/lib/cycle-tools";
 
 const MAX_DOB_EDITS = 2;
 
@@ -197,6 +198,10 @@ export async function PATCH(req: Request) {
     // ── Persist updates ───────────────────────────────
     if (Object.keys(updates).length > 0) {
       await db.update(users).set(updates).where(eq(users.id, userId));
+    }
+
+    if (conditions !== undefined || perimenoStage !== undefined) {
+      await refreshCycleAnalytics(userId);
     }
 
     // ── Fetch fresh state for response ────────────────

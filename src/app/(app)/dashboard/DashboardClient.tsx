@@ -16,18 +16,13 @@ interface CycleRow {
   isAnomaly: boolean | null;
 }
 
-interface PredictionParam {
-  paramName: string;
-  smoothedValue: number;
-  variance: number;
-}
-
 interface CalendarDay {
   day: number;
   isToday: boolean;
   isPeriod: boolean;
   isPredicted: boolean;
   isOvulation: boolean;
+  isPredictedOvulation: boolean;
   isFollicular: boolean;
   isLuteal: boolean;
 }
@@ -35,14 +30,16 @@ interface CalendarDay {
 interface DashboardClientProps {
   userName: string;
   nextPeriodDate: string;
-  nextOvulationDate: string | null;
-  daysToNextPeriod: number;
-  daysToOvulation: number | null;
-  avgCycleLength: number;
+  nextPeriodWindow: string | null;
+  forecastStatus: string;
+  forecastBasis: string;
+  forecastCaveats: string[];
+  nextOvulationWindow: string | null;
+  ovulationNote: string | null;
+  avgCycleLength: number | null;
   avgPeriodLength: number;
   cyclesTracked: number;
-  consistency: "High" | "Moderate" | "Varied";
-  consistencyVariance: number;
+  consistency: "Learning" | "High" | "Moderate" | "Varied";
   monthName: string;
   calendarDays: CalendarDay[];
   firstDayOffset: number;
@@ -90,7 +87,7 @@ const shimmerKeyframes = `
 
 /* ─── Sub-components ─── */
 
-function Nav({ userName }: { userName: string }) {
+function Nav() {
   return (
     <motion.nav
       className="flex items-center justify-between gap-3 mb-10 md:mb-14 min-w-0"
@@ -165,12 +162,14 @@ function PredictionCard({
   labelColor,
   date,
   subtitle,
+  detail,
   index,
 }: {
   label: string;
   labelColor: string;
   date: string;
   subtitle: string;
+  detail?: string;
   index: number;
 }) {
   const shouldReduceMotion = useReducedMotion();
@@ -210,6 +209,11 @@ function PredictionCard({
         {date}
       </p>
       <p className="mt-2 text-sm font-light text-[#8E7D82]">{subtitle}</p>
+      {detail ? (
+        <p className="mt-3 max-w-[42ch] text-xs font-light leading-relaxed text-[#8E7D82]/80">
+          {detail}
+        </p>
+      ) : null}
     </motion.div>
   );
 }
@@ -308,6 +312,7 @@ function Calendar({
               isPeriod,
               isPredicted,
               isOvulation,
+              isPredictedOvulation,
               isFollicular,
               isLuteal,
             } = dayData;
@@ -331,6 +336,10 @@ function Calendar({
             } else if (isOvulation) {
               bg = "bg-[#FBE6B6]/60";
               text = "text-[#6D5A60]";
+            } else if (isPredictedOvulation) {
+              bg = "bg-transparent";
+              text = "text-[#6D5A60]";
+              predictedStyle = "border border-dashed border-[#E4C979]";
             } else if (isFollicular) {
               bg = "bg-[#D6CBE3]/15";
             } else if (isLuteal) {
@@ -363,10 +372,13 @@ function Calendar({
         </span>
         <span className="flex items-center gap-2">
           <span className="h-3 w-3 rounded-full border border-dashed border-[#FFB5C0]" />{" "}
-          Predicted
+          Likely start window
         </span>
         <span className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full bg-[#FBE6B6]/60" /> Ovulation
+          <span className="h-3 w-3 rounded-full bg-[#FBE6B6]/60" /> Logged ovulation
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-full border border-dashed border-[#E4C979]" /> Estimated ovulation
         </span>
         <span className="flex items-center gap-2">
           <span className="h-3 w-3 rounded-full bg-[#D6CBE3]/20" /> Follicular
@@ -382,15 +394,17 @@ function Calendar({
 function ConsistencyIndicator({
   level,
 }: {
-  level: "High" | "Moderate" | "Varied";
+  level: "Learning" | "High" | "Moderate" | "Varied";
 }) {
   const colors = {
+    Learning: "bg-[#D6CBE3]",
     High: "bg-emerald-400",
     Moderate: "bg-amber-300",
     Varied: "bg-[#FFB5C0]",
   };
 
   const barWidths = {
+    Learning: "w-2",
     High: "w-4",
     Moderate: "w-3",
     Varied: "w-2",
@@ -414,22 +428,20 @@ function RhythmSection({
   cyclesTracked,
   consistency,
 }: {
-  avgCycleLength: number;
+  avgCycleLength: number | null;
   avgPeriodLength: number;
   cyclesTracked: number;
-  consistency: "High" | "Moderate" | "Varied";
+  consistency: "Learning" | "High" | "Moderate" | "Varied";
 }) {
-  const shouldReduceMotion = useReducedMotion();
-
   const stats = [
     {
-      label: "Avg Cycle",
+      label: "Typical Cycle",
       value: avgCycleLength,
       suffix: "days",
       labelColor: "text-[#FFB5C0]",
     },
     {
-      label: "Avg Period",
+      label: "Typical Period",
       value: avgPeriodLength,
       suffix: "days",
       labelColor: "text-[#FFB5C0]",
@@ -482,8 +494,10 @@ function RhythmSection({
               </p>
             ) : (
               <p className="font-serif text-3xl font-light text-[#6D5A60] tabular-nums">
-                {stat.value}
-                <span className="text-base text-[#8E7D82]"> {stat.suffix}</span>
+                {stat.value ?? "Learning"}
+                {stat.value != null ? (
+                  <span className="text-base text-[#8E7D82]"> {stat.suffix}</span>
+                ) : null}
               </p>
             )}
           </motion.div>
@@ -494,8 +508,6 @@ function RhythmSection({
 }
 
 function RecentCycles({ cycles }: { cycles: CycleRow[] }) {
-  const shouldReduceMotion = useReducedMotion();
-
   if (cycles.length === 0) {
     return (
       <motion.section
@@ -561,8 +573,8 @@ function RecentCycles({ cycles }: { cycles: CycleRow[] }) {
             </div>
             <div>
               {c.isAnomaly && (
-                <span className="text-[9px] font-semibold uppercase tracking-widest text-[#FFB5C0] bg-[#FFB5C0]/10 px-3 py-1 rounded-full animate-[subtlePulse_2s_ease-in-out_infinite]">
-                  Unusual
+                <span className="text-[9px] font-semibold uppercase tracking-widest text-[#FFB5C0] bg-[#FFB5C0]/10 px-3 py-1 rounded-full">
+                  Set aside
                 </span>
               )}
             </div>
@@ -579,9 +591,12 @@ export default function DashboardClient(props: DashboardClientProps) {
   const {
     userName,
     nextPeriodDate,
-    nextOvulationDate,
-    daysToNextPeriod,
-    daysToOvulation,
+    nextPeriodWindow,
+    forecastStatus,
+    forecastBasis,
+    forecastCaveats,
+    nextOvulationWindow,
+    ovulationNote,
     avgCycleLength,
     avgPeriodLength,
     cyclesTracked,
@@ -592,23 +607,13 @@ export default function DashboardClient(props: DashboardClientProps) {
     cycles,
   } = props;
 
-  const formatSubtext = (
-    days: number,
-    dueLabel: string,
-    tomorrowLabel: string,
-  ) => {
-    if (days <= 0) return dueLabel;
-    if (days === 1) return tomorrowLabel;
-    return `In ${days} days`;
-  };
-
   return (
     <div className="min-h-screen bg-[#FFF9F9] text-[#8E7D82] font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
       {/* Inject keyframes for CSS animations */}
       <style dangerouslySetInnerHTML={{ __html: shimmerKeyframes }} />
 
       <div className="mx-auto max-w-5xl px-5 py-8 md:px-12 md:py-12">
-        <Nav userName={userName} />
+        <Nav />
         <Hero userName={userName} />
 
         {/* Prediction cards */}
@@ -617,28 +622,40 @@ export default function DashboardClient(props: DashboardClientProps) {
             label="Next Period"
             labelColor="text-[#FFB5C0]"
             date={nextPeriodDate}
-            subtitle={formatSubtext(daysToNextPeriod, "Due now", "Tomorrow")}
+            subtitle={nextPeriodWindow ?? forecastStatus}
+            detail={nextPeriodWindow ? forecastStatus : forecastBasis}
             index={0}
           />
-          {nextOvulationDate != null && daysToOvulation != null ? (
+          {nextOvulationWindow != null ? (
             <PredictionCard
               label="Estimated Ovulation"
               labelColor="text-[#FBE6B6]"
-              date={nextOvulationDate}
-              subtitle={formatSubtext(daysToOvulation, "Passed", "Tomorrow")}
+              date={nextOvulationWindow}
+              subtitle="Rough calendar estimate, not confirmed ovulation"
               index={1}
             />
           ) : (
             <PredictionCard
               label="Ovulation"
               labelColor="text-[#FBE6B6]"
-              date="Suppressed"
-              subtitle="Hormonal birth control suppresses ovulation"
+              date="Not estimated"
+              subtitle={ovulationNote ?? "There is not enough suitable information for a useful estimate."}
               index={1}
             />
           )}
           <AskLunaCard index={2} />
         </div>
+
+        <section className="mb-10 max-w-3xl" aria-label="How this forecast was made">
+          <p className="text-sm font-light leading-relaxed text-[#8E7D82]">
+            {forecastBasis}
+          </p>
+          {forecastCaveats.slice(0, 2).map((caveat) => (
+            <p key={caveat} className="mt-1 text-xs font-light leading-relaxed text-[#8E7D82]/80">
+              {caveat}
+            </p>
+          ))}
+        </section>
 
         <Calendar
           monthName={monthName}

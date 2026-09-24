@@ -1,55 +1,30 @@
 import { db } from "@/lib/db";
 import { cycles, predictionParams, users } from "@/lib/db/schema";
+import type { PerimenoStage } from "@/lib/prediction/engine";
 import {
-  blendWithPrior,
-  predictNextCycle,
-  exponentialSmooth,
-  resolveEffectivePrior,
-  skipGate,
-  computeAdaptiveAlpha,
-  deriveFollicularLength,
-  type PerimenoStage,
-  type PredictionResult,
-} from "@/lib/prediction/engine";
-import { asc, eq, and } from "drizzle-orm";
+  CYCLE_SCALE,
+  INTERVAL_LEVEL,
+  describeForecast,
+  forecast,
+  predictMetric,
+  resolveForecastPrior,
+  usableMask,
+  type Forecast,
+} from "@/lib/prediction/forecast";
+import { and, asc, eq } from "drizzle-orm";
 
 const DAY_MS = 86_400_000;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+/** Longest bleed we accept as one logged period. */
+export const MAX_PERIOD_DAYS = 15;
+/** A new start this close to an existing one is probably the same period. */
+const CLOSE_START_DAYS = 15;
 const MONTHS: Record<string, number> = {
-  january: 0,
-  jan: 0,
-  february: 1,
-  feb: 1,
-  march: 2,
-  mar: 2,
-  april: 3,
-  apr: 3,
-  may: 4,
-  june: 5,
-  jun: 5,
-  july: 6,
-  jul: 6,
-  august: 7,
-  aug: 7,
-  september: 8,
-  sep: 8,
-  sept: 8,
-  october: 9,
-  oct: 9,
-  november: 10,
-  nov: 10,
-  december: 11,
-  dec: 11,
+  january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2, april: 3, apr: 3,
+  may: 4, june: 5, jun: 5, july: 6, jul: 6, august: 7, aug: 7,
+  september: 8, sep: 8, sept: 8, october: 9, oct: 9, november: 10, nov: 10,
+  december: 11, dec: 11,
 };
-
-const PARAM_TO_METRIC = {
-  cycle_length: "cycleLength",
-  period_length: "periodLength",
-  follicular: "follicularLength", // derived: cycleLength + 1 - periodLength - lutealLength
-  luteal: "lutealLength",
-} as const;
-
-export type PredictionParamName = keyof typeof PARAM_TO_METRIC;
 
 export type CycleNotes = Record<string, string[]>;
 
@@ -60,8 +35,6 @@ export type CycleSummary = {
   ovulationDate: string | null;
   cycleLength: number | null;
   periodLength: number | null;
-  follicularLength: number | null;
-  lutealLength: number | null;
   isAnomaly: boolean | null;
   notes: CycleNotes;
 };
@@ -79,26 +52,12 @@ type CycleRow = {
   notes: unknown;
 };
 
-type PredictionParamRow = {
-  paramName: PredictionParamName;
-  smoothedValue: number;
-  variance: number;
-  sampleCount: number;
-};
-
 type ParsedDate = {
   isoDate: string | null;
   reason?: string;
 };
 
-type AnalyticsResult = {
-  cycles: CycleRow[];
-  cycleLengths: number[];
-  periodLengths: number[];
-  follicularLengths: number[];
-  lutealLengths: number[];
-};
-
+// ─── Dates ───────────────────────────────────────────────────────
 const toUtcDate = (isoDate: string) => new Date(`${isoDate}T12:00:00.000Z`);
 
 const formatIsoDate = (year: number, monthIndex: number, day: number) =>
@@ -139,20 +98,13 @@ function getDatePartsInTimeZone(reference: Date, timeZone: string) {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(reference);
-
-  const year = Number(
-    parts.find((part) => part.type === "year")?.value ??
-      reference.getUTCFullYear(),
-  );
-  const month = Number(
-    parts.find((part) => part.type === "month")?.value ??
-      reference.getUTCMonth() + 1,
-  );
-  const day = Number(
-    parts.find((part) => part.type === "day")?.value ?? reference.getUTCDate(),
-  );
-
-  return { year, month, day };
+  const get = (type: string, fallback: number) =>
+    Number(parts.find((part) => part.type === type)?.value ?? fallback);
+  return {
+    year: get("year", reference.getUTCFullYear()),
+    month: get("month", reference.getUTCMonth() + 1),
+    day: get("day", reference.getUTCDate()),
+  };
 }
 
 export function getCurrentIsoDate(
@@ -184,6 +136,20 @@ function isValidCalendarDate(year: number, monthIndex: number, day: number) {
   );
 }
 
+export function isValidIsoDate(value: string): boolean {
+  if (!ISO_DATE_RE.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  return isValidCalendarDate(year, month - 1, day);
+}
+
+/**
+ * Resolve a user-supplied date to YYYY-MM-DD in the user's timezone.
+ *
+ * Deliberately conservative: numeric dates where day and month could be
+ * swapped (e.g. 05/09) are reported as ambiguous instead of guessed, and a
+ * month-day without a year that would land in the future is read as last
+ * year (people log past periods, not future ones).
+ */
 export function normalizeDateInput(
   input: string | null | undefined,
   timeZone: string,
@@ -196,165 +162,137 @@ export function normalizeDateInput(
   const trimmed = input.trim();
   const lower = trimmed.toLowerCase();
   const resolvedTimeZone = sanitizeTimeZone(timeZone);
+  const today = getCurrentIsoDate(resolvedTimeZone, reference);
+  const currentYear = Number(today.slice(0, 4));
 
   if (ISO_DATE_RE.test(trimmed)) {
-    return { isoDate: trimmed };
+    const [y, m, d] = trimmed.split("-").map(Number);
+    return isValidCalendarDate(y, m - 1, d)
+      ? { isoDate: trimmed }
+      : { isoDate: null, reason: "unparseable-date" };
   }
 
-  if (lower === "today" || lower === "now") {
-    return { isoDate: getCurrentIsoDate(resolvedTimeZone, reference) };
-  }
+  if (lower === "today" || lower === "now") return { isoDate: today };
+  if (lower === "yesterday") return { isoDate: addDaysToIsoDate(today, -1) };
+  if (lower === "day before yesterday") return { isoDate: addDaysToIsoDate(today, -2) };
 
-  if (lower === "yesterday") {
-    return {
-      isoDate: addDaysToIsoDate(
-        getCurrentIsoDate(resolvedTimeZone, reference),
-        -1,
-      ),
-    };
-  }
+  const agoMatch = lower.match(/^(\d{1,3}) days? ago$/);
+  if (agoMatch) return { isoDate: addDaysToIsoDate(today, -Number(agoMatch[1])) };
 
-  const monthMatch = trimmed.match(
-    /^(?<month>[A-Za-z]+)\s+(?<day>\d{1,2})(?:st|nd|rd|th)?(?:,\s*(?<year>\d{4}))?$/,
-  );
+  const monthMatch =
+    trimmed.match(/^(?<month>[A-Za-z]+)\.?\s+(?<day>\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(?<year>\d{4}))?$/) ??
+    trimmed.match(/^(?<day>\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?<month>[A-Za-z]+)\.?(?:,?\s*(?<year>\d{4}))?$/);
   if (monthMatch?.groups) {
     const monthIndex = MONTHS[monthMatch.groups.month.toLowerCase()];
     const day = Number(monthMatch.groups.day);
-    const year = Number(
-      monthMatch.groups.year ??
-        getDatePartsInTimeZone(reference, resolvedTimeZone).year,
-    );
-
-    if (
-      Number.isInteger(monthIndex) &&
-      isValidCalendarDate(year, monthIndex, day)
-    ) {
-      return { isoDate: formatIsoDate(year, monthIndex, day) };
+    const explicitYear = monthMatch.groups.year;
+    let year = Number(explicitYear ?? currentYear);
+    if (Number.isInteger(monthIndex) && isValidCalendarDate(year, monthIndex, day)) {
+      if (!explicitYear && formatIsoDate(year, monthIndex, day) > today) year -= 1;
+      if (isValidCalendarDate(year, monthIndex, day)) {
+        return { isoDate: formatIsoDate(year, monthIndex, day) };
+      }
     }
   }
 
   const slashMatch = trimmed.match(
-    /^(?<month>\d{1,2})\/(?<day>\d{1,2})(?:\/(?<year>\d{2,4}))?$/,
+    /^(?<a>\d{1,2})[/.-](?<b>\d{1,2})(?:[/.-](?<year>\d{2}|\d{4}))?$/,
   );
   if (slashMatch?.groups) {
-    const monthIndex = Number(slashMatch.groups.month) - 1;
-    const day = Number(slashMatch.groups.day);
+    const a = Number(slashMatch.groups.a);
+    const b = Number(slashMatch.groups.b);
+    if (a <= 12 && b <= 12 && a !== b) {
+      return { isoDate: null, reason: "ambiguous-date" };
+    }
+    // Whichever part can only be a day is the day.
+    const [monthIndex, day] = a > 12 ? [b - 1, a] : [a - 1, b];
     const rawYear = slashMatch.groups.year;
     const year = rawYear
-      ? rawYear.length === 2
-        ? Number(`20${rawYear}`)
-        : Number(rawYear)
-      : getDatePartsInTimeZone(reference, resolvedTimeZone).year;
-
-    if (
-      Number.isInteger(monthIndex) &&
-      isValidCalendarDate(year, monthIndex, day)
-    ) {
+      ? rawYear.length === 2 ? 2000 + Number(rawYear) : Number(rawYear)
+      : currentYear;
+    if (isValidCalendarDate(year, monthIndex, day)) {
       return { isoDate: formatIsoDate(year, monthIndex, day) };
     }
-  }
-
-  const parsed = new Date(trimmed);
-  if (!Number.isNaN(parsed.getTime())) {
-    const parts = getDatePartsInTimeZone(parsed, resolvedTimeZone);
-    return { isoDate: formatIsoDate(parts.year, parts.month - 1, parts.day) };
   }
 
   return { isoDate: null, reason: "unparseable-date" };
 }
 
+const DATE_QUESTIONS: Record<string, string> = {
+  "ambiguous-date":
+    "just to be sure -- is that day/month or month/day? could you tell me the month by name?",
+  "future-date": "that date is in the future -- which past date did you mean?",
+};
+
+function clarify(question: string, extra: Record<string, unknown> = {}) {
+  return {
+    ok: false as const,
+    responseMode: "plain" as const,
+    kind: "clarification" as const,
+    needsClarification: true,
+    question,
+    ...extra,
+  };
+}
+
+/** Parse a date for a log entry; returns the ISO date or a clarification. */
+function parseLogDate(input: string | undefined, timeZone: string, what: string) {
+  const parsed = normalizeDateInput(input, timeZone);
+  if (!parsed.isoDate) {
+    return {
+      error: clarify(
+        DATE_QUESTIONS[parsed.reason ?? ""] ?? `I need a clear ${what} date before I can log that. What date should I use?`,
+        { reason: parsed.reason },
+      ),
+    };
+  }
+  if (parsed.isoDate > getCurrentIsoDate(timeZone)) {
+    return { error: clarify(DATE_QUESTIONS["future-date"], { reason: "future-date", date: parsed.isoDate }) };
+  }
+  return { isoDate: parsed.isoDate };
+}
+
+// ─── Notes ───────────────────────────────────────────────────────
 export function normalizeCycleNotes(notes: unknown): CycleNotes {
   if (!notes || typeof notes !== "object" || Array.isArray(notes)) {
     return {};
   }
 
   const normalized: CycleNotes = {};
+  const clean = (items: unknown[]) =>
+    items
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
 
-  for (const [dateKey, value] of Object.entries(
-    notes as Record<string, unknown>,
-  )) {
+  for (const [dateKey, value] of Object.entries(notes as Record<string, unknown>)) {
+    const entries: string[] = [];
     if (Array.isArray(value)) {
-      const entries = value
-        .filter((item): item is string => typeof item === "string")
-        .map((item) => item.trim())
-        .filter((item) => item.length > 0);
-
-      if (entries.length > 0) {
-        normalized[dateKey] = Array.from(new Set(entries));
-      }
-      continue;
-    }
-
-    if (typeof value === "string") {
-      const entry = value.trim();
-      if (entry.length > 0) {
-        normalized[dateKey] = [entry];
-      }
-      continue;
-    }
-
-    if (value && typeof value === "object") {
+      entries.push(...clean(value));
+    } else if (typeof value === "string") {
+      entries.push(...clean([value]));
+    } else if (value && typeof value === "object") {
       const record = value as Record<string, unknown>;
-      const entries: string[] = [];
-
-      if (Array.isArray(record.entries)) {
-        entries.push(
-          ...record.entries
-            .filter((item): item is string => typeof item === "string")
-            .map((item) => item.trim())
-            .filter((item) => item.length > 0),
-        );
-      }
-
-      if (typeof record.note === "string" && record.note.trim().length > 0) {
-        entries.push(record.note.trim());
-      }
-
-      if (typeof record.text === "string" && record.text.trim().length > 0) {
-        entries.push(record.text.trim());
-      }
-
-      if (
-        typeof record.symptom === "string" &&
-        record.symptom.trim().length > 0
-      ) {
-        entries.push(`symptom: ${record.symptom.trim()}`);
-      }
-
+      if (Array.isArray(record.entries)) entries.push(...clean(record.entries));
+      entries.push(...clean([record.note, record.text]));
+      const [symptom] = clean([record.symptom]);
+      if (symptom) entries.push(`symptom: ${symptom}`);
       if (Array.isArray(record.symptoms)) {
-        const symptoms = record.symptoms
-          .filter((item): item is string => typeof item === "string")
-          .map((item) => item.trim())
-          .filter((item) => item.length > 0);
-
-        if (symptoms.length > 0) {
-          entries.push(`symptoms: ${symptoms.join(", ")}`);
-        }
-      }
-
-      if (entries.length > 0) {
-        normalized[dateKey] = Array.from(new Set(entries));
+        const symptoms = clean(record.symptoms);
+        if (symptoms.length > 0) entries.push(`symptoms: ${symptoms.join(", ")}`);
       }
     }
+    if (entries.length > 0) normalized[dateKey] = Array.from(new Set(entries));
   }
 
   return normalized;
 }
 
-function mergeNoteEntries(
-  notes: unknown,
-  dateKey: string,
-  entries: string[],
-): CycleNotes {
+function mergeNoteEntries(notes: unknown, dateKey: string, entries: string[]): CycleNotes {
   const normalized = normalizeCycleNotes(notes);
-  const nextEntries = entries
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-
+  const nextEntries = entries.map((entry) => entry.trim()).filter((entry) => entry.length > 0);
   if (nextEntries.length === 0) return normalized;
-
-  const existing = normalized[dateKey] ?? [];
-  normalized[dateKey] = Array.from(new Set([...existing, ...nextEntries]));
+  normalized[dateKey] = Array.from(new Set([...(normalized[dateKey] ?? []), ...nextEntries]));
   return normalized;
 }
 
@@ -366,568 +304,271 @@ function summarizeCycle(row: CycleRow): CycleSummary {
     ovulationDate: row.ovulationDate,
     cycleLength: row.cycleLength,
     periodLength: row.periodLength,
-    follicularLength: row.follicularLength,
-    lutealLength: row.lutealLength,
     isAnomaly: row.isAnomaly,
     notes: normalizeCycleNotes(row.notes),
   };
 }
 
-async function refreshPredictionParam(
-  userId: string,
-  paramName: PredictionParamName,
-  observations: number[],
-  conditions: string[] = [],
-) {
-  if (observations.length === 0) return;
-
-  const metricName = PARAM_TO_METRIC[paramName];
-  const { smoothed, variance } = exponentialSmooth(observations, conditions);
-  const blended = blendWithPrior(
-    smoothed,
-    variance,
-    observations.length,
-    metricName,
-    conditions,
-  );
-
-  const existing = await db
-    .select()
-    .from(predictionParams)
-    .where(
-      and(
-        eq(predictionParams.userId, userId),
-        eq(predictionParams.paramName, paramName),
-      ),
-    )
-    .limit(1);
-
-  const nextValues = {
-    userId,
-    paramName,
-    smoothedValue: blended.mean,
-    variance: blended.variance,
-    sampleCount: observations.length,
-    updatedAt: new Date(),
-  };
-
-  if (existing.length > 0) {
-    await db
-      .update(predictionParams)
-      .set(nextValues)
-      .where(eq(predictionParams.id, existing[0].id));
-  } else {
-    await db.insert(predictionParams).values(nextValues);
-  }
+// ─── Profile + reads ─────────────────────────────────────────────
+export interface CycleProfile {
+  conditions: string[];
+  perimenoStage: PerimenoStage | null;
+  timeZone: string;
 }
 
-export async function refreshCycleAnalytics(
-  userId: string,
-  conditions: string[] = [],
-  perimenoStage?: PerimenoStage,
-): Promise<AnalyticsResult> {
-  const rows = (await db
+/** Conditions and stage always come from the DB row, never from callers. */
+export async function loadCycleProfile(userId: string, fallbackTimeZone = "UTC"): Promise<CycleProfile> {
+  const row = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: { conditions: true, perimenoStage: true, timezone: true },
+  });
+  const conditions = Array.isArray(row?.conditions) ? (row.conditions as string[]) : [];
+  const hasPerimeno = conditions.some((condition) =>
+    ["perimenopause", "perimenopause_early", "perimenopause_late"].includes(condition),
+  );
+  return {
+    conditions,
+    perimenoStage: hasPerimeno ? ((row?.perimenoStage as PerimenoStage | null) ?? null) : null,
+    timeZone: sanitizeTimeZone(row?.timezone, fallbackTimeZone),
+  };
+}
+
+async function loadCycles(userId: string): Promise<CycleRow[]> {
+  return (await db
     .select()
     .from(cycles)
     .where(eq(cycles.userId, userId))
     .orderBy(asc(cycles.mStart))) as CycleRow[];
+}
 
-  if (rows.length === 0) {
-    return {
-      cycles: [],
-      cycleLengths: [],
-      periodLengths: [],
-      follicularLengths: [],
-      lutealLengths: [],
-    };
-  }
+/** The single forecast used by the dashboard, the chat tools and the system prompt. */
+export async function getUserForecast(userId: string, fallbackTimeZone = "UTC") {
+  const [profile, rows] = await Promise.all([loadCycleProfile(userId, fallbackTimeZone), loadCycles(userId)]);
+  const today = getCurrentIsoDate(profile.timeZone);
+  const result = forecast(rows, { conditions: profile.conditions, perimenoStage: profile.perimenoStage, today });
+  return { forecast: result, text: describeForecast(result), profile, rows, today };
+}
 
-  const cycleLengths: number[] = [];
-  const periodLengths: number[] = [];
-  const follicularLengths: number[] = [];
-  const lutealLengths: number[] = [];
+/** Compact, model-facing snapshot. Numbers come from the engine, not the LLM. */
+export function forecastForModel(f: Forecast) {
+  const text = describeForecast(f);
+  return {
+    asOf: f.asOf,
+    modelVersion: f.modelVersion,
+    status: f.status,
+    lastPeriodStart: f.lastStart,
+    dayOfCycle: f.dayOfCycle != null ? f.dayOfCycle + 1 : null,
+    nextPeriod: f.nextStart
+      ? { mostLikely: f.nextStart.date, likelyWindow: [f.nextStart.earliest, f.nextStart.latest], windowCoverage: `${INTERVAL_LEVEL * 100}%` }
+      : null,
+    ifNotStartedYet: f.ifNotStartedYet,
+    typicalCycleDays: f.cycleLength ? Math.round(f.cycleLength.mean) : null,
+    typicalPeriodDays: Math.round(f.periodLength.mean),
+    basis: f.basis,
+    observedCycleRange: f.observedRange,
+    ovulationEstimate: f.ovulation
+      ? { window: [f.ovulation.earliest, f.ovulation.latest], note: "calendar estimate only, not confirmed ovulation" }
+      : null,
+    ovulationWithheldBecause: f.ovulationWithheld,
+    text,
+  };
+}
 
-  const updates: Array<{
-    id: string;
-    changes: {
-      cycleLength?: number | null;
-      periodLength?: number | null;
-      follicularLength?: number | null;
-      lutealLength?: number | null;
-      isAnomaly?: boolean;
-    };
-  }> = [];
+// ─── Derived columns ─────────────────────────────────────────────
+/**
+ * Recompute derived columns, anomaly flags and prediction_params from the
+ * user's rows. Called after every cycle write (and on profile changes),
+ * never on reads. Anomaly flags use the same usableMask as the forecast, so
+ * "Unusual" in the UI means exactly "set aside by the forecast".
+ */
+export async function refreshCycleAnalytics(userId: string) {
+  const [profile, rows] = await Promise.all([loadCycleProfile(userId), loadCycles(userId)]);
+  const prior = resolveForecastPrior(profile.conditions, profile.perimenoStage);
 
-  for (let index = 0; index < rows.length; index += 1) {
-    const current = rows[index];
-    const previous = rows[index - 1];
+  const intervals = rows.slice(1).map((row, i) => diffInDays(rows[i].mStart, row.mStart));
+  const usable = usableMask(intervals, prior.gate);
+
+  const updates = rows.flatMap((current, index) => {
     const next = rows[index + 1];
-
-    const nextCycleLength = previous
-      ? diffInDays(previous.mStart, current.mStart)
-      : null;
-    const nextPeriodLength = current.mEnd
-      ? diffInDays(current.mStart, current.mEnd) + 1
-      : null;
-    const nextFollicularLength =
-      current.mEnd && current.ovulationDate
-        ? diffInDays(current.mEnd, current.ovulationDate)
-        : null;
-    const nextLutealLength =
-      current.ovulationDate && next
-        ? diffInDays(current.ovulationDate, next.mStart)
-        : null;
-
-    // Anomaly detection is deferred to the second pass below, which uses
-    // the prediction engine's skipGate() as the single source of truth.
-    // The first pass computes derived columns only.
-    rows[index] = {
-      ...current,
-      cycleLength: nextCycleLength,
-      periodLength: nextPeriodLength,
-      follicularLength: nextFollicularLength,
-      lutealLength: nextLutealLength,
-      isAnomaly: false, // will be set by skipGate() in second pass
+    const derived = {
+      cycleLength: index > 0 ? intervals[index - 1] : null,
+      periodLength: current.mEnd ? diffInDays(current.mStart, current.mEnd) + 1 : null,
+      follicularLength:
+        current.mEnd && current.ovulationDate ? diffInDays(current.mEnd, current.ovulationDate) : null,
+      lutealLength: current.ovulationDate && next ? diffInDays(current.ovulationDate, next.mStart) : null,
+      isAnomaly: index > 0 ? !usable[index - 1] : false,
     };
-
-    if (typeof nextCycleLength === "number") cycleLengths.push(nextCycleLength);
-    if (typeof nextPeriodLength === "number")
-      periodLengths.push(nextPeriodLength);
-    if (typeof nextFollicularLength === "number")
-      follicularLengths.push(nextFollicularLength);
-    if (typeof nextLutealLength === "number")
-      lutealLengths.push(nextLutealLength);
-
-    const changes: {
-      cycleLength?: number | null;
-      periodLength?: number | null;
-      follicularLength?: number | null;
-      lutealLength?: number | null;
-      isAnomaly?: boolean;
-    } = {};
-
-    if (current.cycleLength !== nextCycleLength)
-      changes.cycleLength = nextCycleLength;
-    if (current.periodLength !== nextPeriodLength)
-      changes.periodLength = nextPeriodLength;
-    if (current.follicularLength !== nextFollicularLength)
-      changes.follicularLength = nextFollicularLength;
-    if (current.lutealLength !== nextLutealLength)
-      changes.lutealLength = nextLutealLength;
-    // Note: isAnomaly change is handled by the second pass below.
-
-    if (Object.keys(changes).length > 0) {
-      updates.push({ id: current.id, changes });
-    }
-  }
-
-  // Second pass: use the prediction engine's skipGate() as the SOLE anomaly
-  // detector. skipGate() is the single source of truth for what counts as
-  // anomalous — it uses running variance from exponential smoothing, which
-  // may flag different observations than a simple sample-mean ± kσ approach.
-  //
-  // We run skipGate() over cycles in chronological order, feeding each cycle's
-  // length through the gate with the running smoothed value and variance from
-  // the engine's exponentialSmooth. This ensures the DB isAnomaly flags match
-  // exactly what the prediction engine used when computing smoothed values.
-  if (cycleLengths.length >= 2) {
-    let smoothed = cycleLengths[0];
-    let variance = 0;
-    const residuals: number[] = [];
-    let cycleIdx = 0;
-
-    for (let i = 0; i < rows.length; i++) {
-      const cl = rows[i].cycleLength;
-      if (typeof cl !== "number") continue;
-
-      if (cycleIdx === 0) {
-        // First cycle -- no previous to compare against, just seed
-        cycleIdx++;
-        continue;
-      }
-
-      // Run the same skip gate the prediction engine uses
-      const { isAnomaly } = skipGate(
-        cl,
-        smoothed,
-        variance,
-        conditions,
-        perimenoStage,
-      );
-
-      // Update anomaly flag: set if skipGate says so, clear if it doesn't
-      const prevAnomaly = rows[i].isAnomaly;
-      rows[i] = { ...rows[i], isAnomaly };
-
-      if (prevAnomaly !== isAnomaly) {
-        const existing = updates.find((u) => u.id === rows[i].id);
-        if (existing) {
-          existing.changes.isAnomaly = isAnomaly;
-        } else {
-          updates.push({ id: rows[i].id, changes: { isAnomaly } });
-        }
-      }
-
-      // Mirror exponentialSmooth's update logic so smoothed/variance stay in sync
-      const alpha = computeAdaptiveAlpha(residuals.slice(-5));
-      const { value: gatedVal, isAnomaly: wasAnomaly } = skipGate(
-        cl,
-        smoothed,
-        variance,
-        conditions,
-        perimenoStage,
-      );
-      const diff = gatedVal - smoothed;
-      variance = (1 - alpha) * (variance + alpha * diff * diff);
-      smoothed = smoothed + alpha * diff;
-      if (!wasAnomaly) {
-        residuals.push(diff);
-      }
-      cycleIdx++;
-    }
-  }
-
-  if (updates.length > 0) {
-    await Promise.all(
-      updates.map((update) =>
-        db.update(cycles).set(update.changes).where(eq(cycles.id, update.id)),
-      ),
+    const changed = (Object.keys(derived) as (keyof typeof derived)[]).some(
+      (k) => current[k] !== derived[k],
     );
-  }
+    rows[index] = { ...current, ...derived };
+    return changed
+      ? [db.update(cycles).set(derived).where(and(eq(cycles.id, current.id), eq(cycles.userId, userId)))]
+      : [];
+  });
 
-  await Promise.all([
-    refreshPredictionParam(userId, "cycle_length", cycleLengths, conditions),
-    refreshPredictionParam(userId, "period_length", periodLengths, conditions),
-    refreshPredictionParam(userId, "luteal", lutealLengths, conditions),
-  ]);
-
-  // Derive follicular prediction from the three smoothed metrics
-  // to enforce the phase coupling constraint:
-  // follicularLength = cycleLength + 1 - periodLength - lutealLength
-  // The +1 arises because periodLength uses inclusive day counting.
-  const [cycleParam, periodParam, lutealParam] = await Promise.all([
+  const periods = rows
+    .map((r) => r.periodLength)
+    .filter((d): d is number => d != null && d > 0 && d <= MAX_PERIOD_DAYS);
+  const cycleF = predictMetric(intervals, prior.cycle, prior.gate, INTERVAL_LEVEL, CYCLE_SCALE);
+  const periodF = predictMetric(periods, prior.period);
+  const upsert = (paramName: string, m: typeof cycleF) =>
     db
-      .select()
-      .from(predictionParams)
-      .where(
-        and(
-          eq(predictionParams.userId, userId),
-          eq(predictionParams.paramName, "cycle_length"),
-        ),
-      )
-      .limit(1),
-    db
-      .select()
-      .from(predictionParams)
-      .where(
-        and(
-          eq(predictionParams.userId, userId),
-          eq(predictionParams.paramName, "period_length"),
-        ),
-      )
-      .limit(1),
-    db
-      .select()
-      .from(predictionParams)
-      .where(
-        and(
-          eq(predictionParams.userId, userId),
-          eq(predictionParams.paramName, "luteal"),
-        ),
-      )
-      .limit(1),
-  ]);
+      .insert(predictionParams)
+      .values({ userId, paramName, smoothedValue: m.mean, variance: m.sd ** 2, sampleCount: m.nUsed, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: [predictionParams.userId, predictionParams.paramName],
+        set: { smoothedValue: m.mean, variance: m.sd ** 2, sampleCount: m.nUsed, updatedAt: new Date() },
+      });
 
-  const cVal = cycleParam[0]?.smoothedValue;
-  const pVal = periodParam[0]?.smoothedValue;
-  const lVal = lutealParam[0]?.smoothedValue;
-
-  if (cVal != null && pVal != null && lVal != null) {
-    const derivedFollicular = cVal + 1 - pVal - lVal;
-    // Propagate uncertainty: variance of (A + 1 - B - C) = var(A) + var(B) + var(C)
-    // (assuming independence of the three smoothed estimates)
-    const derivedVariance =
-      (cycleParam[0]?.variance ?? 0) +
-      (periodParam[0]?.variance ?? 0) +
-      (lutealParam[0]?.variance ?? 0);
-
-    const existingFoll = await db
-      .select()
-      .from(predictionParams)
-      .where(
-        and(
-          eq(predictionParams.userId, userId),
-          eq(predictionParams.paramName, "follicular"),
-        ),
-      )
-      .limit(1);
-
-    const follValues = {
-      userId,
-      paramName: "follicular",
-      smoothedValue: derivedFollicular,
-      variance: derivedVariance,
-      sampleCount: cycleParam[0]?.sampleCount ?? 0, // same n as cycle (primary observable)
-      updatedAt: new Date(),
-    };
-
-    if (existingFoll.length > 0) {
-      await db
-        .update(predictionParams)
-        .set(follValues)
-        .where(eq(predictionParams.id, existingFoll[0].id));
-    } else {
-      await db.insert(predictionParams).values(follValues);
-    }
-  }
-
-  return {
-    cycles: rows,
-    cycleLengths,
-    periodLengths,
-    follicularLengths,
-    lutealLengths,
-  };
+  // One HTTP round trip, one transaction.
+  await db.batch([upsert("cycle_length", cycleF), upsert("period_length", periodF), ...updates]);
+  return { cycles: rows, profile };
 }
 
-async function getPredictionParamMap(userId: string) {
-  const rows = (await db
-    .select()
-    .from(predictionParams)
-    .where(eq(predictionParams.userId, userId))) as PredictionParamRow[];
-
-  return rows.reduce<Partial<Record<PredictionParamName, PredictionParamRow>>>(
-    (acc, row) => {
-      acc[row.paramName] = row;
-      return acc;
-    },
-    {},
-  );
+// ─── Validated writes (shared by chat tools and /api/cycles) ─────
+export interface CycleDraft {
+  mStart: string;
+  mEnd: string | null;
 }
 
-function buildPredictionPayload(
-  analytics: AnalyticsResult,
-  conditions: string[] = [],
-  perimenoStage?: "early" | "late" | "unknown",
-) {
-  const cyclePrediction = predictNextCycle(
-    analytics.cycleLengths,
-    "cycleLength",
-    conditions,
-    perimenoStage,
-  );
-  const periodPrediction = predictNextCycle(
-    analytics.periodLengths,
-    "periodLength",
-    conditions,
-    perimenoStage,
-  );
-  const lutealPrediction = predictNextCycle(
-    analytics.lutealLengths,
-    "lutealLength",
-    conditions,
-    perimenoStage,
-  );
+/** Hard validation errors (plain-language), or null when the draft is valid. */
+export function validateCycleDraft(draft: CycleDraft, others: CycleDraft[], today: string): string | null {
+  if (!isValidIsoDate(draft.mStart)) return "the start date isn't a valid date.";
+  if (draft.mStart > today) return "the start date is in the future.";
+  if (draft.mEnd) {
+    if (!isValidIsoDate(draft.mEnd)) return "the end date isn't a valid date.";
+    if (draft.mEnd > today) return "the end date is in the future.";
+    if (draft.mEnd < draft.mStart) return "the end date is before the start date.";
+    const len = diffInDays(draft.mStart, draft.mEnd) + 1;
+    if (len > MAX_PERIOD_DAYS) return `that would be a ${len}-day period -- longer than ${MAX_PERIOD_DAYS} days usually means a date is off.`;
+  }
+  for (const o of others) {
+    if (o.mStart === draft.mStart) return `there's already a period starting on ${o.mStart}.`;
+    const lastDay = (c: CycleDraft) => c.mEnd ?? c.mStart;
+    if (o.mStart < draft.mStart && lastDay(o) >= draft.mStart) return `it overlaps the period that started on ${o.mStart}.`;
+    if (draft.mStart < o.mStart && lastDay(draft) >= o.mStart) return `it overlaps the period that started on ${o.mStart}.`;
+  }
+  return null;
+}
 
-  // Derive follicular length from the three smoothed metrics to enforce
-  // the phase coupling constraint: follicularLength = cycleLength + 1 - periodLength - lutealLength
-  const follicularPrediction: PredictionResult = {
-    predicted:
-      deriveFollicularLength(
-        cyclePrediction.predicted,
-        periodPrediction.predicted,
-        lutealPrediction.predicted,
-      ) ?? 0,
-    ciLower:
-      deriveFollicularLength(
-        cyclePrediction.ciLower,
-        periodPrediction.ciUpper, // worst case: short cycle, long period
-        lutealPrediction.ciUpper,
-      ) ?? 0,
-    ciUpper:
-      deriveFollicularLength(
-        cyclePrediction.ciUpper,
-        periodPrediction.ciLower, // worst case: long cycle, short period
-        lutealPrediction.ciLower,
-      ) ?? 0,
-    n: cyclePrediction.n,
-    ciReliable: cyclePrediction.ciReliable,
-  };
+type WriteResult =
+  | { ok: true; cycle: CycleSummary; forecast: Forecast }
+  | { ok: false; error: string };
 
-  // For hormonal BC users, don't predict ovulation (it's suppressed)
-  const effectivePrior = resolveEffectivePrior({ conditions, perimenoStage });
-  const ovulationSuppressed =
-    effectivePrior.anovulatoryCommon && conditions.includes("hormonal_bc");
+async function afterWrite(userId: string, id: string): Promise<WriteResult> {
+  const { cycles: rows } = await refreshCycleAnalytics(userId);
+  const { forecast: f } = await getUserForecast(userId);
+  const row = rows.find((r) => r.id === id);
+  return row ? { ok: true, cycle: summarizeCycle(row), forecast: f } : { ok: false, error: "the log could not be found after saving." };
+}
 
-  const lastCycle = analytics.cycles.at(-1);
-  const nextPeriodStart = lastCycle
-    ? addDaysToIsoDate(lastCycle.mStart, Math.round(cyclePrediction.predicted))
-    : null;
-  const nextPeriodEnd = nextPeriodStart
-    ? addDaysToIsoDate(
-        nextPeriodStart,
-        Math.max(0, Math.round(periodPrediction.predicted)),
-      )
-    : null;
-  const nextOvulationDate = ovulationSuppressed
-    ? null // No ovulation on hormonal BC
-    : nextPeriodStart
-      ? addDaysToIsoDate(
-          nextPeriodStart,
-          -Math.max(1, Math.round(lutealPrediction.predicted || 14)),
-        )
+export async function createCycle(userId: string, draft: CycleDraft, notes: CycleNotes = {}): Promise<WriteResult> {
+  const [profile, rows] = await Promise.all([loadCycleProfile(userId), loadCycles(userId)]);
+  const error = validateCycleDraft(draft, rows, getCurrentIsoDate(profile.timeZone));
+  if (error) return { ok: false, error };
+  const [inserted] = await db.insert(cycles).values({ userId, mStart: draft.mStart, mEnd: draft.mEnd, notes }).returning({ id: cycles.id });
+  return afterWrite(userId, inserted.id);
+}
+
+export async function updateCycle(userId: string, id: string, patch: Partial<CycleDraft>): Promise<WriteResult> {
+  const [profile, rows] = await Promise.all([loadCycleProfile(userId), loadCycles(userId)]);
+  const current = rows.find((r) => r.id === id);
+  if (!current) return { ok: false, error: "that log wasn't found." };
+  const draft = { mStart: patch.mStart ?? current.mStart, mEnd: patch.mEnd === undefined ? current.mEnd : patch.mEnd };
+  const error = validateCycleDraft(draft, rows.filter((r) => r.id !== id), getCurrentIsoDate(profile.timeZone));
+  if (error) return { ok: false, error };
+  // An ovulation date outside the edited cycle's span would become meaningless.
+  // A cycle ends at the next logged start, not at the last bleeding day.
+  const nextStart = rows
+    .filter((row) => row.id !== id && row.mStart > draft.mStart)
+    .map((row) => row.mStart)
+    .sort()[0];
+  const ovulationDate =
+    current.ovulationDate &&
+    current.ovulationDate > draft.mStart &&
+    (!nextStart || current.ovulationDate < nextStart)
+      ? current.ovulationDate
       : null;
+  await db.update(cycles).set({ ...draft, ovulationDate }).where(and(eq(cycles.id, id), eq(cycles.userId, userId)));
+  return afterWrite(userId, id);
+}
 
+export async function deleteCycle(userId: string, id: string): Promise<{ ok: boolean; error?: string }> {
+  const deleted = await db
+    .delete(cycles)
+    .where(and(eq(cycles.id, id), eq(cycles.userId, userId)))
+    .returning({ id: cycles.id });
+  if (deleted.length === 0) return { ok: false, error: "that log wasn't found." };
+  await refreshCycleAnalytics(userId);
+  return { ok: true };
+}
+
+/** The cycle a given date belongs to: the latest start on or before it. */
+function cycleContaining(rows: CycleRow[], isoDate: string) {
+  const index = rows.findLastIndex((r) => r.mStart <= isoDate);
+  return index >= 0 ? { row: rows[index], next: rows[index + 1] ?? null } : null;
+}
+
+function confirmation(message: string, result: WriteResult) {
+  if ("error" in result) return clarify(`I couldn't save that: ${result.error}`, { reason: "invalid" });
   return {
-    cycleLength: cyclePrediction,
-    periodLength: periodPrediction,
-    follicularLength: follicularPrediction,
-    lutealLength: lutealPrediction,
-    nextPeriodStart,
-    nextPeriodEnd,
-    nextOvulationDate,
+    ok: true as const,
+    responseMode: "plain" as const,
+    kind: "confirmation" as const,
+    message,
+    cycle: result.cycle,
+    forecast: forecastForModel(result.forecast),
   };
 }
 
-function buildAveragesFromParams(
-  paramMap: Partial<Record<PredictionParamName, PredictionParamRow>>,
-  analytics: AnalyticsResult,
-  conditions: string[] = [],
-  perimenoStage?: "early" | "late" | "unknown",
-) {
-  const cycleLength =
-    paramMap.cycle_length?.smoothedValue ??
-    predictNextCycle(
-      analytics.cycleLengths,
-      "cycleLength",
-      conditions,
-      perimenoStage,
-    ).predicted;
-  const periodLength =
-    paramMap.period_length?.smoothedValue ??
-    predictNextCycle(
-      analytics.periodLengths,
-      "periodLength",
-      conditions,
-      perimenoStage,
-    ).predicted;
-  const lutealLength =
-    paramMap.luteal?.smoothedValue ??
-    predictNextCycle(
-      analytics.lutealLengths,
-      "lutealLength",
-      conditions,
-      perimenoStage,
-    ).predicted;
-
-  // Derive follicular from the three smoothed metrics to enforce phase coupling
-  const follicularLength = deriveFollicularLength(
-    cycleLength,
-    periodLength,
-    lutealLength,
-  );
-
-  return {
-    cycleLength,
-    periodLength,
-    follicularLength,
-    lutealLength,
-  };
-}
-
+// ─── Chat tool entries ───────────────────────────────────────────
 export async function logPeriodStartEntry(args: {
   userId: string;
   date: string;
   timeZone: string;
   notes?: string;
-  conditions?: string[];
-  perimenoStage?: PerimenoStage;
+  confirmedSeparatePeriod?: boolean;
 }) {
-  const normalized = normalizeDateInput(args.date, args.timeZone);
-  if (!normalized.isoDate) {
-    return {
-      responseMode: "plain" as const,
-      kind: "clarification" as const,
-      needsClarification: true,
-      question:
-        "I need a clear start date before I can log that period. What date should I use?",
-      reason: normalized.reason,
-    };
-  }
+  const parsed = parseLogDate(args.date, args.timeZone, "start");
+  if (parsed.error) return parsed.error;
+  const iso = parsed.isoDate;
+  const rows = await loadCycles(args.userId);
+  const noteText = args.notes?.trim() ?? "";
 
-  const analytics = await refreshCycleAnalytics(
-    args.userId,
-    args.conditions ?? [],
-    args.perimenoStage,
-  );
-  const existing = analytics.cycles.find(
-    (row) => row.mStart === normalized.isoDate,
-  );
-  const noteText = typeof args.notes === "string" ? args.notes.trim() : "";
-
+  const existing = rows.find((row) => row.mStart === iso);
   if (existing) {
-    const mergedNotes =
-      noteText.length > 0
-        ? mergeNoteEntries(existing.notes, normalized.isoDate, [noteText])
-        : existing.notes;
-
-    await db
-      .update(cycles)
-      .set({ notes: mergedNotes })
-      .where(eq(cycles.id, existing.id));
-
-    const refreshed = await refreshCycleAnalytics(
-      args.userId,
-      args.conditions ?? [],
-      args.perimenoStage,
-    );
-    const cycle =
-      refreshed.cycles.find((row) => row.id === existing.id) ?? existing;
-
+    // Idempotent: a retried or repeated log of the same start is not a new cycle.
+    if (noteText) {
+      await db
+        .update(cycles)
+        .set({ notes: mergeNoteEntries(existing.notes, iso, [noteText]) })
+        .where(and(eq(cycles.id, existing.id), eq(cycles.userId, args.userId)));
+    }
+    const { forecast: f } = await getUserForecast(args.userId);
     return {
+      ok: true as const,
       responseMode: "plain" as const,
       kind: "confirmation" as const,
-      message:
-        noteText.length > 0
-          ? `updated your period start for ${normalized.isoDate} and added the note.`
-          : `updated your period start for ${normalized.isoDate}.`,
-      cycle: summarizeCycle(cycle),
+      message: noteText ? `your period start on ${iso} was already logged -- I added the note.` : `your period start on ${iso} was already logged.`,
+      cycle: summarizeCycle(existing),
+      forecast: forecastForModel(f),
     };
   }
 
-  const notes =
-    noteText.length > 0
-      ? mergeNoteEntries({}, normalized.isoDate, [noteText])
-      : {};
+  const close = rows.find((r) => Math.abs(diffInDays(r.mStart, iso)) < CLOSE_START_DAYS);
+  if (close && !args.confirmedSeparatePeriod) {
+    return clarify(
+      `you already have a period logged starting ${close.mStart} (${Math.abs(diffInDays(close.mStart, iso))} days apart). is this the same period with a corrected date, or a separate new period?`,
+      { reason: "close-to-existing", existingStart: close.mStart, requestedStart: iso },
+    );
+  }
 
-  const inserted = await db
-    .insert(cycles)
-    .values({
-      userId: args.userId,
-      mStart: normalized.isoDate,
-      notes,
-    })
-    .returning();
-
-  const refreshed = await refreshCycleAnalytics(
-    args.userId,
-    args.conditions ?? [],
-    args.perimenoStage,
+  const notes = noteText ? mergeNoteEntries({}, iso, [noteText]) : {};
+  return confirmation(
+    noteText ? `logged your period start for ${iso} and saved the note.` : `logged your period start for ${iso}.`,
+    await createCycle(args.userId, { mStart: iso, mEnd: null }, notes),
   );
-  const cycle =
-    refreshed.cycles.find((row) => row.id === inserted[0].id) ??
-    refreshed.cycles.find((row) => row.mStart === normalized.isoDate) ??
-    inserted[0];
-
-  return {
-    responseMode: "plain" as const,
-    kind: "confirmation" as const,
-    message:
-      noteText.length > 0
-        ? `logged your period start for ${normalized.isoDate} and saved the note.`
-        : `logged your period start for ${normalized.isoDate}.`,
-    cycle: summarizeCycle(cycle as CycleRow),
-  };
 }
 
 export async function logPeriodEndEntry(args: {
@@ -935,76 +576,33 @@ export async function logPeriodEndEntry(args: {
   date: string;
   timeZone: string;
   notes?: string;
-  conditions?: string[];
-  perimenoStage?: PerimenoStage;
 }) {
-  const normalized = normalizeDateInput(args.date, args.timeZone);
-  if (!normalized.isoDate) {
-    return {
-      responseMode: "plain" as const,
-      kind: "clarification" as const,
-      needsClarification: true,
-      question:
-        "I need a clear end date before I can log that period. What date should I use?",
-      reason: normalized.reason,
-    };
-  }
-
-  const analytics = await refreshCycleAnalytics(
-    args.userId,
-    args.conditions ?? [],
-    args.perimenoStage,
-  );
-  const target = analytics.cycles
-    .slice()
-    .reverse()
-    .find(
-      (row) =>
-        row.mStart <= normalized.isoDate &&
-        (!row.mEnd || row.mEnd >= normalized.isoDate),
-    );
-
+  const parsed = parseLogDate(args.date, args.timeZone, "end");
+  if (parsed.error) return parsed.error;
+  const iso = parsed.isoDate;
+  const rows = await loadCycles(args.userId);
+  const target = cycleContaining(rows, iso)?.row;
   if (!target) {
-    return {
-      responseMode: "plain" as const,
-      kind: "clarification" as const,
-      needsClarification: true,
-      question:
-        "I could not find an open period to close. What start date should I attach this end date to?",
-      date: normalized.isoDate,
-    };
+    return clarify("I couldn't find a period start on or before that date. When did this period start?", { date: iso });
   }
-
-  const noteText = typeof args.notes === "string" ? args.notes.trim() : "";
-  const mergedNotes =
-    noteText.length > 0
-      ? mergeNoteEntries(target.notes, normalized.isoDate, [noteText])
-      : target.notes;
-
-  await db
-    .update(cycles)
-    .set({
-      mEnd: normalized.isoDate,
-      notes: mergedNotes,
-    })
-    .where(eq(cycles.id, target.id));
-
-  const refreshed = await refreshCycleAnalytics(
-    args.userId,
-    args.conditions ?? [],
-    args.perimenoStage,
+  const length = diffInDays(target.mStart, iso) + 1;
+  if (length > MAX_PERIOD_DAYS) {
+    return clarify(
+      `the closest period start I have is ${target.mStart}, which would make this a ${length}-day period. when did this period start?`,
+      { reason: "too-long", date: iso, closestStart: target.mStart },
+    );
+  }
+  const noteText = args.notes?.trim() ?? "";
+  if (noteText) {
+    await db
+      .update(cycles)
+      .set({ notes: mergeNoteEntries(target.notes, iso, [noteText]) })
+      .where(and(eq(cycles.id, target.id), eq(cycles.userId, args.userId)));
+  }
+  return confirmation(
+    `logged your period end for ${iso} (a ${length}-day period starting ${target.mStart}).`,
+    await updateCycle(args.userId, target.id, { mEnd: iso }),
   );
-  const cycle = refreshed.cycles.find((row) => row.id === target.id) ?? target;
-
-  return {
-    responseMode: "plain" as const,
-    kind: "confirmation" as const,
-    message:
-      noteText.length > 0
-        ? `logged your period end for ${normalized.isoDate} and added the note.`
-        : `logged your period end for ${normalized.isoDate}.`,
-    cycle: summarizeCycle(cycle),
-  };
 }
 
 export async function logOvulationEntry(args: {
@@ -1012,76 +610,31 @@ export async function logOvulationEntry(args: {
   date: string;
   timeZone: string;
   notes?: string;
-  conditions?: string[];
-  perimenoStage?: PerimenoStage;
 }) {
-  const normalized = normalizeDateInput(args.date, args.timeZone);
-  if (!normalized.isoDate) {
-    return {
-      responseMode: "plain" as const,
-      kind: "clarification" as const,
-      needsClarification: true,
-      question:
-        "I need a clear ovulation date before I can log it. What date should I use?",
-      reason: normalized.reason,
-    };
-  }
-
-  const analytics = await refreshCycleAnalytics(
-    args.userId,
-    args.conditions ?? [],
-    args.perimenoStage,
-  );
-  const target = analytics.cycles
-    .slice()
-    .reverse()
-    .find(
-      (row) =>
-        row.mStart <= normalized.isoDate &&
-        (!row.mEnd || row.mEnd >= normalized.isoDate),
+  const parsed = parseLogDate(args.date, args.timeZone, "ovulation");
+  if (parsed.error) return parsed.error;
+  const iso = parsed.isoDate;
+  const rows = await loadCycles(args.userId);
+  const found = cycleContaining(rows, iso);
+  if (!found || found.row.mStart === iso) {
+    return clarify(
+      "I need the period that came before this ovulation. When did that period start?",
+      { date: iso },
     );
-
-  if (!target) {
-    return {
-      responseMode: "plain" as const,
-      kind: "clarification" as const,
-      needsClarification: true,
-      question:
-        "I could not find a cycle to attach that ovulation date to. What period start date should I use?",
-      date: normalized.isoDate,
-    };
   }
-
-  const noteText = typeof args.notes === "string" ? args.notes.trim() : "";
-  const mergedNotes =
-    noteText.length > 0
-      ? mergeNoteEntries(target.notes, normalized.isoDate, [noteText])
-      : target.notes;
-
+  const target = found.row;
+  const noteText = args.notes?.trim() ?? "";
   await db
     .update(cycles)
     .set({
-      ovulationDate: normalized.isoDate,
-      notes: mergedNotes,
+      ovulationDate: iso,
+      notes: noteText ? mergeNoteEntries(target.notes, iso, [noteText]) : normalizeCycleNotes(target.notes),
     })
-    .where(eq(cycles.id, target.id));
-
-  const refreshed = await refreshCycleAnalytics(
-    args.userId,
-    args.conditions ?? [],
-    args.perimenoStage,
+    .where(and(eq(cycles.id, target.id), eq(cycles.userId, args.userId)));
+  return confirmation(
+    `logged ovulation for ${iso} in the cycle that started ${target.mStart}.`,
+    await afterWrite(args.userId, target.id),
   );
-  const cycle = refreshed.cycles.find((row) => row.id === target.id) ?? target;
-
-  return {
-    responseMode: "plain" as const,
-    kind: "confirmation" as const,
-    message:
-      noteText.length > 0
-        ? `logged ovulation for ${normalized.isoDate} and added the note.`
-        : `logged ovulation for ${normalized.isoDate}.`,
-    cycle: summarizeCycle(cycle),
-  };
 }
 
 export async function addCycleNoteEntry(args: {
@@ -1090,109 +643,104 @@ export async function addCycleNoteEntry(args: {
   note: string;
   date?: string;
   symptoms?: string[];
-  conditions?: string[];
-  perimenoStage?: PerimenoStage;
 }) {
   const noteText = args.note.trim();
-  const symptoms = (args.symptoms ?? [])
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
-
+  const symptoms = (args.symptoms ?? []).map((item) => item.trim()).filter((item) => item.length > 0);
   if (noteText.length === 0 && symptoms.length === 0) {
-    return {
-      responseMode: "plain" as const,
-      kind: "clarification" as const,
-      needsClarification: true,
-      question: "What note or symptom should I add?",
-    };
+    return clarify("What note or symptom should I add?");
   }
 
-  const resolvedDate = normalizeDateInput(
-    args.date ?? getCurrentIsoDate(args.timeZone),
-    args.timeZone,
-  );
-  if (!resolvedDate.isoDate) {
-    return {
-      responseMode: "plain" as const,
-      kind: "clarification" as const,
-      needsClarification: true,
-      question:
-        "I could not resolve the note date. What date should I attach it to?",
-      reason: resolvedDate.reason,
-    };
-  }
-
-  const analytics = await refreshCycleAnalytics(
-    args.userId,
-    args.conditions ?? [],
-    args.perimenoStage,
-  );
-  const target =
-    analytics.cycles
-      .slice()
-      .reverse()
-      .find(
-        (row) =>
-          row.mStart <= resolvedDate.isoDate! &&
-          (!row.mEnd || row.mEnd >= resolvedDate.isoDate!),
-      ) ?? analytics.cycles.at(-1);
-
+  const parsed = parseLogDate(args.date ?? getCurrentIsoDate(args.timeZone), args.timeZone, "note");
+  if (parsed.error) return parsed.error;
+  const iso = parsed.isoDate;
+  const rows = await loadCycles(args.userId);
+  const target = cycleContaining(rows, iso)?.row;
   if (!target) {
-    return {
-      responseMode: "plain" as const,
-      kind: "clarification" as const,
-      needsClarification: true,
-      question:
-        "I need at least one logged cycle to attach that note. Would you like to log a period start first?",
-    };
+    return clarify(
+      rows.length === 0
+        ? "I need at least one logged period to attach that note to. When did your most recent period start?"
+        : `that date is before your first logged period (${rows[0].mStart}). When did the period before it start?`,
+    );
   }
 
-  const entries = [
-    noteText.length > 0 ? noteText : null,
-    symptoms.length > 0 ? `symptoms: ${symptoms.join(", ")}` : null,
-  ].filter((item): item is string => typeof item === "string");
-
-  const mergedNotes = mergeNoteEntries(
-    target.notes,
-    resolvedDate.isoDate,
-    entries,
+  const entries = [noteText || null, symptoms.length > 0 ? `symptoms: ${symptoms.join(", ")}` : null].filter(
+    (item): item is string => typeof item === "string",
   );
-
   await db
     .update(cycles)
-    .set({ notes: mergedNotes })
-    .where(eq(cycles.id, target.id));
-
-  const refreshed = await refreshCycleAnalytics(
-    args.userId,
-    args.conditions ?? [],
-    args.perimenoStage,
-  );
-  const cycle = refreshed.cycles.find((row) => row.id === target.id) ?? target;
-
+    .set({ notes: mergeNoteEntries(target.notes, iso, entries) })
+    .where(and(eq(cycles.id, target.id), eq(cycles.userId, args.userId)));
   return {
+    ok: true as const,
     responseMode: "plain" as const,
     kind: "confirmation" as const,
-    message: `added your note to the cycle that started on ${target.mStart}.`,
-    cycle: summarizeCycle(cycle),
+    message: `added your note for ${iso} to the cycle that started on ${target.mStart}.`,
   };
 }
 
-export async function fetchRecentCyclesEntry(args: {
+export async function editPeriodLogEntry(args: {
   userId: string;
-  limit: number;
-  conditions?: string[];
-  perimenoStage?: PerimenoStage;
+  timeZone: string;
+  periodStart: string;
+  newStart?: string;
+  newEnd?: string;
+  clearEnd?: boolean;
 }) {
-  const analytics = await refreshCycleAnalytics(
-    args.userId,
-    args.conditions ?? [],
-    args.perimenoStage,
-  );
-  const recentCycles = analytics.cycles
-    .slice(-args.limit)
-    .reverse()
-    .map(summarizeCycle);
+  const key = parseLogDate(args.periodStart, args.timeZone, "period start");
+  if (key.error) return key.error;
+  const rows = await loadCycles(args.userId);
+  const target = rows.find((r) => r.mStart === key.isoDate);
+  if (!target) {
+    return clarify(
+      `I don't have a period starting on ${key.isoDate}. ${rows.length ? `Your logged starts are: ${rows.slice(-6).map((r) => r.mStart).join(", ")}.` : ""} Which one should I change?`,
+    );
+  }
+  const patch: Partial<CycleDraft> = {};
+  if (args.newStart) {
+    const s = parseLogDate(args.newStart, args.timeZone, "new start");
+    if (s.error) return s.error;
+    patch.mStart = s.isoDate;
+  }
+  if (args.clearEnd) patch.mEnd = null;
+  else if (args.newEnd) {
+    const e = parseLogDate(args.newEnd, args.timeZone, "new end");
+    if (e.error) return e.error;
+    patch.mEnd = e.isoDate;
+  }
+  if (Object.keys(patch).length === 0) return clarify("What should I change -- the start date or the end date?");
+  return confirmation(`updated the period that started ${target.mStart}.`, await updateCycle(args.userId, target.id, patch));
+}
+
+export async function deletePeriodLogEntry(args: {
+  userId: string;
+  timeZone: string;
+  periodStart: string;
+  userConfirmed: boolean;
+}) {
+  const key = parseLogDate(args.periodStart, args.timeZone, "period start");
+  if (key.error) return key.error;
+  const rows = await loadCycles(args.userId);
+  const target = rows.find((r) => r.mStart === key.isoDate);
+  if (!target) return clarify(`I don't have a period starting on ${key.isoDate}. Which one should I remove?`);
+  if (!args.userConfirmed) {
+    return clarify(`just checking -- remove the period that started ${target.mStart}, including its notes? this can't be undone.`, {
+      reason: "confirm-delete",
+    });
+  }
+  const result = await deleteCycle(args.userId, target.id);
+  if (!result.ok) return clarify(`I couldn't remove that: ${result.error}`);
+  const { forecast: f } = await getUserForecast(args.userId);
+  return {
+    ok: true as const,
+    responseMode: "plain" as const,
+    kind: "confirmation" as const,
+    message: `removed the period that started ${target.mStart}.`,
+    forecast: forecastForModel(f),
+  };
+}
+
+export async function fetchRecentCyclesEntry(args: { userId: string; limit: number }) {
+  const recentCycles = (await loadCycles(args.userId)).slice(-args.limit).reverse().map(summarizeCycle);
 
   if (recentCycles.length === 0) {
     return {
@@ -1207,6 +755,7 @@ export async function fetchRecentCyclesEntry(args: {
     responseMode: "openui" as const,
     kind: "table" as const,
     title: `last ${recentCycles.length} cycles`,
+    note: "cycleLength on a row is the gap from the previous start to this start. isAnomaly = set aside by the forecast as a possible missed or extra log.",
     cycles: recentCycles,
   };
 }
@@ -1215,43 +764,17 @@ export async function getCycleInsightsEntry(args: {
   userId: string;
   timeZone: string;
   mode: "stats" | "prediction";
-  conditions?: string[];
-  perimenoStage?: PerimenoStage;
 }) {
-  const analytics = await refreshCycleAnalytics(
-    args.userId,
-    args.conditions ?? [],
-    args.perimenoStage,
-  );
-  const paramMap = await getPredictionParamMap(args.userId);
-  const hasCycles = analytics.cycles.length > 0;
-  const recentCycles = analytics.cycles.slice(-3).reverse().map(summarizeCycle);
-  const lastCycle = analytics.cycles.at(-1)
-    ? summarizeCycle(analytics.cycles.at(-1) as CycleRow)
-    : null;
+  const { forecast: f, rows } = await getUserForecast(args.userId, args.timeZone);
+  const snapshot = forecastForModel(f);
+  const recentCycles = rows.slice(-3).reverse().map(summarizeCycle);
 
-  const predictions = buildPredictionPayload(
-    analytics,
-    args.conditions ?? [],
-    args.perimenoStage,
-  );
-  const averages = buildAveragesFromParams(
-    paramMap,
-    analytics,
-    args.conditions ?? [],
-    args.perimenoStage,
-  );
-
-  if (!hasCycles) {
+  if (rows.length === 0) {
     return {
       responseMode: "plain" as const,
       kind: args.mode,
-      message:
-        "I do not have enough cycle data yet. Log a period start first and I can build predictions and stats.",
-      recentCycles,
-      lastCycle,
-      averages,
-      predictions,
+      message: "I do not have any cycle data yet. Log a period start first and I can build predictions and stats.",
+      forecast: snapshot,
       cycleCount: 0,
     };
   }
@@ -1260,11 +783,8 @@ export async function getCycleInsightsEntry(args: {
     responseMode: "openui" as const,
     kind: args.mode,
     title: args.mode === "prediction" ? "next period forecast" : "cycle stats",
-    summary: `Based on ${analytics.cycles.length} logged cycle${analytics.cycles.length === 1 ? "" : "s"}.`,
-    cycleCount: analytics.cycles.length,
+    cycleCount: rows.length,
     recentCycles,
-    lastCycle,
-    averages,
-    predictions,
+    forecast: snapshot,
   };
 }

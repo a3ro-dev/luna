@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { cycles, users } from "@/lib/db/schema";
+import { cycles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
-import { refreshCycleAnalytics } from "@/lib/cycle-tools";
-import type { PerimenoStage } from "@/lib/prediction/engine";
+import {
+  getCurrentIsoDate,
+  loadCycleProfile,
+  refreshCycleAnalytics,
+  validateCycleDraft,
+} from "@/lib/cycle-tools";
 import { z } from "zod";
 
 // ─── Supported formats ───────────────────────────────────────────────
@@ -469,6 +473,32 @@ export async function POST(req: Request) {
       );
     }
 
+    const profile = await loadCycleProfile(session.user.id!);
+    const today = getCurrentIsoDate(profile.timeZone);
+    const existing = await db.query.cycles.findMany({
+      where: eq(cycles.userId, session.user.id!),
+      columns: { mStart: true, mEnd: true },
+    });
+    const accepted: Array<{ mStart: string; mEnd: string | null }> = [
+      ...existing,
+    ];
+    const errors: string[] = [];
+    for (const candidate of [...parsed].sort((a, b) => a.mStart.localeCompare(b.mStart))) {
+      const draft = { mStart: candidate.mStart, mEnd: candidate.mEnd };
+      const error = validateCycleDraft(draft, accepted, today);
+      if (error) errors.push(`${candidate.mStart}: ${error}`);
+      else accepted.push(draft);
+    }
+    if (errors.length > 0) {
+      return NextResponse.json(
+        {
+          error: "Import contains invalid, duplicate, overlapping, or future cycle records.",
+          details: errors.slice(0, 10),
+        },
+        { status: 400 },
+      );
+    }
+
     // Insert all cycles
     await db.insert(cycles).values(
       parsed.map((c) => ({
@@ -483,17 +513,8 @@ export async function POST(req: Request) {
     );
 
     // Refresh derived columns and prediction parameters so the
-    // prediction engine immediately "sees" the imported data.
-    const userRow = await db.query.users.findFirst({
-      where: eq(users.id, session.user.id!),
-      columns: { conditions: true, perimenoStage: true },
-    });
-    const conditions: string[] = Array.isArray(userRow?.conditions)
-      ? (userRow.conditions as string[])
-      : [];
-    const perimenoStage =
-      (userRow?.perimenoStage as PerimenoStage | undefined) ?? undefined;
-    await refreshCycleAnalytics(session.user.id!, conditions, perimenoStage);
+    // prediction engine immediately sees the imported data.
+    await refreshCycleAnalytics(session.user.id!);
 
     return NextResponse.json(
       {

@@ -92,9 +92,9 @@ export default function TransparencyClient() {
             >
               <p className="text-[#6D5A60] font-light leading-relaxed">
                 This page exists to be honest about what Luna is, what it
-                isn't, and how it works under the hood. No fine print.
+                isn&apos;t, and how it works under the hood. No fine print.
                 No weasel words. We wrote this because legal polish is easy,
-                but real transparency means telling you what we don't know.
+                but real transparency means telling you what we don&apos;t know.
               </p>
             </div>
 
@@ -148,7 +148,7 @@ export default function TransparencyClient() {
 
         <footer className="mt-24 pt-12 border-t border-[#FFDDE0]/30 text-center">
           <p className="text-sm text-[#8E7D82] font-light">
-            Everything on this page is verifiable from Luna's source code.{" "}
+            Everything on this page is verifiable from Luna&apos;s source code.{" "}
             &copy; {new Date().getFullYear()} Luna.
           </p>
         </footer>
@@ -166,17 +166,17 @@ const SECTIONS: Section[] = [
         <p>
           Luna is a free, open-source menstrual cycle tracking companion. You
           log your cycles by talking to an AI assistant — type things like
-          &quot;my period started today&quot; or &quot;I'm feeling
+          &quot;my period started today&quot; or &quot;I&apos;m feeling
           crampy&quot; and Luna records it. Over time, it learns your patterns
           and predicts when your next period might come.
         </p>
         <p>
-          The prediction engine uses adaptive exponential smoothing with 10
-          condition-specific population priors. It starts with research-based
-          averages that differ depending on your health conditions (PCOS 51d,
-          endometriosis 27d, thyroid 35d, etc.), then learns from your actual
-          cycles. The more cycles you log, the more it trusts your data over
-          the population averages.
+          The prediction engine starts with a broad population range, then
+          learns your typical cycle and variability from usable logged
+          history. It reports a likely window for the next cycle and stays
+          deliberately cautious when history is sparse, variable, or possibly
+          incomplete. Conditions widen or withhold estimates where the
+          evidence supports caution; they do not create unsupported precision.
         </p>
         <p>
           Luna is <strong>open source</strong> under the MIT license. You can
@@ -211,15 +211,16 @@ const SECTIONS: Section[] = [
             you, talk to a qualified healthcare professional — not an app.
           </li>
           <li>
-            <strong>Not validated.</strong> We don't know how accurate
-            Luna's predictions are. No systematic testing has been done
-            against real-world cycle data. Predictions are statistical estimates
-            and may be wrong. There are 68 vitest unit tests verifying the
-            engine behaves as specified — but zero accuracy benchmarks.
+            <strong>Not validated.</strong> We don&apos;t know how accurate
+            Luna&apos;s predictions are. The automated suite and synthetic
+            backtests verify the implementation, but the live dataset is too
+            small for a responsible accuracy comparison. Predictions are
+            statistical estimates and may be wrong. There are 80 vitest tests,
+            but no clinical validation or publishable real-world benchmark.
           </li>
           <li>
             <strong>Not HIPAA-compliant.</strong> While Neon (our database)
-            offers HIPAA on their Scale plan, Luna doesn't use that plan.
+            offers HIPAA on their Scale plan, Luna doesn&apos;t use that plan.
             Supermemory claims HIPAA but provides no public BAA. HackClub has
             no HIPAA certifications. Health-adjacent data is stored on infra
             without healthcare-grade compliance guarantees.
@@ -234,119 +235,85 @@ const SECTIONS: Section[] = [
     content: (
       <>
         <p>
-          Luna's prediction engine is a single file —{" "}
+          Luna&apos;s current prediction engine is open source in{" "}
           <Link
-            href="https://github.com/a3ro-dev/luna/blob/main/src/lib/prediction/engine.ts"
+            href="https://github.com/a3ro-dev/luna/blob/main/src/lib/prediction/forecast.ts"
             target="_blank"
             rel="noopener noreferrer"
             className="text-[#FFB5C0] hover:underline"
           >
-            engine.ts
+            forecast.ts
           </Link>{" "}
-          — about 780 lines. Here's exactly what it does:
+          . Here&apos;s exactly what it does:
         </p>
 
         <div className="space-y-4 mt-2">
           <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4">
             <h3 className="text-sm font-medium text-[#6D5A60] mb-2">
-              1. Starting assumptions (priors)
+              1. Broad starting assumptions
             </h3>
             <p>
-              With no data, Luna uses published research averages — and those
-              change by condition. A PCOS user starts at 51 days (not 28). An
-              endometriosis user starts at 27 days. Someone on hormonal birth
-              control starts at 28 days with suppressed ovulation predictions.
+              With no personal history, Luna uses a deliberately broad
+              population starting point drawn from prospective cycle studies.
+              Published total variation is not treated as if it were certainty
+              about one person. PCOS, thyroid conditions, endometriosis, and
+              contraception do not receive invented means when the source only
+              supports a directional association.
             </p>
-            <div className="mt-2 overflow-x-auto">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="border-b border-[#FFDDE0]/20 text-[#8E7D82]">
-                    <th className="text-left py-1 pr-2 font-medium">Condition</th>
-                    <th className="text-right py-1 px-2 font-medium">Cycle mean</th>
-                    <th className="text-right py-1 px-2 font-medium">Max threshold</th>
-                    <th className="text-center py-1 pl-2 font-medium">Evidence</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    ["General population", "30.3d", "45d", "Strong (N=581)"],
-                    ["PCOS", "51d", "120d", "Weak (N=10)"],
-                    ["PCOD", "45d", "120d", "Very weak (interpolated)"],
-                    ["Endometriosis", "27d", "45d", "Weak (OR data)"],
-                    ["Thyroid", "35d", "90d", "Very weak (directional)"],
-                    ["Hormonal BC", "28d", "35d", "Strong (RCTs)"],
-                    ["Irregular", "30d", "90d", "Very weak (catch-all)"],
-                    ["Perimenopause early", "30d", "60d", "Moderate (NIH)"],
-                    ["Perimenopause late", "80d", "180d", "Moderate (NIH)"],
-                  ].map(([cond, mean, max, evidence]) => (
-                    <tr key={cond} className="border-b border-[#FFDDE0]/10">
-                      <td className="py-1 pr-2 text-[#6D5A60]">{cond}</td>
-                      <td className="py-1 px-2 text-right">{mean}</td>
-                      <td className="py-1 px-2 text-right">{max}</td>
-                      <td className="py-1 pl-2 text-[#8E7D82]">{evidence}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
             <p className="mt-2 text-[11px] text-[#8E7D82]">
-              Multiple conditions are combined via inverse-variance weighted
-              mixture. Hormonal BC always takes priority. Source values mostly
-              from published papers (Najmabadi et al. 2020, Holman 2006,
-              Nutrients 2026 trial) — not independently verified against originals.
+              The numerical assumptions, source populations, and transfer
+              limits are listed in papers/references.md. Several components are
+              conservative engineering assumptions that still require
+              prospective calibration.
             </p>
           </div>
 
           <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4">
             <h3 className="text-sm font-medium text-[#6D5A60] mb-2">
-              2. Adaptive smoothing
+              2. Learning from your history
             </h3>
             <p>
-              As you log cycles, Luna blends your data with the priors using
-              inverse-variance weighting. It learns faster (α → 0.5) when your
-              cycles are irregular and slower (α → 0.1) when they're
-              stable. After 6 cycles, the prior fades out completely — Luna
-              trusts your actual data.
+              Luna estimates your typical cycle and your cycle-to-cycle
+              variation. Personal observations gradually outweigh the starting
+              point, but a variance floor prevents one or two similar cycles
+              from producing a falsely precise prediction.
             </p>
             <p className="mt-1 text-[11px] text-[#8E7D82]">
-              The n≥6 cutoff is an arbitrary heuristic, not a statistically
-              derived threshold. No sensitivity analysis exists.
+              Only the 12 most recent usable intervals inform a forecast. The
+              exact shrinkage strength remains an assumption to validate.
             </p>
           </div>
 
           <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4">
             <h3 className="text-sm font-medium text-[#6D5A60] mb-2">
-              3. Anomaly detection (skip gate)
+              3. Uncertain logs
             </h3>
             <p>
-              Unusually long gaps are flagged as probable missed logs. If a
-              cycle exceeds the condition-specific max threshold (e.g., 120d
-              for PCOS), it's treated as a gap rather than a real cycle.
-              A second soft-clamp catches outliers beyond 2.5σ — the value is
-              pulled toward the mean rather than discarded entirely.
+              One very short or long interval is set aside as a possible
+              duplicate, spotting entry, or missed log. It remains visible and
+              is counted in the forecast basis. Repeated long intervals are
+              treated as a personal pattern instead of being discarded.
             </p>
             <p className="mt-1 text-[11px] text-[#8E7D82]">
-              The 2.5σ threshold and condition-specific max thresholds are
-              domain heuristics. No analysis of false positive/negative rates
-              exists.
+              Luna does not know whether a long gap is a missed log or a genuine
+              long cycle. This is an uncertainty rule, not a diagnosis.
             </p>
           </div>
 
           <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4">
             <h3 className="text-sm font-medium text-[#6D5A60] mb-2">
-              4. Confidence intervals
+              4. Prediction intervals
             </h3>
             <p>
-              Luna gives you a range — not just a date. These ranges use
-              jackknife resampling (leave-one-out recalculation) for 6+
-              observations, and parametric ±1.96σ for fewer. Follicular phase
-              is derived from cycle + period + luteal to maintain physiological
-              consistency rather than predicted independently.
+              Luna gives an 80% likely window for the next observation, not a
+              confidence interval around an average. The range includes both
+              estimated personal variability and uncertainty about the
+              person&apos;s typical cycle. Ovulation is clearly labelled as a
+              calendar estimate or withheld when unsuitable.
             </p>
             <p className="mt-1 text-[11px] text-[#8E7D82]">
-              The jackknife assumes a smooth estimator, but the skip gate
-              introduces discontinuities. Coverage may be off from nominal 95%.
-              No simulation study has been done.
+              Synthetic tests check calibration under known assumptions. The
+              live dataset is too small to establish real-world coverage.
             </p>
           </div>
         </div>
@@ -401,7 +368,7 @@ const SECTIONS: Section[] = [
             </h3>
             <p>
               US 501(c)(3) nonprofit. Provides free AI and search to its
-              community. Luna's AI proxy sends prompts to OpenRouter
+              community. Luna&apos;s AI proxy sends prompts to OpenRouter
               (routing to xAI, Anthropic). Search goes to Brave.
             </p>
             <div className="mt-2 flex items-start gap-2 p-2 rounded-lg bg-[#FFDDE0]/20">
@@ -493,9 +460,10 @@ const SECTIONS: Section[] = [
       <>
         <ul className="list-disc pl-5 space-y-2">
           <li>
-            <strong>No accuracy benchmarks.</strong> We have not measured MAE,
-            RMSE, or any prediction metric. We don't know if Luna is better
-            or worse than assuming a 28-day cycle.
+            <strong>No publishable real-world benchmark.</strong> Luna now has
+            a leakage-free evaluation harness and synthetic benchmarks, but
+            only four live users have retrospective targets. That is below our
+            minimum reporting threshold, so real-data accuracy stays unknown.
           </li>
           <li>
             <strong>AI can misunderstand you.</strong> Chat-based logging is
@@ -504,29 +472,28 @@ const SECTIONS: Section[] = [
             might misinterpret what you say or miss information.
           </li>
           <li>
-            <strong>Condition priors are population averages.</strong> A 51-day
-            PCOS prior is from a small trial (N=10). It represents what's
-            typical for a population, not any specific person. Individual
-            variation is substantial — PCOS cycles range from 21 to 111 days.
+            <strong>Population evidence is not personal truth.</strong> The
+            starting assumptions come from selected research populations and
+            may not transfer to you. The model&apos;s variance split and
+            shrinkage strength remain engineering assumptions to calibrate.
           </li>
           <li>
-            <strong>Several priors have very weak evidence.</strong> The PCOD
-            prior (45d) is interpolated — no separate PCOD data exists. Thyroid
-            and irregular priors are constructed from directional clinical
-            knowledge, not published distributions.
+            <strong>Condition evidence is limited.</strong> Luna no longer
+            assigns unsupported means to PCOS, PCOD, endometriosis, thyroid
+            conditions, or every hormonal method. It usually widens or
+            withholds an estimate, but those choices still need evaluation.
           </li>
           <li>
-            <strong>Gaussian assumptions.</strong> Predictions assume
-            approximately normal distributions, but menstrual cycle lengths —
-            especially for PCOS and perimenopause — are right-skewed. The
-            95% CI is presented symmetrically even when the true distribution
-            is asymmetric.
+            <strong>Distribution assumptions.</strong> Cycle length uses a
+            log-normal predictive distribution and bleeding duration uses a
+            bounded normal approximation. Real personal patterns can still be
+            multimodal or change over time.
           </li>
           <li>
-            <strong>68 unit tests, zero integration tests.</strong> The
-            prediction engine's core functions are unit-tested, but there
-            are no integration tests, regression tests, or end-to-end tests.
-            No user studies have been conducted.
+            <strong>Tests are not clinical validation.</strong> Eighty unit and
+            regression tests cover the engine, validation, and leakage
+            invariants. Authenticated browser journeys and user studies remain
+            incomplete.
           </li>
           <li>
             <strong>Limited with very little data.</strong> With 1-2 cycles,
@@ -536,13 +503,13 @@ const SECTIONS: Section[] = [
           <li>
             <strong>No wearable integration.</strong> Luna cannot read data
             from Oura Ring, Apple Watch, or any wearable. If you track basal
-            body temperature, you'll need to enter it manually.
+            body temperature, you&apos;ll need to enter it manually.
           </li>
           <li>
-            <strong>Skip gate is a hard cutoff.</strong> Unlike Clue (which
-            models missing logs probabilistically), Luna uses a hard threshold.
-            A 46-day cycle in the general population gets flagged. Some people
-            genuinely have 46-day cycles.
+            <strong>Uncertain-log rules are heuristic.</strong> One extreme gap
+            is set aside as possibly incomplete; repeated long gaps become a
+            personal pattern. The app still cannot know whether a particular
+            gap is a missed log or a genuine long cycle.
           </li>
           <li>
             <strong>HackClub logs everything.</strong> Every message you type to
@@ -553,7 +520,7 @@ const SECTIONS: Section[] = [
         </ul>
         <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4 mt-4">
           <p className="text-xs text-[#8E7D82]">
-            These limitations are documented in detail in Luna's{" "}
+            These limitations are documented in detail in Luna&apos;s{" "}
             <Link
               href="https://github.com/a3ro-dev/luna/tree/main/papers"
               target="_blank"
@@ -562,7 +529,7 @@ const SECTIONS: Section[] = [
             >
               papers directory
             </Link>
-            , particularly the nontechnical paper and technical paper's
+            , particularly the nontechnical paper and technical paper&apos;s
             Section 8 (Limitations), Section 6 (Experiments and evaluation),
             and Section 7 (Results).
           </p>
@@ -601,7 +568,7 @@ const SECTIONS: Section[] = [
           <li><strong>Account deletion.</strong> Coming soon to settings.
             Currently by contacting us.</li>
           <li><strong>Third-party logs.</strong> HackClub retains AI prompts
-            and responses indefinitely — outside Luna's control.</li>
+            and responses indefinitely — outside Luna&apos;s control.</li>
         </ul>
       </>
     ),
@@ -628,7 +595,7 @@ const SECTIONS: Section[] = [
             "Read exactly how predictions are calculated",
             "See every database query and API route",
             "Inspect how data is sent to each third-party service",
-            "Verify the 10 condition-specific priors",
+            "Review every forecast assumption and its evidence",
             "Run your own copy with your own infrastructure",
             "Read the 67 technical paper pages in papers/",
           ].map((item) => (
@@ -651,7 +618,7 @@ const SECTIONS: Section[] = [
       <p>
         Luna has three pricing tiers (Free, Premium at $5/month, Premium+ at
         $12/month), but all use the same AI model — Grok 4.3 via HackClub proxy.
-        The only difference is the tone of the AI's responses (practical vs.
+        The only difference is the tone of the AI&apos;s responses (practical vs.
         warm vs. empathetic). Predictions, accuracy, and capabilities are
         identical across all tiers. You are not getting worse predictions on
         the free plan. The persona prompts are defined in{" "}

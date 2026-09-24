@@ -192,9 +192,9 @@ const SECTIONS: Section[] = [
           <p className="text-xs text-[#8E7D82] flex items-start gap-2">
             <span className="text-[#FFB5C0] shrink-0">⚠</span>
             Luna is unvalidated. No clinical studies, no accuracy benchmarks,
-            no published user research. 68 unit tests verify the prediction
-            engine behaves as specified — but we don&apos;t know if it produces
-            accurate predictions for real people.
+            no published user research. 80 unit tests and synthetic backtests
+            verify the implementation — but the live dataset is too small to
+            establish accuracy for real people.
           </p>
         </div>
       </>
@@ -206,23 +206,23 @@ const SECTIONS: Section[] = [
     content: (
       <>
         <p>
-          Luna uses adaptive exponential smoothing with 10 condition-specific
-          population priors. Here&apos;s what that actually means:
+          Luna uses a versioned posterior-predictive model. Here&apos;s what that
+          actually means:
         </p>
         <ul className="list-disc pl-5 space-y-2">
           <li>
-            <strong>Cold start.</strong> With no data, Luna uses published
-            research averages — and those averages differ by condition. A PCOS
-            user starts at 51-day cycles, not 28.
+            <strong>Cold start.</strong> With no personal data, Luna uses a
+            broad population starting point and shows a wide range.
           </li>
           <li>
-            <strong>Warm start (1-5 cycles).</strong> Luna blends your data with
-            the starting averages using inverse-variance weighting. The more
-            cycles you log, the less influence the averages have.
+            <strong>Personal learning.</strong> Luna combines usable history
+            with the starting point and estimates both your typical cycle and
+            cycle-to-cycle variation.
           </li>
           <li>
-            <strong>Mature (6+ cycles).</strong> Luna trusts your data. The
-            prior fades out. Predictions come from jackknife confidence intervals.
+            <strong>Likely window.</strong> Luna reports an 80% prediction
+            interval for the next cycle, not a confidence percentage or a
+            guarantee. Sparse and variable histories stay wider.
           </li>
         </ul>
         <p>
@@ -236,12 +236,12 @@ const SECTIONS: Section[] = [
             The prediction engine is fully open source. You can read the exact
             algorithm in{" "}
             <Link
-              href="https://github.com/a3ro-dev/luna/blob/main/src/lib/prediction/engine.ts"
+              href="https://github.com/a3ro-dev/luna/blob/main/src/lib/prediction/forecast.ts"
               target="_blank"
               rel="noopener noreferrer"
               className="text-[#FFB5C0] hover:underline"
             >
-              engine.ts
+              forecast.ts
             </Link>{" "}
             and its 68 vitest tests in{" "}
             <Link
