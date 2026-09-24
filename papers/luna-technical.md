@@ -1,711 +1,144 @@
-# Luna: condition-aware menstrual cycle prediction via adaptive exponential smoothing with population priors
+# Luna: personal cycle forecasts with explicit predictive uncertainty
 
-**Akshat Singh Kushwaha**
-
-akshatsingh14372@outlook.com · a3ro.dev
-
----
+**Version:** 0.10.0  
+**Date:** 24 September 2026  
+**Status:** implemented and synthetically validated; not clinically validated
 
 ## Abstract
 
-I present Luna, a web-based menstrual cycle tracking and prediction application that uses adaptive exponential smoothing with condition-specific population priors. Unlike conventional trackers that apply a fixed 28-day default or simple rolling averages, Luna adjusts its smoothing parameters, anomaly thresholds, prior blending, and uncertainty estimates based on the user's self-reported health conditions (PCOS, endometriosis, thyroid disorders, hormonal contraception, perimenopause, among others). The prediction engine computes point estimates and confidence intervals through three regimes: a pure-prior cold start for zero observations, inverse-variance blending for 1-5 observations, and jackknife confidence intervals from exponential smoothing for 6+ observations. Anomaly detection uses a two-stage skip gate: a condition-aware maximum-cycle-length threshold followed by a 2.5σ outlier soft-clamp. A vitest unit test suite covers the six core prediction functions (68 tests), but the system has not been validated on real-world data and no published accuracy metrics exist. This paper describes the algorithm and architecture with full transparency about what remains unverified.
+Luna is an open-source menstrual cycle tracker with a conversational interface. Version 0.10.0 replaces the production path from a condition-specific adaptive smoother with `forecast-v2.0.0`, a small posterior-predictive model. The model combines a conservative population starting point with each person's usable history and reports an 80% prediction interval for the next observation, not a confidence interval for an estimated mean. The dashboard and chat consume one forecast service and expose model version, data cutoff, usable history, excluded observations, assumptions, and abstention reasons.
 
-## 1. Introduction
+A privacy-bounded database profile found 10 users, 25 cycle records, 20 completed start-to-start intervals, and no recorded ovulation observations. Only four users supplied any retrospective forecast targets, below the predeclared minimum of five users for releasing aggregate accuracy metrics. No claim of real-world accuracy improvement is therefore supportable. Leakage-free synthetic rolling-origin experiments show that the implementation behaves as intended under the generator's assumptions, but those experiments are engineering evidence rather than clinical evidence.
 
-Menstrual cycle tracking is a widespread practice, with dozens of mobile applications serving hundreds of millions of users. Despite this scale, most trackers employ simple predictive strategies--rolling averages of the last *N* cycles, fixed 28-day defaults, or undisclosed proprietary models--that fail to account for the substantial heterogeneity in cycle patterns across different health conditions [1][2]. A user with polycystic ovary syndrome (PCOS), whose cycle length may range from 21 to 111 days [3], receives the same predictive framework as a user with regular 28-day cycles.
+## 1. Success criteria
 
-This paper describes Luna (v0.9.10), an open-source menstrual cycle tracker that takes a different approach: condition-aware adaptive exponential smoothing. The system adjusts its core parameters--smoothing rate, anomaly thresholds, population priors, uncertainty estimates--based on the user's self-reported health conditions. The algorithm is fully deterministic and inspectable: all parameters and decision boundaries are specified in a single source file ([engine.ts, L1-780](../src/lib/prediction/engine.ts#L1-L780)).
+The work used six predeclared outcomes:
 
-Luna is a functional web application built on Next.js 16.2.4 with a conversational AI interface. It has not undergone clinical validation and has no published accuracy benchmarks. A unit test suite (vitest, 68 tests) covers the core prediction functions but does not substitute for empirical validation. I present the system as-is, documenting what it does and the evidence behind its design choices, with full transparency about what remains unverified.
+1. **Correctness:** date-only calculations are timezone invariant; period length is inclusive; cycle length is start-to-start; no future information enters a forecast.
+2. **Uncertainty:** ranges describe the next observation, widen for variable or sparse histories, and are never presented as confidence percentages.
+3. **Integrity:** create, edit, delete, import, and profile changes validate and deterministically recompute dependent state.
+4. **Chat grounding:** chat and dashboard use the same authenticated forecast service; failed writes cannot produce success confirmations.
+5. **Experience:** recorded facts, estimates, uncertainty, and withheld estimates are visibly distinct.
+6. **Maintainability:** model code is pure, versioned, tested, reproducible, and separable from database persistence.
 
-## 2. Background and related work
+## 2. Current architecture
 
-### 2.1 Commercial cycle trackers
+The application uses Next.js 16.2.4, React 19, Neon PostgreSQL, Drizzle ORM, Auth.js v5, AI SDK v6, and OpenUI. The installed dependency versions are authoritative; the older project guide that named Next.js 15.0.0 was stale.
 
-**Clue** is the most methodologically sophisticated published commercial system. It uses probabilistic forecasting with population-informed priors and generalized Poisson models, explicitly modeling the distinction between missing logs and true long cycles [4]. Clue reports MAE, CRPS, Brier score, and calibration metrics. No public PCOS-specific model has been disclosed.
+The current prediction path is:
 
-**Natural Cycles** is the only FDA-cleared contraceptive app, validated on >22,000 women and >224,000 cycles using basal body temperature (BBT)-driven fertility awareness with statistical inference [5]. It uses the Pearl Index for contraceptive effectiveness and expands unsafe days when uncertain. It is the most clinically rigorous tracker but does not publicly disclose a PCOS engine.
+```text
+authenticated user
+  -> date-only cycle rows + profile
+  -> validation and chronological derivation
+  -> forecast-v2.0.0
+  -> structured forecast + plain-language description
+  -> dashboard and deterministic chat tool
+```
 
-**Flo Health** uses ML-based personalization with neural-network forecasting [6]. Its algorithm is proprietary and has no peer-reviewed disclosure. Flo widens the fertile window under irregularity, but no open calibration benchmarks exist.
+The pure model and provenance types are in [forecast.ts, L1-492](../src/lib/prediction/forecast.ts#L1-L492). Database loading, write validation, analytics refresh, and the shared forecast service are in [cycle-tools.ts, L345-509](../src/lib/cycle-tools.ts#L345-L509). The former adaptive smoother remains in [engine.ts, L1-780](../src/lib/prediction/engine.ts#L1-L780) only as the `forecast-v1` benchmark and compatibility reference.
 
-**drip** is an open-source symptothermal/rule-based fertility awareness app [7]. It uses deterministic rules rather than probabilistic forecasting, has no population priors, no uncertainty estimation, and no PCOS handling.
+## 3. Observation definitions
 
-**Generic GitHub trackers** typically use arithmetic mean or rolling average of the last *N* cycles, fixed 28-day defaults, no condition awareness, no uncertainty quantification, and assume stationary cycle length.
+- A cycle interval belongs to the earlier cycle and equals the number of calendar days from one period start to the next.
+- Bleeding duration is inclusive: `end - start + 1`.
+- An absent end date may mean ongoing bleeding or an incomplete historical log; it is not silently converted into a duration.
+- The latest start can be ongoing. It is not a known future target.
+- Ovulation is an observed fact only when a user logged it. A calendar estimate is labelled as an estimate and is withheld for profiles where calendar timing is unsuitable.
+- Date arithmetic uses ISO date components and UTC date math. The user's timezone is used only to establish the current local date.
 
-### 2.2 Academic methods
+Records with invalid calendar dates, future dates, reversed ranges, bleeding longer than 14 days, duplicate starts, or overlapping bleeding ranges are rejected before writes. Imports validate the complete prospective set before inserting any row, preventing partial acceptance of an invalid file.
 
-Fukaya et al. proposed a state-space BBT model using Bayesian filtering for menstrual cycle phase estimation [8]. Hidden semi-Markov models (HSMMs) have been explored for phase-based duration modeling [9]. These approaches offer richer probabilistic frameworks but nobody has adopted them in consumer applications -- likely because they are harder to implement and need more data than most users have, though no published analysis of this adoption gap exists.
+## 4. Forecast-v2 model
 
-Adaptive exponential smoothing--the method Luna uses--has a long history in time-series forecasting [10] but is surprisingly underexplored for menstrual cycle prediction. That's odd, because the domain is a natural fit: small sample sizes, non-stationary distributions, and a need for graceful handling of outliers and missing data.
+For a metric such as cycle length, Luna treats a person's typical value as unknown:
 
-### 2.3 Condition-specific cycle data
+\[
+m \sim N(\mu_0, \tau_0^2), \qquad x_i \mid m \sim N(m, \sigma^2)
+\]
 
-Table 1 summarizes the published evidence for cycle parameters across conditions.
+The within-person variance is shrunk toward a population value using four pseudo-observations. Given usable personal observations, the posterior point estimate is inverse-variance weighted. The predictive variance is:
 
-| Condition | Cycle Length (mean±SD) | Source | N |
-|---|---|---|---|
-| General population | 30.3 ± 6.7 d | Najmabadi et al. [1] | 581 women, 3,324 cycles |
-| PCOS | 51 ± 15 d | Nutrients 2026 trial [3] | Small N (trial cohort) |
-| PCOS range | 21-111 d | MOS2 community cohort [3] | Community sample |
-| Perimenopause (-4yr) | ~30 d | Holman 2006 [11] | Treloar/Tremin re-analysis |
-| Perimenopause (-2yr) | ~45 d | Holman 2006 [11] | Treloar/Tremin re-analysis |
-| Perimenopause (-1yr) | ~80 d | Holman 2006 [11] | Treloar/Tremin re-analysis |
-| Endometriosis | ≤27d over-represented (OR 1.22) | Meta-analysis, 11 studies [12] | Case-control |
-| Hormonal BC (monophasic) | 28 d (regimen-driven) | RCTs of 21/7, 24/4 pills [13] | RCT cohorts |
-| Thyroid (hypo/hyper) | No published mean±SD | Directional data only | -- |
-| Irregular (idiopathic) | No published mean±SD | -- | -- |
+\[
+\operatorname{Var}(x_{n+1}\mid x_{1:n}) = \widehat{\sigma}^2 + \operatorname{Var}(m\mid x_{1:n})
+\]
 
-*Table 1: Published evidence for condition-specific cycle parameters. Thyroid and idiopathic irregular conditions lack quantitative priors in the literature.*
+This distinction matters: population variability, within-person variability, uncertainty about a person's mean, and uncertainty about their next cycle are not interchangeable. Cycle length is modeled on a log scale to prevent impossible negative tails. Bleeding duration uses a linear scale with physical bounds.
 
-## 3. Problem statement
+The central 80% prediction interval is intentionally labelled a likely window. It is not a guarantee and it is not a probability that the point date is correct. At zero observations the model returns a broad population-based range. At one or two observations the variance floor prevents fabricated precision. Only the most recent 12 usable observations influence a forecast.
 
-Conventional menstrual cycle trackers suffer from interrelated shortcomings:
+### 4.1 Uncertain logs and long cycles
 
-1. Fixed population priors (typically μ=28, σ≈2-4 days) produce misleading predictions for users whose cycle distributions differ substantially from the general population--most notably users with PCOS, perimenopause, or thyroid disorders.
+Intervals below 15 days are set aside as possible duplicate or spotting logs. A single interval above the profile's gate is set aside as a possible missed log. Two or more long intervals among the six most recent are treated as a recurring personal pattern and included. Excluded records remain visible to the user and are counted in provenance. Exclusion cannot create a narrow range by itself because excluded rows do not count as evidence and the predictive variance floor remains.
 
-2. Without condition-aware thresholds, a 60-day cycle is flagged as a "missed log" for a general-population user but may be entirely normal for a PCOS user. Misclassifying a genuine long cycle as a data gap corrupts the smoothing state.
+This is uncertainty classification, not diagnosis. A long interval may be genuine, an unlogged period, or another recording problem. Luna does not claim to know which.
 
-3. Simple rolling averages provide no confidence intervals, leaving users unable to assess prediction reliability. This matters most during cold start (few observations) and for high-variance conditions.
+### 4.2 Conditions and stages
 
-Luna addresses these by making the prediction engine condition-aware at every layer: priors, smoothing, anomaly detection, and uncertainty estimation.
+Version 1 encoded several condition-specific means without adequate quantitative support, including a PCOD subtype distinction, a thyroid mean, and an endometriosis distribution inferred from an odds ratio. Version 2 removes those unsupported mean shifts.
 
-## 4. Methodology and system design
+Where evidence is directional rather than distributional, a condition widens variability or withholds a calendar ovulation estimate instead of inventing a mean. PCOS and PCOD share handling because no defensible quantitative distinction was verified. A single hormonal-contraception setting cannot represent pills, hormonal IUDs, implants, injections, and other regimens, so its range remains broad and ovulation is withheld. Late perimenopause has a wide, conservative shift informed by longitudinal TREMIN data; it must not be read as an individual diagnosis or staging rule.
 
-### 4.1 Population priors
+### 4.3 Ongoing cycles
 
-> **⚠ Verification caveat:** The population prior values below are sourced from published papers (Najmabadi et al. [1], Holman 2006 [11], Nutrients 2026 trial [3]) and have not been independently verified against the originals. Independent verification is recommended before citing these specific values.
+If the expected point date passes, Luna does not slide the point forecast forward and does not label the period missed. It preserves the original model forecast, reports how far the current cycle has progressed, and conditions the displayed remaining window on the fact that no new start has been recorded yet. This is explicit survival-style conditioning, not evidence that a period did or did not occur.
 
-The general population prior derives from Najmabadi et al. [1], who pooled three prospective cohorts of 581 eumenorrheic women across 3,324 cycles ([engine.ts, L35-42](../src/lib/prediction/engine.ts#L35-L42)). Values reported below are from Najmabadi et al. [1], not independently verified against the original paper:
+### 4.4 Ovulation
 
-| Parameter | Mean | Variance | σ |
-|---|---|---|---|
-| cycleLength | 30.3 | 44.89 | 6.7 d |
-| periodLength | 6.2 | 2.25 | 1.5 d |
-| follicularLength | 18.5 | 42.25 | 6.5 d |
-| lutealLength | 11.7 | 7.84 | 2.8 d |
+Luna had zero suitable ovulation observations in the inspected database. Calendar ovulation is therefore a qualified estimate derived from the predicted next start and a population luteal distribution, not an evaluated outcome. It is withheld for PCOS/PCOD, irregular cycles, thyroid conditions, hormonal contraception, and late perimenopause. Model-derived phase dates are never fed back as independent observations.
 
-Ten condition-specific priors extend this baseline: `none`, `pcos`, `pcod`, `endometriosis`, `thyroid`, `hormonal_bc`, `irregular`, `perimenopause`, `perimenopause_early`, `perimenopause_late` ([engine.ts, L56-230](../src/lib/prediction/engine.ts#L56-L230)). Each specifies cycle length, period length, follicular length, and luteal length (mean and variance), a maximum cycle length threshold, whether anovulation is common, and a human-readable note for the AI assistant.
+## 5. Evidence and prior provenance
 
-Condition priors:
+The general starting point is anchored to two primary studies:
 
-| Condition | Cycle μ | Cycle σ | maxCycleLength | Anovulatory |
-|---|---|---|---|---|
-| none | 30.3 | 6.7 | 45 | No |
-| pcos | 51 | 15 | 120 | Yes |
-| pcod | 45 | 13 | 120 | Yes |
-| endometriosis | 27 | 4 | 45 | No |
-| thyroid | 35 | 15 | 90 | Yes |
-| hormonal_bc | 28 | 1 | 35 | Yes |
-| irregular | 30 | 15 | 90 | Yes |
-| perimenopause | 45 | 20 | 120 | Yes |
-| perimenopause_early | 30 | 8 | 60 | No |
-| perimenopause_late | 80 | 30 | 180 | Yes |
+- Najmabadi et al. pooled 3,324 cycles from 581 participants in three prospective cohorts and reported cycle 30.3 (SD 6.7), menses 6.2 (SD 1.5), follicular 18.5 (SD 6.5), and luteal 11.7 days (SD 2.8), DOI `10.1111/ppe.12644`.
+- Bull et al. analyzed 612,613 ovulatory cycles from 124,648 Natural Cycles users and reported cycle 29.3 (SD 5.2), bleed 4.0 (SD 1.5), follicular 16.9 (SD 5.3), and luteal 12.4 days (SD 2.4), DOI `10.1038/s41746-019-0152-7`.
 
-*The `perimenopause` key is a backward-compatibility alias. New users select `perimenopause_early` or `perimenopause_late` directly, corresponding to ~-4yr to -2yr and ~-2yr to -1yr before the final menstrual period respectively (Holman 2006) ([engine.ts, L238-257](../src/lib/prediction/engine.ts#L238-L257)).*
+Neither study directly identifies the model's between-person SD of personal means, typical within-person SD, or shrinkage strength. Those are conservative engineering assumptions, documented in [research-notes.md](./research-notes.md), and require prospective calibration. Bull et al. selected app users with ovulatory cycles, limiting transferability. Najmabadi et al. studied eumenorrheic participants, limiting condition transferability.
 
-*PCOD is treated as a milder phenotype of PCOS following South Asian clinical tradition, with interpolated parameters (slightly shorter mean, slightly lower variance). No separate quantitative data distinguishes PCOD from PCOS in peer-reviewed literature ([engine.ts, L87-101](../src/lib/prediction/engine.ts#L87-L101); see note at [L88-90](../src/lib/prediction/engine.ts#L88-L90)).*
+Ferrell et al. followed 120 white, college-educated US TREMIN participants and reported increasing mean cycle length in the four years before the final menstrual period, DOI `10.1016/j.fertnstert.2006.01.045`. The small, nonrepresentative cohort supports a directional late-transition adjustment, not precise individualized staging.
 
-*Hormonal BC sets follicularLength and lutealLength to null, as ovulation is suppressed and these phases do not exist ([engine.ts, L143-144](../src/lib/prediction/engine.ts#L143-L144)).*
+## 6. Evaluation design
 
-### 4.2 Prior resolution
+The harness in [backtest.ts, L1-270](../src/lib/prediction/backtest.ts#L1-L270) performs rolling-origin evaluation. At every origin it rebuilds model state from the historical prefix and predicts only the next eligible target. It never reads future ends, future ovulation, persisted full-history parameters, or later profile state. Individual users are never randomly split across origins.
 
-When a user has multiple conditions, `resolveEffectivePrior()` ([engine.ts, L359-438](../src/lib/prediction/engine.ts#L359-L438)) computes an effective prior using inverse-variance weighted mixture blending:
+Benchmarks include the legacy engine, population prior, last observation, expanding median, rolling mean, rolling median, and simple exponential smoothing. Metrics include MAE, median absolute error, RMSE, bias, error quantiles, proportions within 2/3/7 days, cycle-level and user-macro results, interval coverage and width, interval score, abstention, and user-cluster bootstrap differences.
 
-1. If `hormonal_bc` is present, use the hormonal BC prior (cycle mechanics are fundamentally altered).
-
-2. Otherwise, compute an inverse-variance weighted mixture of all active condition priors for each metric independently:
-
-   $$\mu_{\text{blended}} = \frac{\sum_{i} w_i \cdot \mu_i}{\sum_{i} w_i}, \quad \text{where } w_i = \frac{1}{\sigma^2_i}$$
-
-   $$\sigma^2_{\text{blended}} = \frac{1}{\sum_{i} w_i} + \frac{\sum_{i} w_i \cdot (\mu_i - \mu_{\text{blended}})^2}{\sum_{i} w_i}$$
-   (The second term captures the spread between condition means).
-
-   Note: the first term $1/\sum w_i$ is the variance of the weighted mean estimator under inverse-variance combination, which is $1/M$ of the pooled within-condition variance of the mixture (where $M$ is the number of active conditions). For a mixture of subpopulations, the within-condition variance component is $\sum p_i \sigma^2_i = M / \sum w_i$ (since $p_i = w_i / \sum w_j$ and $w_i \sigma^2_i = 1$). The current formula is retained because it matches the variance produced by `blendWithPrior()` for the warm-start regime (1-5 observations), ensuring internal consistency at the cost of underestimating the blended prior variance. A log-normal reparameterization would be a principled next step for conditions with known right-skew, but has not been implemented [unverified].
-
-   **Perimenopause dual pathway:** Users can encode their perimenopause stage through two mechanisms: (1) selecting `perimenopause_early` or `perimenopause_late` directly in the `conditions` array, or (2) selecting the legacy `perimenopause` condition plus a separate `perimenoStage` field ("early"/"late"/"unknown"). In `resolveEffectivePrior()`, `perimenopause_early`/`perimenopause_late` are resolved directly; the legacy `perimenopause` key is resolved via `resolvePerimenopausePrior(perimenoStage)`, which maps to `PERIMENOPAUSE_EARLY` for "early", `PERIMENOPAUSE_LATE` for "late", or the general `perimenopause` prior for "unknown". A user with `conditions: ["perimenopause"]` and `perimenoStage: "late"` receives the same prior as `conditions: ["perimenopause_late"]`. The two pathways are equivalent and there is no precedence conflict -- they resolve to the same prior.
-
-3. `maxCycleLength` = MAX across all active conditions (widest safe gate).
-4. `anovulatoryCommon` = OR across all active conditions.
-
-NOTE: The mixture assumes approximate Gaussianity and may underestimate tails for heavily right-skewed conditions like PCOS.
-
-5. Empty conditions or `"none"` fall back to the general population prior.
-
-The previous approach used a "highest variance wins" heuristic, which discarded lower-variance conditions entirely. The inverse-variance mixture is more principled: it weights each condition by `1/σ²`, so tighter estimates contribute more to the blended mean, while the between-condition spread term ensures the blended variance reflects the full uncertainty. A user with both endometriosis and thyroid disorders now receives a blended mean between the two condition means, with variance that accounts for both within-condition uncertainty and the spread between the two condition means.
-
-### 4.3 Adaptive exponential smoothing
-
-The core smoother `exponentialSmooth()` ([engine.ts, L531-575](../src/lib/prediction/engine.ts#L531-L575)) iterates observations from oldest to newest:
-
-**Initialization:**
-
-$$\hat{x}_0 = x_0, \quad \sigma^2_0 = 0$$
-
-**For each subsequent observation** $x_i$:
-
-1. **Skip gate** (§4.4): apply anomaly detection to obtain gated value $\tilde{x}_i$.
-
-2. Compute adaptive α from the last 5 residuals' mean absolute deviation (MAD):
-
-$$\alpha = \alpha_{\min} + (\alpha_{\max} - \alpha_{\min}) \cdot \frac{\text{MAD}}{\text{MAD} + \kappa}$$
-
-where $\alpha_{\min} = 0.1$, $\alpha_{\max} = 0.5$, $\kappa = 5.0$ ([engine.ts, L449-451](../src/lib/prediction/engine.ts#L449-L451)). For empty residuals, α defaults to 0.3 ([engine.ts, L460](../src/lib/prediction/engine.ts#L460)).
-
-3. Update variance and smoothed value:
-
-$$\sigma^2_i = (1 - \alpha)(\sigma^2_{i-1} + \alpha \cdot d_i^2)$$
-
-$$\hat{x}_i = \hat{x}_{i-1} + \alpha \cdot d_i$$
-
-where $d_i = \tilde{x}_i - \hat{x}_{i-1}$.
-
-4. Only non-anomaly observations contribute residuals to the MAD computation. Anomaly-gated observations produce $d_i \approx 0$, which would artificially deflate MAD and lock α low, making the smoother unresponsive to genuine regime changes ([engine.ts, L565-571](../src/lib/prediction/engine.ts#L565-L571)).
-
-Adaptive α lets the smoother respond quickly when recent observations are highly variable (large MAD → α approaches 0.5) and stabilize when observations are consistent (small MAD → α approaches 0.1). The MAD window of 5 observations balances responsiveness and smoothness. I chose exponential smoothing over richer probabilistic models because it's simple, interpretable, and works well with small samples. Bayesian approaches might perform better with enough data, but they'd be harder to debug.
-
-### 4.4 Skip gate and anomaly detection
-
-The skip gate `skipGate()` ([engine.ts, L504-528](../src/lib/prediction/engine.ts#L504-L528)) applies a two-stage test:
-
-**Stage 1 -- Maximum cycle length threshold:**
-
-$$\text{if } x_i > T_{\text{max}}(\text{conditions}): \quad \tilde{x}_i = \hat{x}_{i-1}, \quad \text{isAnomaly} = \text{true}$$
-
-where $T_{\text{max}}$ is the condition-specific `maxCycleLength` (e.g., 120 for PCOS, 45 for general population) ([engine.ts, L516-518](../src/lib/prediction/engine.ts#L516-L518)).
-
-**Stage 2 -- Outlier soft-clamp:**
-
-$$\text{if } |d_i| > 2.5 \cdot \sigma: \quad \tilde{x}_i = \hat{x}_{i-1} + \text{sign}(d_i) \cdot 2.5 \cdot \sigma, \quad \text{isAnomaly} = \text{true}$$
-
-where σ is floored at 2.0 days ($\sigma^2 \geq 4.0$) to prevent tight convergence from flagging normal variation ([engine.ts, L520](../src/lib/prediction/engine.ts#L520)).
-
-The soft-clamp preserves the direction of the outlier while limiting its influence, rather than discarding it entirely. I prefer this over hard rejection because it retains directional information. The σ floor prevents the pathological case where a long series of identical observations drives variance to zero, causing the next normal fluctuation to be flagged as anomalous.
-
-The 2.5σ threshold is a domain-specific heuristic, not derived from any theoretical framework. I picked it because it's a common outlier boundary in practice, but I have no sensitivity analysis to back it up [unverified].
-
-### 4.5 Prior blending
-
-`blendWithPrior()` ([engine.ts, L466-501](../src/lib/prediction/engine.ts#L466-L501)) handles the cold-start and warm-start regimes:
-
-- For n ≥ 6 observations, return user data unchanged (prior fades out completely).
-
-- For n < 6 observations, use inverse-variance blending with the condition-specific prior:
-
-$$w_{\text{prior}} = \frac{1}{\sigma^2_{\text{prior}}}, \quad w_{\text{user}} = \begin{cases} \frac{1}{\max(\sigma^2_{\text{user}}, 0.01)} & \text{if } n > 0 \\ 0 & \text{if } n = 0 \end{cases}$$
-
-$$\mu_{\text{blended}} = \frac{w_{\text{prior}} \cdot \mu_{\text{prior}} + w_{\text{user}} \cdot \mu_{\text{user}}}{w_{\text{prior}} + w_{\text{user}}}$$
-
-$$\sigma^2_{\text{blended}} = \frac{1}{w_{\text{prior}} + w_{\text{user}}}$$
-
-The condition-specific prior is used if available; otherwise the general population prior is the fallback ([engine.ts, L476-492](../src/lib/prediction/engine.ts#L476-L492)).
-
-The cutoff at n=6 is a heuristic. Six observations felt like enough to start trusting the user's own data over the prior, but I have no statistical argument for this specific number. The inverse-variance blending is theoretically sound for Gaussian distributions, but menstrual cycle lengths are not Gaussian--especially for conditions like PCOS where distributions are right-skewed with heavy tails [unverified].
-
-### 4.6 Prediction output
-
-`predictNextCycle()` ([engine.ts, L702-779](../src/lib/prediction/engine.ts#L702-L779)) produces a point estimate and 95% confidence interval through three regimes:
-
-| Regime | Condition | Point Estimate | 95% CI |
-|---|---|---|---|
-| Cold start | n = 0 | Condition-prior mean | μ ± 1.96σ (prior) |
-| Warm start | 1 ≤ n ≤ 5 | Blended mean (§4.5) | μ_blended ± 1.96σ_blended |
-| Mature | n ≥ 6 | Smoothed value (§4.3) | Jackknife CI (§4.7) |
-
-Only three metrics are smoothed independently: `cycleLength`, `periodLength`, and `lutealLength`. The follicular phase length is derived from these three to enforce the physiological constraint:
-
-$$\text{follicularLength} = \text{cycleLength} + 1 - \text{periodLength} - \text{lutealLength}$$
-
-The +1 arises because `periodLength` uses inclusive day counting (`diffInDays(mStart, mEnd) + 1`), while the other metrics use exclusive day differences. The derivation is implemented in `deriveFollicularLength()` ([engine.ts, L671-680](../src/lib/prediction/engine.ts#L671-L680)).
-
-**Variance propagation:** The derived follicular variance is computed as `var(cycleLength) + var(periodLength) + var(lutealLength)`, assuming independence of the three smoothed estimates. This is a conservative upper bound; in practice the three estimates are weakly correlated because they share the same observation count and anomaly flags.
-
-**Confidence interval:** The CI bounds for the derived follicular use worst-case combinations: `ciLower = cycleLower + 1 - periodUpper - lutealUpper` and `ciUpper = cycleUpper + 1 - periodLower - lutealLower`.
-
-**Hormonal BC:** For users on hormonal birth control, `lutealLength` is null (ovulation is suppressed), so `deriveFollicularLength` returns null. No follicular prediction is produced for these users.
-
-This "drop and derive" approach eliminates the phase coupling inconsistency that existed when all four metrics were smoothed independently. Previously, the smoothed values could violate the constraint `cycleLength + 1 = periodLength + follicularLength + lutealLength`, producing inconsistent dashboard dates (e.g., predicted next period and predicted ovulation computed from incompatible parameters).
-
-### 4.7 Jackknife confidence intervals
-
-For n ≥ 6 observations, `calculateJackknifeCI()` ([engine.ts, L598-656](../src/lib/prediction/engine.ts#L598-L656)) computes a leave-one-out jackknife:
-
-1. Compute full smoothed estimate $\hat{\theta}$ on all n observations.
-
-2. For each $i \in \{1, \ldots, n\}$, compute $\hat{\theta}_{(i)}$ by running exponential smoothing on the dataset with observation $i$ omitted.
-
-3. Compute jackknife mean: $\bar{\theta}_{(\cdot)} = \frac{1}{n}\sum_{i=1}^{n} \hat{\theta}_{(i)}$
-
-4. Compute jackknife variance: $\hat{\sigma}^2_J = \frac{n-1}{n} \sum_{i=1}^{n} (\hat{\theta}_{(i)} - \bar{\theta}_{(\cdot)})^2$
-
-5. 95% CI: $\hat{\theta} \pm 1.96 \sqrt{\hat{\sigma}^2_J}$
-
-The jackknife assumes that the estimator is approximately smooth in each observation. For exponential smoothing with a skip gate and adaptive α, the estimator is piecewise-smooth--removing an observation can change which observations get flagged as anomalies, creating discontinuities. The jackknife CI may therefore be overconfident or underconfident depending on the data [inference]. No simulation study has assessed coverage [unverified].
-
-## 5. Implementation details
-
-### 5.1 Technology stack
-
-| Component | Technology | Version |
-|---|---|---|
-| Framework | Next.js (App Router) | 16.2.4 |
-| UI | React | 19.0.0 |
-| Database | Neon PostgreSQL (serverless) | -- |
-| ORM | Drizzle ORM | 0.45.2 |
-| Auth | Auth.js (NextAuth v5) | 5.0.0-beta.31 |
-| AI | Vercel AI SDK | 6.0.174 |
-| LLM | x-ai/grok-4.3 (via HackClub proxy) | -- |
-| Memory | Supermemory v4 API | -- |
-| Styling | Tailwind CSS | 4.0.0 |
-| Language | TypeScript | 5.0+ |
-| License | MIT | -- |
-
-### 5.2 Database schema
-
-Eight tables are defined in [schema.ts](../src/lib/db/schema.ts):
-
-| Table | Columns | Notes |
-|---|---|---|
-| `users` | id, email, passwordHash, conditions (jsonb), perimenoStage, plan | conditions = allowlist-validated array (pcos, pcod, endometriosis, thyroid, hormonal_bc, irregular, perimenopause, perimenopause_early, perimenopause_late, none); perimenoStage = "early"/"late"/"unknown" |
-| `cycles` | id, userId, mStart, mEnd, ovulationDate, cycleLength, periodLength, follicularLength, lutealLength, isAnomaly, notes (jsonb) | Derived columns recomputed on every cycle write |
-| `prediction_params` | id, userId, paramName, smoothedValue, variance, sampleCount | One row per (userId, metric); unique on (userId, paramName) |
-| `ai_traces` | id, userId, model, inputTokens, outputTokens, costUsd, latencyMs, feature | Every AI response logged |
-| `chat_sessions` | id, userId, title, createdAt, updatedAt | -- |
-| `chat_messages` | id, sessionId, userId, role, parts (jsonb), textContent | parts = UIMessage parts array |
-| `chat_summaries` | id, sessionId, userId, summary, messageCount | Auto-generated after 30+ messages |
-| `uploaded_images` | id, userId, imageData (base64), mediaType, expiresAt | 7-day retention |
-
-The `cycles.notes` column is jsonb storing symptom/note entries per cycle. Period length uses inclusive day count: `diffInDays(mStart, mEnd) + 1` ([cycle-tools.ts, L470](../src/lib/cycle-tools.ts#L470)).
-
-### 5.3 Cycle analytics pipeline
-
-`refreshCycleAnalytics()` ([cycle-tools.ts, L424-691](../src/lib/cycle-tools.ts#L424-L691)) is the central data pipeline, invoked after every cycle write:
-
-1. Fetch all cycles for the user, ordered by mStart ascending.
-
-2. First pass: compute derived columns (cycleLength, periodLength, follicularLength, lutealLength). Anomaly flags are not set in this pass.
-
-3. Second pass: run the prediction engine's `skipGate()` over cycles in chronological order, mirroring the `exponentialSmooth` update logic so the running smoothed value and variance stay in sync. The `isAnomaly` flag is set solely by `skipGate()` ([cycle-tools.ts, L539-587](../src/lib/cycle-tools.ts#L539-L587)).
-
-4. Persist changes to DB (isAnomaly flag + derived columns).
-
-5. Call `refreshPredictionParam()` for three independently smoothed metrics (cycle_length, period_length, luteal_length), which runs exponential smoothing + prior blending and upserts the result to prediction_params. Then derive the follicular prediction as `cycleLength + 1 - periodLength - lutealLength` and upsert it to prediction_params (see §4.6).
-
-The anomaly detection in `refreshCycleAnalytics` now delegates entirely to the prediction engine's `skipGate()`, ensuring the DB `isAnomaly` flags match exactly what the prediction engine used when computing smoothed values. (Historical note: an earlier z-score-based anomaly detector could flag different observations, creating inconsistent state; see Appendix C, item 8.)
-
-### 5.4 AI chat interface
-
-The chat route ([route.ts](../src/app/api/chat/route.ts)) implements a conversational interface with 10 AI tools:
-
-| Tool | Purpose |
-|---|---|
-| `logPeriodStart` | Log period start date |
-| `logPeriodEnd` | Log period end date |
-| `logOvulation` | Log ovulation date |
-| `addNoteSymptom` | Add free-text note/symptom to a cycle |
-| `fetchRecentCycles` | Fetch recent cycles (returns OpenUI table) |
-| `computePredictions` | Compute next period/ovulation predictions (returns OpenUI card) |
-| `fetchStats` | Cycle statistics and averages (returns OpenUI card) |
-| `exportData` | Return export link for user's cycle data |
-| `rememberFact` | Store personal fact in Supermemory |
-| `searchWeb` | Search web via HackClub Search API |
-
-Context assembly for each message ([route.ts, L801-820](../src/app/api/chat/route.ts#L801-L820), helper methods at [L160-187](../src/app/api/chat/route.ts#L160-L187) and [L231-251](../src/app/api/chat/route.ts#L231-L251)):
-
-- Recent 20 messages from current session
-
-- Latest summary (auto-generated at 30+ messages, delta 12+ since last summary)
-
-- Keyword snippets: extract up to 6 keywords from the latest user message, retrieve up to 6 matching historical messages via ILIKE
-
-- Supermemory recall: top 5 personal facts relevant to the query
-
-Model configuration ([models.ts](../src/lib/chat/models.ts)): All plan tiers (free, premium, premium+) use the same model (`x-ai/grok-4.3`) with the same `maxSteps(10)`. The only difference is the persona prompt appended to the system prompt. Cost: $1.25/M input tokens, $2.50/M output tokens, logged to ai_traces after every response ([route.ts, L854-878](../src/app/api/chat/route.ts#L854-L878)).
-
-Date handling in cycle tools supports natural language input via `normalizeDateInput()` ([cycle-tools.ts, L187-264](../src/lib/cycle-tools.ts#L187-L264)): "today", "yesterday", "May 3", "1/15/2025", ISO dates, and more. All timezone-aware via Intl.DateTimeFormat.
-
-### 5.5 Structured response rendering
-
-The AI assistant can produce structured responses in OpenUI DSL (a domain-specific language where responses start with `root = Card(...)`). Detection uses `looksLikeOpenUiLang()`, which checks if the text starts with `root =` ([openui.ts, L1-4](../src/lib/chat/openui.ts#L1-L4)). This gates rendering of prediction cards, cycle tables, and statistical summaries as rich UI components rather than plain text.
-
-### 5.6 Authentication
-
-Auth.js v5 with Credentials provider only (email + password), JWT strategy (7-day maxAge), bcryptjs password hashing ([auth.ts](../src/auth.ts)). User existence is verified on every JWT refresh callback, forcing re-authentication if the user has been deleted ([auth.ts, L52-63](../src/auth.ts#L52-L63)).
-
-### 5.7 Rate limiting
-
-Sliding-window counter backed by Upstash Redis (`KV_REST_API_URL` / `KV_REST_API_TOKEN`), shared across all serverless instances ([rate-limit.ts](../src/lib/rate-limit.ts)). Falls back to an in-process in-memory store when Redis is unavailable. Applied to: login (5 req/60s per IP), password reset (3 req/5min per IP), OTP verify (5 req/5min per IP), subscription (3 req/hour per IP), and login notifications (1 req/5min per user). The Redis-backed store correctly enforces limits across concurrent instances. Without Redis configured, limits apply per-process only and can be bypassed by distributing requests across instances.
-
-### 5.8 Data import
-
-The import route ([import/route.ts](../src/app/api/data/import/route.ts)) supports five formats:
-
-1. Luna JSON -- native export format. The `parseLuna()` parser validates each entry against a Zod schema (`lunaCycleSchema`) before inserting -- invalid entries are skipped rather than crashing the import.
-
-2. Period Calendar -- "My Calendar" app (Google Play), tab-separated
-
-3. Clue CSV -- Clue app export
-
-4. Flo CSV/TXT -- Flo Health export
-
-5. Apple Health XML -- Apple Health period records
-
-Format is auto-detected. After import, `refreshCycleAnalytics()` is called to compute derived columns and update predictions.
-
-### 5.9 Data export
-
-The export route ([export/route.ts](../src/app/api/data/export/route.ts)) returns user's cycles as JSON with `format: "luna"`, `version: 1`. Exported fields: mStart, mEnd, ovulationDate, cycleLength, periodLength, notes.
-
-### 5.10 Dashboard
-
-The dashboard ([dashboard/page.tsx](../src/app/(app)/dashboard/page.tsx)) is server-rendered with `dynamic = "force-dynamic"`. It uses `predictNextCycle()` for condition-aware predictions and constructs:
-
-- Next period date from last cycle start + predicted cycle length
-
-- Next ovulation date from next period - predicted luteal length (not a hardcoded 14-day offset)
-
-- Ovulation predictions suppressed for hormonal BC users
-
-- Calendar with phase color-coding from actual cycle data + predicted phases for future dates
-
-The dashboard previously used `avgCycleLength - 14` for ovulation instead of the luteal phase prediction, ignored user conditions entirely, and had a naive phase forward-fill that could overlap with actual data. All three were fixed ([changelog.ts](../src/lib/changelog.ts), v0.7.0 entry).
-
-### 5.11 Third-party infrastructure and data handling
-
-Luna depends on three external services, each of which receives and processes user data. This section documents what each service receives, how it handles that data, and what the privacy implications are.
-
-#### Neon (database)
-
-All structured user data -- cycle records, prediction parameters, chat messages, AI traces, user accounts -- is stored in PostgreSQL hosted by Neon ([db/index.ts](../src/lib/db/index.ts)). Luna uses the Neon serverless HTTP driver (`@neondatabase/serverless`) with `fetchOptions: { cache: 'no-store' }` to prevent Vercel from caching query results.
-
-Neon runs on AWS (8 regions across 4 continents). Each project is locked to a single region at creation time. Neon holds SOC 2 Type II, ISO/IEC 27001:2022, and ISO/IEC 27701:2019 certifications. Data is encrypted at rest with AES-256 and in transit with TLS 1.2+. Key management uses AWS KMS. They explicitly state they do not sell personal data. The core storage engine is open source under Apache 2.0 ([github.com/neondatabase/neon](https://github.com/neondatabase/neon), ~22k stars).
-
-Two things to watch. First, Neon was acquired by Databricks in May 2025. Privacy policy and terms of use links now redirect to `databricks.com/legal/`, meaning user data is governed under Databricks' broader legal framework. The implications of cross-entity data access within Databricks have not been assessed. Second, HIPAA compliance is only available on the Scale plan (~$700/month typical), which Luna does not use. Luna's Neon database is therefore not HIPAA-compliant, even though it stores health-adjacent data (cycle records, health conditions).
-
-#### Supermemory (AI memory)
-
-Luna uses Supermemory's v4 API for persistent personal facts that persist across chat sessions. Two endpoints are used:
-
-- `POST https://api.supermemory.ai/v4/search` -- semantic recall of stored facts, scoped per user via `containerTag: userId`, limited to top 5 results ([route.ts, L54-66](../src/app/api/chat/route.ts#L54-L66))
-- `POST https://api.supermemory.ai/v4/memories` -- storing new facts, with `isStatic` flag for permanent vs. evolving facts ([route.ts, L87-95](../src/app/api/chat/route.ts#L87-L95))
-
-Luna stores only personal profile facts (health conditions, preferences, recurring patterns) in Supermemory. Cycle data stays in the Neon database. Chat messages stay in the Neon database. The `containerTag` parameter isolates each user's memories from other users'.
-
-Supermemory runs on Timescale (database) and Cloudflare (compute/CDN). They claim SOC 2, HIPAA, and GDPR compliance, but no public audit reports, DPAs, or BAAs are available for verification. Their privacy policy discloses that content may be sent to OpenAI and Google Gemini when AI features are used, though it is unclear whether this applies to the core embedding/search pipeline or only to optional AI-powered extraction. Encryption at rest is not explicitly documented in their public privacy policy. The privacy contact is the founder's personal email. The core engine is open source under MIT ([github.com/supermemoryai/supermemory](https://github.com/supermemoryai/supermemory), ~22k stars).
-
-#### HackClub (AI proxy and web search)
-
-Luna routes all LLM calls and web searches through HackClub's infrastructure:
-
-- **AI proxy** (`https://ai.hackclub.com/proxy/v1`) -- chat completions via `x-ai/grok-4.3`, session rename via `~anthropic/claude-haiku-latest` ([route.ts, L42-45](../src/app/api/chat/route.ts#L42-L45))
-- **Search API** (`https://search.hackclub.com/res/v1/web/search`) -- web search via Brave Search ([route.ts, L509-516](../src/app/api/chat/route.ts#L509-L516))
-
-HackClub is a US 501(c)(3) nonprofit (EIN: 81-2908499) that provides free AI and search services to its community. The AI proxy forwards prompts to OpenRouter, which routes them to the actual model providers. The search API forwards queries to Brave Search.
-
-The critical privacy concern: HackClub's AI proxy logs every prompt and every response in full (`request` and `response` jsonb fields in a `request_logs` table), linked to user ID, Slack ID, and IP address. The search API logs full query parameters and all request headers (not sanitized to a safe list, unlike the AI proxy). There is no documented retention period, no automatic deletion, and no service-specific privacy notice. The general HackClub privacy policy does not address prompt/response logging or upstream data processing by OpenRouter/Brave.
-
-This means every message a Luna user sends to the AI assistant -- which may contain health information, symptom descriptions, cycle details -- is stored in HackClub's database indefinitely, linked to identity. The data also passes through OpenRouter (and their sub-providers like xAI, Anthropic), each of which has their own data handling policies.
-
-All HackClub code is open source ([github.com/hackclub/ai](https://github.com/hackclub/ai), [github.com/hackclub/search](https://github.com/hackclub/search)), so the logging behavior is verifiable. But it is not optional.
-
-#### Data flow summary
-
-| Data type | Stored in | Also processed by | Logging concerns |
-|---|---|---|---|
-| Cycle records, predictions | Neon (AWS) | -- | SOC 2/ISO audited; no HIPAA on Luna's plan |
-| Chat messages | Neon (AWS) | HackClub AI proxy → OpenRouter → xAI/Anthropic | Full prompt+response logged by HackClub; upstream provider policies apply |
-| Personal facts ("remember I have PCOS") | Supermemory (Timescale/Cloudflare) | Possibly OpenAI/Gemini for AI features | No at-rest encryption documented; no public audit reports |
-| Web search queries | -- | HackClub Search → Brave | Full query+headers logged by HackClub; Brave's privacy policy applies |
-| User auth credentials | Neon (AWS) | -- | bcryptjs hashed; never sent to other services |
-
-The fundamental tension: Luna is an open-source app that stores health-adjacent data, but it relies on infrastructure operated by parties who either (a) do not provide HIPAA-level guarantees on Luna's current plan (Neon), (b) are early-stage without public audit reports (Supermemory), or (c) log all AI interactions indefinitely without a service-specific privacy policy (HackClub). Self-hosting with replacement infrastructure is the only path to full data control.
-
-## 6. Experiments and evaluation
-
-**No experiments have been conducted.** The Luna repository contains:
-
-- A vitest unit test suite covering the six core prediction functions (`skipGate`, `exponentialSmooth`, `blendWithPrior`, `resolveEffectivePrior`, `predictNextCycle`, `deriveFollicularLength`) with 68 test cases ([engine.test.ts](../src/lib/prediction/__tests__/engine.test.ts))
-
-- No benchmark datasets
-
-- No evaluation scripts
-
-- No synthetic or real-world cycle data for validation
-
-- No A/B testing framework
-
-- No prediction accuracy measurement of any kind
-
-The unit tests verify internal consistency (e.g., that the skip gate correctly flags anomalies, that blending interpolates between prior and user data, that the jackknife CI produces reasonable bounds) but do not constitute empirical validation. They test that the algorithm does what its specification says, not that what it does is correct for real-world data. The following specific claims are **unverified**:
-
-- That adaptive exponential smoothing produces more accurate predictions than simple rolling averages for any population
-
-- That condition-specific priors improve cold-start prediction accuracy
-
-- That the jackknife CI provides valid 95% coverage
-
-- That the skip gate correctly distinguishes missed logs from genuine long cycles
-
-- That the 2.5σ outlier threshold is appropriate for any condition
-
-- That the n≥6 blending cutoff is optimal
-
-- That the inverse-variance mixture prior resolution is superior to alternatives
-
-- That the system produces clinically useful predictions for any condition
+The command-line runner in [backtest.mts, L1-89](../scripts/backtest.mts#L1-L89) supports `--source synthetic` and `--source database`. Database reports suppress all performance values when fewer than five users contribute targets. Synthetic fixtures contain no live personal data.
 
 ## 7. Results
 
-In the absence of quantitative evaluation, I describe what the system produces and identify what is unverified.
+### 7.1 Live database
 
-### 7.1 System outputs
+The read-only profile found 10 users and 25 cycle rows across five users. There were 20 completed start-to-start intervals, seven missing end dates, five latest open records, two historical missing ends, and zero ovulation observations. No duplicate starts, overlaps, future starts, reversed dates, impossible durations, or stored-derived-value drift were detected. Nineteen intervals were 21--35 days; fewer than five were 46--90 days. Only four users contributed retrospective forecast targets, so all accuracy metrics and model comparisons were suppressed.
 
-For a user with zero observations and condition "pcos", the system produces:
+Seventeen of 25 rows were entered more than 30 days after the recorded start and one user had a bulk-created history. Because the schema does not preserve profile history or prediction issuance, retrospective rolling-origin evaluation approximates what the model could have known from cycle dates, not what the application actually knew at the time.
 
-- Predicted cycle length: 51 days, 95% CI: [21.6, 80.4] days (μ ± 1.96 × 15)
+### 7.2 Synthetic stress tests
 
-- Predicted period length: 7 days, 95% CI: [3.1, 10.9] days
+On seed 42 with 400 simulated users and 2,938 cycle forecasts, the legacy engine had MAE 5.83 days and forecast-v2 had MAE 4.89. User-macro MAE was 5.76 versus 4.86; 80% interval coverage was 0.42 versus 0.84; mean interval width was 6.9 versus 13.6 days. The user-cluster bootstrap difference in macro MAE was -1.13 days with a 95% interval of [-1.57, -0.75]. Period-duration MAE was 1.05 versus 0.94 days and 80% coverage was 0.48 versus 0.80.
 
-- Anomaly threshold: 120 days
+Independent seeds 43, 44, and 45 preserved the direction of cycle macro-MAE differences (-1.26, -1.27, and -0.63 days) and v2 coverage remained 0.84--0.85. These results show recovery of behavior embedded in the simulator and catch overconfident intervals. They do not demonstrate real-world effectiveness because the generator shares assumptions with the candidate model.
 
-- AI assistant notes: "highly variable, often anovulatory cycles"
+## 8. Chat and product integration
 
-For a user with 6+ observations, the system produces:
+Dashboard and chat now call the same authenticated service. The dashboard distinguishes logged events from likely start windows and explicitly says when ovulation is not estimated. It shows the history count, model status, and concise caveats rather than a confidence percentage.
 
-- A smoothed point estimate from exponential smoothing
+Cycle tools validate user ownership in every read and write. Edits clear an ovulation observation if it falls outside the edited cycle. Deletes, imports, and condition/stage changes recompute derived analytics. Chat session updates are scoped by both session and user. AI SDK streaming passes the request abort signal and persists complete `UIMessage` parts, including tool results, via response-stream completion. Database facts and deterministic tools remain authoritative over conversational memory.
 
-- A jackknife 95% CI
+## 9. Operational workflow and rollback
 
-- Condition-aware anomaly flags persisted to the database
+1. Run `pnpm test` and `pnpm exec tsc --noEmit`.
+2. Run `pnpm exec tsx scripts/db-profile.mts` with a read-only database URL.
+3. Run synthetic backtests with fixed seeds, then the database backtest. Never export row-level health data.
+4. Record the model version, data cutoff, exclusions, and complete metrics. Tune only on a declared development set when sufficient users exist.
+5. Promote by changing the explicitly versioned forecast path after review. Do not auto-promote.
+6. Roll back by routing the shared forecast service to the retained `forecast-v1` implementation. No schema migration is required for v0.10.0.
 
-For a user on hormonal BC:
+Prospective prediction issuance records were considered but deferred. The current sample is too small to justify new retention-sensitive infrastructure, and deletion/consent policy needs design first.
 
-- Cycle length prior: 28 ± 1 days
+## 10. Limitations and next experiment
 
-- No follicular/luteal phase predictions
+Luna is not a medical device and has no clinical validation. The live sample is tiny, unbalanced, mostly retrospective, and contains no ovulation outcomes. Current priors mix measurements from different populations and do not identify every variance component the model needs. Condition history and prediction issuance are absent. The hormonal-contraception profile is too coarse. The UI could not be exercised past authentication without user credentials, although public login rendering and production compilation were checked.
 
-- Ovulation suppressed in dashboard and AI responses
-
-- Anomaly threshold: 35 days
-
-### 7.2 What remains unverified
-
-Accuracy: No MAE, RMSE, or CRPS has been computed on any dataset.
-
-Calibration: No calibration plot or Brier score exists. The 95% CI may be overconfident or underconfident.
-
-Skip gate performance: No analysis of false positive rate (flagging genuine long cycles as missed logs) or false negative rate (accepting missed logs as genuine cycles).
-
-Prior quality: The PCOS prior (51 ± 15d) is from a small trial [3]. The MOS2 cohort observed a range of 21-111 days, suggesting the distribution may be bimodal or heavily right-skewed rather than Gaussian. The thyroid and irregular priors have no published quantitative basis at all--they are constructed from directional clinical knowledge ([engine.ts, L113-129](../src/lib/prediction/engine.ts#L113-L129) and [L149-164](../src/lib/prediction/engine.ts#L149-L164)).
-
-Jackknife coverage: No simulation study has assessed whether the jackknife CI achieves nominal 95% coverage given the non-smooth estimator.
-
-Real-world usage: The application has no known users beyond the developer. No data on user retention, prediction satisfaction, or clinical outcomes exists.
-
-## 8. Limitations
-
-### 8.1 Algorithmic limitations
-
-1. The inverse-variance blending and parametric CI assume approximately Gaussian distributions. Menstrual cycle lengths--especially for PCOS and perimenopause--are typically right-skewed [14]. The 1.96σ CI will be asymmetric in reality but is presented symmetrically. A log-normal reparameterization would be a principled next step for conditions with known right-skew, but has not been implemented [unverified].
-
-2. The perimenopause sub-priors (`perimenopause_early` μ=30d and `perimenopause_late` μ=80d) better capture the temporal evolution described by Holman [11], but the user must self-select which stage they are in. Users who select incorrectly get a poor prior. The legacy `perimenopause` fallback (μ=45d) still lacks this temporal structure. Additionally, `perimenopause_early` has maxCycleLength=60, which is only a ~2σ cap above the mean (30 + 2×8=46). Early perimenopause users may still have occasional long cycles approaching 60-70d; this threshold may generate false anomalies for this group [unverified].
-
-3. The inverse-variance mixture for multi-condition users assumes approximate Gaussianity and may underestimate tails for heavily right-skewed conditions like PCOS, where the true distribution has a long right tail. Users with bimodal condition combinations (e.g. endometriosis + thyroid) receive a blended mean between the two modes, which may not match either well.
-
-4. Unlike Clue [4], Luna does not explicitly model the distinction between a missed log and a genuinely long cycle. The skip gate threshold is a hard cutoff, not a probabilistic model of logging behavior. I acknowledge this is a weaker approach.
-
-5. **Phase coupling -- resolved:** The prediction engine previously treated all four metrics (cycle length, period length, follicular length, luteal length) as independent, each smoothed separately. This allowed the smoothed values to violate the physiological constraint `cycleLength + 1 = periodLength + follicularLength + lutealLength`, producing inconsistent dashboard dates. The fix (v0.7.4) is a "drop and derive" approach: only three metrics (cycleLength, periodLength, lutealLength) are smoothed independently, and follicularLength is derived as `cycleLength + 1 - periodLength - lutealLength` via `deriveFollicularLength()` ([engine.ts, L659-680](../src/lib/prediction/engine.ts#L659-L680)). The constraint is now always satisfied by construction. A residual concern: the derived follicular variance assumes independence of the three smoothed estimates (`var(A+B+C) = var(A)+var(B)+var(C)`), which is an overestimate since the three share anomaly flags and observation count.
-
-6. The leave-one-out jackknife assumes the estimator is smooth in each observation. The skip gate and adaptive α introduce discontinuities, potentially invalidating jackknife variance estimates.
-
-### 8.2 Engineering limitations
-
-1. A unit test suite exists (68 vitest tests covering core prediction functions including deriveFollicularLength), but integration tests, regression tests, and end-to-end tests do not. Any regression in the AI chat pipeline, data import, or cycle analytics integration would go undetected.
-
-2. In serverless deployments, the in-memory rate limiter ([rate-limit.ts](../src/lib/rate-limit.ts)) does not share state across instances, allowing rate limit bypass.
-
-3. Schema changes are applied via `drizzle-kit migrate` with no rollback strategy documented.
-
-4. Uploaded images are stored as base64 in PostgreSQL ([schema.ts](../src/lib/db/schema.ts), uploadedImages table), which is inefficient for large volumes and may impact database performance.
-
-5. The chat context assembly (20 recent messages + summary + 6 keyword snippets + 5 Supermemory results) has not been benchmarked for token consumption. For long conversations, the summary alone could consume significant context window space.
-
-6. The system's predictions depend entirely on the user correctly identifying and reporting their health conditions. Misreporting (e.g., a PCOS user selecting "irregular" instead) produces suboptimal priors.
-
-7. Health-adjacent data is stored on infrastructure that does not provide HIPAA-level guarantees. Neon's HIPAA compliance requires the Scale plan. Supermemory claims HIPAA compliance but provides no public BAA. HackClub logs all AI prompts and responses indefinitely without a service-specific privacy policy. For a menstrual cycle tracker that handles health conditions and symptom descriptions, this is a meaningful gap between the sensitivity of the data and the protections around it (see §5.11).
-
-### 8.3 Evidence limitations
-
-1. The Nutrients 2026 trial [3] has small N. The MOS2 cohort provides range data but not a full distribution.
-
-2. Thyroid and irregular priors have no quantitative basis. They are constructed from clinical direction ("hypo → longer, hyper → shorter") with interpolated parameters ([engine.ts, L113-129](../src/lib/prediction/engine.ts#L113-L129) and [L149-164](../src/lib/prediction/engine.ts#L149-L164)).
-
-3. The PCOD prior is interpolated as a milder PCOS phenotype based on South Asian clinical tradition, not published data ([engine.ts, L91-94](../src/lib/prediction/engine.ts#L91-L94)).
-
-4. While Najmabadi et al. [1] pooled three cohorts, the representativeness of 581 eumenorrheic women for the global population is debatable.
-
-## 9. Discussion
-
-### 9.1 Comparison with state of the art
-
-Luna's condition-aware exponential smoothing sits between the simplistic approaches of generic trackers (rolling averages) and the sophisticated probabilistic models of Clue (generalized Poisson) and Natural Cycles (BBT-driven Bayesian inference). What distinguishes it is the explicit modeling of condition-specific priors and anomaly thresholds--a dimension that, to my knowledge, no published commercial system addresses publicly.
-
-But this advantage is theoretical. Without validation, it remains unclear whether condition-specific priors actually improve prediction accuracy in practice. It is plausible that for users with enough observations (n ≥ 6, where the prior fades out entirely), the condition-specific cold-start advantage is irrelevant. The primary benefit may be in anomaly detection: correctly treating a 90-day PCOS cycle as normal rather than a missed log.
-
-### 9.2 The validation gap
-
-The biggest limitation of this work is the absence of any empirical evaluation. The system was developed over 3 days (May 4-6, 2026) as a solo project ([changelog.ts](../src/lib/changelog.ts)), and the priority was functional completeness over statistical rigor. But the validation gap goes beyond accuracy numbers; it affects every design decision:
-
-- Is 2.5σ the right outlier threshold? I don't know.
-
-- Is n≥6 the right blending cutoff? I don't know.
-
-- Does the jackknife CI achieve 95% coverage? I don't know.
-
-- Does the inverse-variance mixture produce good predictions for multi-condition users? I don't know.
-
-A proper evaluation would require: (a) a labeled dataset of menstrual cycles with ground-truth condition labels, (b) a defined evaluation protocol (e.g., leave-one-cycle-out prediction), (c) comparison against baselines (rolling average, fixed prior, condition-agnostic exponential smoothing), and (d) calibration analysis of confidence intervals. None of this exists.
-
-### 9.3 Ethical considerations
-
-Luna provides cycle predictions that may influence user behavior (e.g., timing of pregnancy attempts, contraceptive decisions). The application explicitly disclaims medical advice in its AI responses, but the presentation of confidence intervals and specific date predictions may still be interpreted as authoritative. This risk is heightened for the PCOS and perimenopause populations, where predictions are most uncertain and users may be most anxious for guidance.
-
-The use of self-reported conditions--rather than clinical diagnosis--means that the condition-aware predictions may be based on incorrect priors. A user who self-identifies as having PCOS but actually has thyroid dysfunction would receive predictions optimized for the wrong distribution.
-
-### 9.4 What Luna gets right
-
-Despite the validation gap, several design choices are defensible on theoretical grounds:
-
-1. Treating a 90-day cycle as a missed log for a PCOS user is clearly wrong; the condition-aware threshold directly addresses this.
-
-2. For cold-start users with few observations, incorporating population priors via inverse-variance weighting is statistically principled (it is the optimal linear combination under Gaussian assumptions).
-
-3. Replacing outlier observations with the smoothed value (hard rejection) would discard directional information. The soft-clamp preserves the direction while limiting magnitude.
-
-4. Cycle data is stored in the database (not in LLM memory), predictions are computed deterministically (not by the LLM), and the LLM is used only for natural language understanding and response generation. This avoids the hallucination and reproducibility problems of LLM-based prediction.
-
-5. The AI assistant acknowledges low confidence for anovulatory conditions and avoids predicting ovulation for hormonal BC users ([route.ts](../src/app/api/chat/route.ts), `buildConditionContext()`).
-
-## 10. Conclusion
-
-Luna takes a condition-aware approach to menstrual cycle prediction using adaptive exponential smoothing with population priors. The system adjusts its prediction parameters--smoothing behavior, anomaly thresholds, prior blending, uncertainty estimates--based on ten health condition priors (including perimenopause early/late sub-stages, plus a general-population default), addressing a gap in existing consumer trackers that apply condition-agnostic models.
-
-The algorithm is fully specified and inspectable. Its design choices are defensible on theoretical grounds: inverse-variance blending for cold start, adaptive smoothing rates for non-stationary data, soft-clamping for outlier handling, and condition-aware anomaly thresholds. A unit test suite (68 vitest tests) verifies internal consistency of the core prediction functions. But none of these choices have been empirically validated. The system has no benchmark results, no calibration analysis, and no real-world usage data.
-
-The contribution of this work is not a validated prediction system. It is a concrete, open-source specification of how condition-aware menstrual cycle prediction could work. The gap between this specification and a validated system remains substantial. I am documenting the algorithm and its limitations transparently so that future work can evaluate and improve on these ideas rather than starting from scratch.
-
-## References
-
-[1] Najmabadi, S., et al. Menstrual cycle characteristics: a cross-sectional analysis of three prospective cohorts. *Paediatric and Perinatal Epidemiology*, 34(3):318-327, 2020. Pooled 581 eumenorrheic women, 3,324 cycles. Cycle length mean 30.3d (SD 6.7), period 6.2d (SD 1.5), follicular 18.5d (SD 6.5), luteal 11.7d (SD 2.8). Not independently verified against the original paper.
-
-[2] Bull, J.R., et al. Real-world menstrual cycle characteristics of more than 600,000 menstrual cycles. *NPJ Digital Medicine*, 2:83, 2019.
-
-[3] Nutrients 2026 hypocaloric-diet trial. Mean cycle length 51±15d in PCOS vs 30±2d in controls. MOS2 community cohort: range 21-111 days. Cited in Luna source code ([engine.ts, L63-78](../src/lib/prediction/engine.ts#L63-L78)). Not independently verified against the original publications.
-
-[4] Li, K., et al. Characterizing the physiological and symptom variation of menstrual cycles using a mobile app. *NPJ Digital Medicine*, 3:79, 2020. (Clue methodology.)
-
-[5] Berglund Scherwitzl, E., et al. Perfect-use and typical-use Pearl Index of a contraceptive mobile app. *Contraception*, 96(6):420-425, 2017. (Natural Cycles.)
-
-[6] Flo Health. ML-based cycle prediction. No peer-reviewed algorithmic disclosure as of 2026.
-
-[7] drip -- open-source fertility awareness app. https://github.com/drip-app. Rule-based, symptothermal method.
-
-[8] Fukaya, A., et al. State-space modeling of basal body temperature for menstrual cycle phase estimation. *BioMedical Engineering OnLine*, 16:44, 2017.
-
-[9] Guo, Y., et al. A hidden semi-Markov model for menstrual cycle phase duration modeling. *Biometrics*, 76(3):838-849, 2020.
-
-[10] Hyndman, R.J., et al. *Forecasting: Principles and Practice*. 3rd edition, OTexts, 2021.
-
-[11] Holman, D.J. The re-analysis of the Treloar/Tremin dataset: age at menopause and cycle length changes. Perimenopause cycle lengths: -4yr: 30.48d, -3yr: 35.02d, -2yr: 45.15d, -1yr: 80.22d. Not independently verified against the original dataset. The full re-analysis is not a standard indexed journal article; the exact citation is unclear. Cited in Luna source code ([engine.ts, L166-182](../src/lib/prediction/engine.ts#L166-L182)).
-
-[12] Parazzini, F., et al. Short cycles and endometriosis: meta-analysis of 11 case-control studies. Short cycles ≤27d OR 1.22. Cited in Luna source code ([engine.ts, L97-110](../src/lib/prediction/engine.ts#L97-L110)).
-
-[13] RCTs of monophasic 21/7 and 24/4 combined oral contraceptives. Withdrawal bleed 4.4-5.2d (SD 1.5-2.2). Cited in Luna source code ([engine.ts, L131-146](../src/lib/prediction/engine.ts#L131-L146)).
-
-[14] Harlow, S.D., et al. STRAW+ 10 Collaborative Group. Executive summary of the Stages of Reproductive Aging Workshop + 10. *Menopause*, 19(4):387-395, 2012.
-
-## Appendix A: smoothing constants and thresholds
-
-| Constant | Value | Source |
-|---|---|---|
-| ALPHA_MIN | 0.1 | Domain heuristic ([engine.ts, L449](../src/lib/prediction/engine.ts#L449)) |
-| ALPHA_MAX | 0.5 | Domain heuristic ([engine.ts, L450](../src/lib/prediction/engine.ts#L450)) |
-| KAPPA | 5.0 | MAD scale factor ([engine.ts, L451](../src/lib/prediction/engine.ts#L451)) |
-| DEFAULT_SKIP_THRESHOLD | 45 | General-population maximum ([engine.ts, L452](../src/lib/prediction/engine.ts#L452)) |
-| OUTLIER_SIGMA | 2.5 | Soft-clamp width ([engine.ts, L453](../src/lib/prediction/engine.ts#L453)) |
-| Cold-start α | 0.3 | Default for empty residuals ([engine.ts, L460](../src/lib/prediction/engine.ts#L460)) |
-| Prior fade-out | n ≥ 6 | Heuristic cutoff ([engine.ts, L474](../src/lib/prediction/engine.ts#L474)) |
-| Variance floor | 4.0 (σ ≥ 2d) | Prevent tight convergence ([engine.ts, L520](../src/lib/prediction/engine.ts#L520)) |
-| MAD window | 5 observations | Balance responsiveness/smoothness ([engine.ts, L555](../src/lib/prediction/engine.ts#L555)) |
-
-## Appendix B: condition prior parameters (full)
-
-| Condition | Cycle μ | Cycle σ² | Period μ | Period σ² | Follicular μ | Follicular σ² | Luteal μ | Luteal σ² | maxCL | Anov |
-|---|---|---|---|---|---|---|---|---|---|---|
-| none | 30.3 | 44.89 | 6.2 | 2.25 | 18.5 | 42.25 | 11.7 | 7.84 | 45 | No |
-| pcos | 51 | 225 | 7 | 4 | 26 | 100 | 13 | 4 | 120 | Yes |
-| pcod | 45 | 169 | 6 | 4 | 24 | 81 | 13 | 4 | 120 | Yes |
-| endometriosis | 27 | 16 | 7.5 | 4 | 14 | 9 | 12 | 4 | 45 | No |
-| thyroid | 35 | 225 | 6 | 4 | 20 | 100 | 12 | 9 | 90 | Yes |
-| hormonal_bc | 28 | 1 | 4.5 | 2.25 | -- | -- | -- | -- | 35 | Yes |
-| irregular | 30 | 225 | 5.5 | 4 | 18 | 100 | 12 | 9 | 90 | Yes |
-| perimenopause | 45 | 400 | 6 | 4 | 31 | 225 | 13 | 9 | 120 | Yes |
-| perimenopause_early | 30 | 64 | 6 | 4 | 17 | 64 | 13 | 9 | 60 | No |
-| perimenopause_late | 80 | 900 | 6 | 9 | 60 | 625 | 13 | 9 | 180 | Yes |
-
-*Table B1: Full condition prior parameters as defined in [engine.ts, L56-230](../src/lib/prediction/engine.ts#L56-L230). "--" indicates null (not applicable). maxCL = maxCycleLength. Anov = anovulatoryCommon. The `perimenopause` key is a backward-compatibility alias resolved via `perimenoStage` metadata; new users should select `perimenopause_early` or `perimenopause_late` directly.*
-
-## Appendix C: implementation gaps found and fixed
-
-Seven implementation bugs were identified and fixed during development:
-
-1. Ovulation was computed as `avgCycleLength - 14` rather than using the predicted luteal phase length. Fix: `addDays(nextPeriodDate, -Math.round(lutealLength || 14))` ([dashboard/page.tsx](../src/app/(app)/dashboard/page.tsx)).
-
-2. Predictions used general-population parameters regardless of the user's condition profile. Fix: conditions are now fetched and passed to `predictNextCycle()` ([dashboard/page.tsx](../src/app/(app)/dashboard/page.tsx)).
-
-3. The anomaly detection computed the isAnomaly flag but did not write it to the database. Fix: anomaly flag is now included in the updates map and persisted ([cycle-tools.ts, L519-522](../src/lib/cycle-tools.ts#L519-L522) and [L562-569](../src/lib/cycle-tools.ts#L562-L569)).
-
-4. The blended object was mutated in-place in the `predictNextCycle` n≥6 path, causing confusing behavior when the same object was referenced elsewhere. Fix: return fresh objects from each path ([engine.ts, L747-760](../src/lib/prediction/engine.ts#L747-L760)).
-
-5. After bulk-inserting imported cycles, derived columns and predictions were not recomputed. Fix: `refreshCycleAnalytics()` called after import ([import/route.ts](../src/app/api/data/import/route.ts)).
-
-6. Gated anomaly observations contributed near-zero residuals to the MAD computation, artificially lowering α and making the smoother unresponsive to genuine regime changes. Fix: only push residuals from non-anomaly observations ([engine.ts, L569-571](../src/lib/prediction/engine.ts#L569-L571)).
-
-7. Naive phase forward-fill from predicted phases could overlap with actual cycle data, producing contradictory calendar markers. Fix: predicted phases are only rendered for future dates beyond the last actual data point ([dashboard/page.tsx](../src/app/(app)/dashboard/page.tsx)).
-
-8. The cycle analytics pipeline used a separate z-score-based anomaly detector in `refreshCycleAnalytics`, which could flag different observations than the prediction engine's `skipGate()`, producing inconsistent `isAnomaly` flags. Fix: anomaly detection in `refreshCycleAnalytics` now delegates entirely to `skipGate()`, ensuring the DB flags match exactly what the prediction engine used when computing smoothed values.
-
-9. The rate limiter used an in-memory Map that leaked between invocations in some test environments and provided no cross-instance protection in production. Fix: migrated to Upstash Redis via `@upstash/ratelimit`, with in-process fallback ([rate-limit.ts](../src/lib/rate-limit.ts)). Applied to login, password reset, OTP, subscription, and login-notification endpoints.
-
-10. The `conditions` field in profile update and onboarding schemas accepted any string array, making it possible to inject unexpected values into the health condition prior selector. Fix: Zod enum allowlist applied in `profileUpdateSchema` and `onboardingSchema` ([schemas/auth.ts](../src/lib/schemas/auth.ts)).
-
-11. The Content-Security-Policy `script-src` directive included `'unsafe-eval'` and `'unsafe-inline'` in production, which materially weakens XSS protections. Fix: both directives removed from production CSP ([next.config.ts](../next.config.ts)).
-
-12. Admin email was hardcoded in the email library source. Fix: moved to `process.env.ADMIN_EMAIL` with the personal email as fallback ([email/index.ts](../src/lib/email/index.ts)).
-
-
-## Appendix D: version history
-
-The changelog ([changelog.ts](../src/lib/changelog.ts)) documents versions spanning May 4-19, 2026:
-
-| Version | Date | Type | Description |
-|---|---|---|---|
-| 0.0.1 | 2026-05-04 | chore | Project initialization |
-| 0.1.0 | 2026-05-04 | feat | Landing page with GSAP animations |
-| 0.1.1 | 2026-05-04 | feat | Authentication: registration & login |
-| 0.1.2 | 2026-05-05 | feat | Dashboard with cycle prediction & calendar |
-| 0.2.0--0.2.2 | 2026-05-05 | feat | Chat sessions, design docs, auth sign-out |
-| 0.3.0--0.3.1 | 2026-05-05 | feat | Prediction engine, Tailwind, NLP tools, OpenUI |
-| 0.4.0--0.4.1 | 2026-05-05 | feat/fix | AI chat, session memory, AI SDK v6 migration |
-| 0.5.0--0.5.3 | 2026-05-05 | feat/fix | Chat rewrite, scroll, viewport, Git LFS |
-| 0.6.0--0.6.2 | 2026-05-05 | feat/fix | Onboarding, password reset, auth redirects, favicon |
-| 0.7.0 | 2026-05-06 | feat | Condition-aware prediction engine & Luna responses |
-| 0.7.1 | 2026-05-06 | docs | Humanize all papers and project docs |
-| 0.7.2--0.7.4 | 2026-05-07 | fix | Peer-review fixes, mixture priors, phase coupling, 68 vitest tests |
-| 0.8.0--0.9.6 | 2026-05-07--11 | feat/fix | Chat UI overhaul, PWA support, mobile fixes |
-| 0.9.7 | 2026-05-19 | fix | Security audit fixes (Kiro): Redis rate limiting, CSP hardening, Zod import validation, conditions allowlist, third-party timeouts, admin email env var |
-| 0.9.8 | 2026-05-19 | fix | Fix Zod v4 z.record() build error in import route to unblock Vercel production build |
-| 0.9.9 | 2026-05-19 | fix | Move CSP from static headers to middleware with unique nonces, resolving inline hydration script blocks |
-| 0.9.10 | 2026-05-21 | fix | Audit and verify prediction engine mathematical derivations, resolve mixture prior blending equations, check relative links/dashes across all papers |
-
-*Note: Version numbers in package.json are kept in sync with changelog.ts from v0.7.0 onward.*
-
+The most valuable next experiment is prospective, consented forecast logging with immutable issuance time, data cutoff, model version, point forecast, interval, and later target linkage. After enough users and targets accumulate, compare forecast-v2 with simple expanding median and rolling mean using chronological, user-clustered evaluation and predeclared calibration criteria.

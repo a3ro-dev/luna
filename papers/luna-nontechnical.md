@@ -1,264 +1,96 @@
-# Luna: a conversational period tracker that adjusts to your body
+# Luna: what it does, what changed, and what it still cannot know
 
-**Author:** Akshat Singh Kushwaha -- akshatsingh14372@outlook.com -- [a3ro.dev](https://a3ro.dev)
-
----
+**Version:** 0.10.1  
+**Date:** 24 September 2026
 
 ## Short summary
 
-Luna is a free, open-source web app that lets you track your menstrual cycle by chatting with an AI assistant. Instead of tapping through menus and calendars, you type things like "my period started today" or "I'm feeling crampy." The app logs what you say, learns your cycle patterns over time, and predicts when your next period might come. It also adjusts its expectations for health conditions like PCOS or endometriosis, so it doesn't assume everyone has a textbook 28-day cycle. It is not a medical device, has not been clinically validated, and its predictions should not be used to make health decisions on their own.
+Luna is a free, open-source menstrual cycle tracker with an AI chat interface. You can record period dates, symptoms, and cycle information in conversation, then view the same records and estimates on a dashboard. Luna is not a medical device, does not diagnose conditions, and has not been clinically validated.
 
----
+Version 0.10.0 focuses on trust. It makes recorded facts and estimates visibly different, gives a realistic date range instead of a made-up confidence percentage, validates cycle edits and imports before saving them, and makes chat and dashboard use the same calculation.
 
-## What this project does
+Version 0.10.1 restores the Premium subscription request form on the landing page. A request asks for an email address and optional name; subscriptions are handled personally, so submitting the form does not start a paid plan or charge a card. Password reset requests for registered accounts schedule an email with a one-hour reset link. The page shows the same response for unknown addresses to avoid revealing which emails have accounts.
 
-Luna does a handful of things:
+## How predictions work now
 
-1. Tracks your cycle through conversation. You type naturally -- "period started on March 5," "ovulation today," "bad cramps after coffee" -- and the AI logs it to your cycle history. Before tracking begins, you must explicitly consent to how Luna processes your data and acknowledge its limitations. Users who decline consent cannot use the app.
+Luna begins with a broad population starting point and gradually learns a person's typical cycle and variability from usable logged history. It does not assume that every person has a 28-day cycle.
 
-2. Predicts your next period and ovulation. After it learns enough about your cycles, it estimates when your next one might start, along with a range (confidence interval) showing how certain it is.
+The result has three important parts:
 
-3. Shows your cycle statistics -- average cycle length, average period length, and how much your cycles vary over time.
+- **Most likely date:** the model's central estimate.
+- **Likely window:** an 80% prediction interval for the next cycle under the model. It is not a guarantee.
+- **Basis:** how many previous intervals were usable, how many were set aside as uncertain, and which model version made the estimate.
 
-4. Remembers things about you. Tell it "I have PCOS" or "I'm on hormonal birth control" and it stores that, adjusting its expectations accordingly.
+Sparse or variable history produces a wider range. One unusual gap does not automatically become a diagnosis or a genuine long cycle. Luna labels it uncertain and keeps it visible. Repeated long gaps can become part of the personal pattern instead of being discarded forever.
 
-5. Exports your data. You can download all your cycle data as a file, or import data from other apps (Period Calendar, Clue, Flo, Apple Health, or Luna's own format).
+If the expected date has passed, Luna keeps the original forecast and updates the remaining range based on the fact that no new start has been logged. It does not quietly move the expected date forward or declare a period missed.
 
-6. Searches the web. If you ask a question it can't answer from your data, it searches the web for information.
+## Conditions and ovulation
 
-7. Is transparent about its limitations. A dedicated [transparency page](../src/app/transparency/page.tsx) explains honestly what Luna is, what it isn't, how predictions work, how each third-party service processes your data, and what we still don't know. Onboarding now includes a mandatory consent step summarizing this information. Users who decline are not allowed to use the app.
+Older versions assigned precise numerical averages to conditions even when the cited research did not supply a defensible mean and standard deviation. For example, an odds ratio for short cycles cannot be converted into an endometriosis cycle-length distribution. The current model removes those unsupported shifts.
 
-What it does not do:
+When evidence only supports “more variable” or “calendar ovulation may be unreliable,” Luna widens the range or withholds the ovulation estimate. PCOS and PCOD use the same cautious handling because a separate quantitative subtype was not verified. Hormonal contraception is treated cautiously because one setting cannot describe pills, hormonal IUDs, implants, injections, and other regimens.
 
-- It does not diagnose medical conditions.
-- It does not connect to wearable devices (no Apple Watch, Oura Ring, etc.).
-- It does not share data with a partner or doctor.
-- It does not replace a healthcare provider's advice.
+An ovulation date shown by Luna is a calendar estimate unless the user explicitly logged it. The inspected database had no logged ovulation outcomes, so ovulation accuracy could not be evaluated.
 
----
+## What was improved
 
-## Why it matters
+### Safer records
 
-Most period trackers share a common assumption: that a "normal" cycle is 28 days long with a 14-day luteal phase. This is an average, not a rule. Only about 13% of cycles fall exactly at 28 days [1]. For people with conditions like PCOS -- where cycles can average 40-60 days -- a tracker that assumes 28 days will give wrong predictions, over and over.
+Cycle creation, editing, importing, and deletion now share validation rules. Impossible dates, future dates, reversed ranges, duplicate starts, overlapping bleeding ranges, and bleeding durations above 14 days are rejected before a write. An invalid import is rejected as a set instead of leaving a partially imported history. Editing a cycle clears a saved ovulation date when that date no longer belongs to the edited cycle.
 
-This is not a minor inconvenience. Consistently wrong predictions erode trust. People stop using the app, or worse, they start ignoring their own body's signals because the app told them something different.
+Changing condition or perimenopause-stage settings now recomputes the dependent personal state. Imports and deletes do the same.
 
-Luna takes a different approach. It starts with different baseline expectations depending on your health condition, and it learns from your actual cycles rather than assuming a fixed pattern. It is also transparent about its limitations.
+### One prediction everywhere
 
-The app is open-source (MIT license), meaning anyone can inspect how it works, suggest changes, or run their own copy. Most commercial trackers are closed-source -- you have to take their word for how they handle your data and make predictions.
+The dashboard and the chat tool now call the same authenticated forecast service. The calendar labels a prediction as a “likely start window,” distinguishes logged from estimated ovulation, and says “not estimated” when an ovulation calculation is unsuitable. With no cycle history, the dashboard does not paint a fake personal forecast.
 
----
+### More reliable chat
 
-## How it works in simple terms
+Successful confirmations follow successful database writes. Session updates are scoped to the authenticated user. When a streamed response is interrupted, Luna preserves the complete structured message parts that were actually produced, including tool results, rather than reducing the message to plain text. Deterministic tools calculate dates and database facts; conversational memory does not override them.
 
-### The chat interface
+## What the database can tell us
 
-You talk to an AI assistant (powered by a model called Grok 4.3) that understands plain language. The assistant has 10 things it can do:
+A bounded, read-only profile found:
 
-| What you say | What it does |
-|---|---|
-| "My period started today" | Logs the start date of your period |
-| "My period ended yesterday" | Logs the end date of your period |
-| "I think I ovulated today" | Logs your ovulation date |
-| "Cramps, bloating, mood swings" | Adds notes and symptoms to your current cycle |
-| "Show me my recent cycles" | Displays a table of your recent cycle history |
-| "When will my next period be?" | Predicts your next period start date |
-| "What are my cycle stats?" | Shows your averages and patterns |
-| "Export my data" | Gives you a download link for all your data |
-| "Remember that I have PCOS" | Stores that fact for future conversations |
-| "What causes cramps?" | Searches the web and shares results |
+- 10 users and 25 cycle records;
+- five users with any cycle records;
+- 20 completed start-to-start intervals;
+- seven missing end dates, including five latest open records and two historical missing ends;
+- zero recorded ovulation dates;
+- no duplicate starts, overlaps, future starts, reversed dates, impossible durations, or stored calculation drift;
+- 19 intervals between 21 and 35 days and fewer than five between 46 and 90 days;
+- only four users with retrospective forecast targets.
 
-When the assistant has structured information to show you -- like a prediction or a statistics summary -- it displays it as a visual card instead of a wall of text.
+Small cells are intentionally reported as “fewer than five” to avoid exposing individuals. No email addresses, password hashes, free-text health notes, chat transcripts, or row-level exports were retrieved for this work.
 
-### The prediction engine
-
-This is the core of the app.
-
-**Step 1: Starting assumptions.** When you have no data yet, Luna doesn't just guess 28 days. It uses published research averages as a starting point, and those averages change depending on what health conditions you've told it about:
-
-| Condition | Expected cycle length | Expected period length | Maximum realistic cycle length |
-|---|---|---|---|
-| General population | 30.3 days | 6.2 days | 45 days |
-| PCOS | 51 days | 7 days | 120 days |
-| PCOD | 45 days | 6 days | 120 days |
-| Endometriosis | 27 days | 7.5 days | 45 days |
-| Thyroid disorders | 35 days | 6 days | 90 days |
-| Hormonal birth control | 28 days | 4.5 days | 35 days |
-| Irregular cycles | 30 days | 5.5 days | 90 days |
-| Perimenopause | 45 days | 6 days | 120 days |
-| Perimenopause (early) | 30 days | 6 days | 60 days |
-| Perimenopause (late) | 80 days | 6 days | 180 days |
-
-The "maximum realistic cycle length" is the cutoff -- anything longer is treated as a missed log rather than a real cycle.
-
-**Step 2: Learning from your data.** The system uses a method called "adaptive exponential smoothing." It pays more attention to your recent cycles than to older ones, and it adjusts how fast it learns based on how regular your cycles are.
-
-If your cycles are fairly consistent, it learns slowly and smoothly -- small changes don't throw off the prediction. If your cycles are all over the place, it learns faster so it can keep up.
-
-**Step 3: Blending.** When you've only logged 1-5 cycles, the system doesn't fully trust your data yet. It blends your actual cycles with the starting assumptions (the "priors"), gradually shifting weight toward your real data as you log more. Once you have 6 or more cycles, it relies on your data entirely.
-
-**Step 4: Handling weird data.** Two safeguards. The skip gate: if a cycle is unusually long (say, 80 days when your average is 30), the system flags it as "probably a missed log, not a real long cycle" rather than treating it as real data that would throw off predictions. And soft clamping: if a data point is very far from the expected range (more than 2.5 standard deviations out), the system pulls it partway toward the average rather than either using the extreme value as-is or ignoring it completely. A middle ground.
-
-**Step 5: Uncertainty ranges.** The system doesn't just give you a single date. It also gives a range -- like "your next period is predicted around April 12, likely between April 8 and April 17." We compute the range using a statistical method called jackknife resampling, which repeatedly recalculates the prediction while leaving out one cycle at a time, to see how much the prediction varies.
-
-### Condition handling
-
-If you tell Luna you have multiple conditions (say, PCOS and endometriosis), it blends all of them together, weighting each one by how certain it is. Conditions with tighter estimates get more weight. The one exception is hormonal birth control -- if you're on it, that always takes priority, because it directly controls your cycle length.
-
-### The memory system
-
-Luna uses a separate service called Supermemory to remember personal facts across conversations. If you say "I have PCOS" in one session and come back a week later, it still knows. This is separate from the cycle data stored in the database.
-
-Because Supermemory is a third-party service, those facts live on their infrastructure (Timescale and Cloudflare), not in Luna's own database. Luna sends only personal facts to Supermemory -- not cycle data or chat messages -- and scopes them per user so one user's facts can't leak to another. But the facts are stored outside Luna's direct control. See the "Data privacy considerations" section below for more detail.
-
----
-
-## What makes it different
-
-How Luna compares to other popular period trackers:
-
-| Feature | Luna | Clue | Natural Cycles | Flo | drip (open-source) | Typical GitHub tracker |
-|---|---|---|---|---|---|---|
-| How it predicts | Learns from your cycles, adjusts learning speed | Likely uses probability-based methods (not publicly disclosed) | Uses basal body temperature + statistics | Uses a proprietary neural network | Uses body temperature + rule-based math | Simple average of past cycles |
-| Adjusts for health conditions | Yes -- 8 conditions with different starting assumptions | Not disclosed | Not disclosed | Not disclosed | No | No |
-| Shows uncertainty ranges | Yes | Yes (probability-based) | Yes (risk-based) | Widens the prediction window | No | No |
-| Chat-based logging | Yes -- you type naturally | No | No | Partial | No | No |
-| How it handles the "no data yet" problem | Uses condition-specific research averages | Not disclosed | Relies on temperature tracking | Likely assumes 28 days | Manual setup | Assumes 28 days |
-| Clinically validated | No | Partially (some published research) | Yes -- FDA-cleared as a contraceptive | No published validation | No | No |
-| Open source | Yes (MIT license) | No | No | No | Yes | Varies |
-| Handles missing logs | Flags unusually long gaps as likely missed entries | Explicitly models missing data | Takes a conservative approach | Unclear | Doesn't specifically address this | Doesn't address this |
-
-Where Luna differs:
-
-1. Condition-aware starting points. Most trackers start everyone at the same default. Luna starts with different assumptions for different conditions. This could help -- but we don't have evidence yet that it actually does (more on that below).
-
-2. Chat-based interface. Most trackers require you to tap through menus and calendars. Luna lets you type naturally. This could make logging easier, but it also introduces the risk of the AI misunderstanding what you say.
-
-3. Open source. You can see exactly how it works, how it stores your data, and how it makes predictions. Most commercial trackers are black boxes.
-
-4. Adaptive learning rate. The system learns faster when your cycles are irregular and slower when they're stable. Most trackers use a fixed approach.
-
----
+Seventeen of the 25 rows were entered more than 30 days after their recorded start. That means a historical replay cannot reliably reconstruct what Luna knew on the original date. The database also does not store old profile values or forecasts at issuance.
 
 ## What was tested
 
-Honestly, not much -- and that's a big gap.
+The automated suite now has 80 passing tests. It covers date boundaries, leap years, timezone invariance, cold starts, uncertainty behavior, long and uncertain logs, ongoing cycles, hormonal-contraception abstention, invalid dates, overlap validation, deterministic replay, and future-data leakage.
 
-We found and fixed several bugs during development through code review:
+A rolling-origin backtest rebuilds each forecast using only the earlier history. It compares the current model with the previous engine, a population-only prediction, the last cycle, expanding and rolling summaries, and simple exponential smoothing.
 
-| Bug | What was wrong | What we fixed |
-|---|---|---|
-| Dashboard used a fixed 14-day luteal phase | The main screen ignored the prediction engine's luteal estimate and always assumed 14 days | Dashboard now uses the engine's estimate |
-| Dashboard ignored health conditions | Predictions on the main screen always used general-population numbers, even if you said you had PCOS | Dashboard now uses your condition-specific priors |
-| Anomaly flags were lost | The system computed whether a cycle looked anomalous, but never saved that flag to the database | We now save flags to the database |
-| Prediction code mixed two strategies | The variance estimation had confusing code that unintentionally blended two different approaches | Simplified to one clear approach |
-| Import didn't update predictions | When you imported cycles from another app, the prediction engine didn't recalculate | Predictions now refresh after import |
-| Anomaly flags used two different detectors | The analytics pipeline and the prediction engine used different anomaly detection logic, so a cycle could be flagged as anomalous in one place but not the other | Unified: both now use the same skip gate from the prediction engine |
-| Anomalous cycles lowered learning speed | Flagged anomalies were making the system learn slower, the opposite of what was intended | Anomalies no longer deflate the learning rate |
-| Calendar showed overlapping phases | Predicted phases could visually overlap with actual logged data | We corrected the display logic |
+The live dataset had only four users with targets, below the minimum of five set before evaluation. Luna therefore suppresses every live accuracy number, including model differences. This is an important negative result: the available data cannot establish that the new model is more accurate in real life.
 
-These fixes are real improvements. But we found them through code review, not systematic testing. There are no automated tests, no accuracy benchmarks, and no published user studies.
+Synthetic stress tests with 400 simulated users did show the intended engineering behavior. On one fixed run, cycle-length MAE moved from 5.83 days in the old engine to 4.89 days in the new one, while 80% interval coverage moved from 42% to 84%. Independent seeds preserved the direction. These numbers describe a simulator whose assumptions overlap with the new model, so they are not evidence of clinical or real-world superiority.
 
----
+## What remains unknown
 
-## What we still don't know
+1. Whether the new forecasts beat a personal median or rolling mean for real users.
+2. Whether the 80% ranges are calibrated across people with different histories and conditions.
+3. Whether uncertain long gaps are mostly missed logs or genuine cycles.
+4. Whether the model helps users understand their bodies or merely looks more precise.
+5. How well calendar ovulation estimates perform against suitable observations.
+6. How contraception method, treatment changes, pregnancy, postpartum status, age, and condition changes should alter forecasts.
 
-We cannot currently say any of the following about Luna:
+## Privacy and consent
 
-1. How accurate are the predictions? We have not measured prediction accuracy against real cycle data. We don't know if the predictions are better or worse than simply assuming a 28-day cycle.
+The current consent screen authorizes use of the application; it does not clearly authorize pooled health-data training. This work therefore did not fit population parameters from the live database. Database analysis was read-only and aggregate. Synthetic fixtures contain no user records.
 
-2. Do the condition-specific priors actually help? It makes intuitive sense that starting with PCOS-appropriate averages would improve predictions for PCOS users. But we have not tested this.
+Prospective forecast logging would make future evaluation more honest, but it adds sensitive retained data. It should be implemented only with explicit purpose, retention, deletion, and consent rules.
 
-3. How do people actually use it? No user studies have been conducted. We don't know if people find the chat interface easier or harder than traditional tap-to-log interfaces.
+## Practical guidance
 
-4. Does the AI understand dates correctly? The natural language processing for dates ("my period started last Tuesday") has not been systematically tested.
-
-5. Are the uncertainty ranges well-calibrated? When Luna says "likely between April 8 and April 17," does the actual period fall within that range the right percentage of the time? We don't know.
-
-6. Does the adaptive learning rate help? The idea of learning faster for irregular cycles and slower for regular ones is reasonable, but we haven't compared it to a fixed learning rate.
-
-7. How does it perform with very little data? With only 1-2 cycles logged, predictions are largely driven by the population priors. We don't know how useful this is in practice.
-
-8. Is the 45-day skip gate threshold right? For the general population, the system flags cycles longer than 45 days as probably missed logs. But some people genuinely have 46-day cycles. We don't know whether this threshold causes false positives.
-
-9. Is the inverse-variance mixture the right rule? When someone has multiple conditions, Luna blends all their condition priors weighted by inverse variance. Whether this is clinically appropriate is unknown.
-
----
-
-## Limitations
-
-### It is not a medical device
-
-Luna is a tracking tool, not a diagnostic tool. It cannot tell you whether your cycles are healthy or unhealthy. It cannot detect pregnancy, fertility windows, or any medical condition. If you have concerns about your cycle, talk to a healthcare provider.
-
-### No clinical validation
-
-Natural Cycles is the only period tracker cleared by the FDA as a contraceptive [2]. Luna has no such validation. Its predictions are statistical estimates, not medical advice.
-
-### The AI can misunderstand you
-
-Chat-based logging is convenient, but it's not perfect. The AI might misinterpret what you say, log the wrong date, or miss information entirely. Check that what it logged matches what you meant.
-
-### Data privacy considerations
-
-Your data touches three third-party services. Here is what each one does and what that means for your privacy.
-
-**Neon (database).** Your cycle data, account information, chat messages, and predictions all live in a PostgreSQL database hosted by Neon. Neon is a serverless Postgres platform that runs on AWS. They hold SOC 2 Type II and ISO 27001 certifications, encrypt data at rest (AES-256) and in transit (TLS 1.2+), and explicitly state that they do not sell personal data. Neon was acquired by Databricks in May 2025, which means their privacy policy now falls under Databricks' legal framework -- something to be aware of if you track where your data's legal home ends up. HIPAA compliance is available but only on their Scale plan (~$700/month), which Luna does not use. The core Neon storage engine is open source (Apache 2.0).
-
-**Supermemory (AI memory).** When you tell Luna to "remember" something -- like "I have PCOS" or "I'm allergic to ibuprofen" -- that fact gets stored in Supermemory, a persistent AI memory API. Supermemory stores facts as embeddings in a vector graph engine running on Timescale and Cloudflare infrastructure. They claim SOC 2, HIPAA, and GDPR compliance, but no public audit reports are available for verification. They say they do not sell or train models on your data. Their privacy policy discloses that content may be sent to OpenAI and Google Gemini when AI features are used, though it is unclear whether the core memory storage routes through these providers. Encryption at rest is not explicitly documented. The core engine is open source (MIT license). Supermemory is made by a small, early-stage US company (Supermemory Inc., founded by Dhravya Shah).
-
-**HackClub (AI proxy and web search).** Your AI conversations and web searches go through HackClub's infrastructure. HackClub is a US 501(c)(3) nonprofit that provides free AI and search services to its community. Their AI proxy forwards your prompts to OpenRouter, which then routes them to model providers (xAI for Grok, Anthropic for Claude, etc.). Their search API forwards queries to Brave Search. Here is the part that matters: HackClub logs every AI prompt and every AI response in full, linked to your user ID and IP address, in their PostgreSQL database. Their search API also logs full query parameters and all request headers. There is no documented retention period or automatic deletion for these logs. The general HackClub privacy policy does not specifically address the AI proxy or search API. Their code is fully open source, which means you can verify exactly what they log -- but you cannot opt out of the logging.
-
-The code for all three integrations is open-source and you can inspect how Luna sends data to each service. But the infrastructure itself is managed by these third parties, and each one adds a place where your data lives outside your control. If you need strong privacy guarantees, you would need to self-host the entire stack and replace all three services with your own infrastructure.
-
-### Same AI model for all plans
-
-Luna has three pricing tiers (Free, Premium at $5/month, Premium+ at $12/month), but they all use the same AI model (Grok 4.3). The only difference is the tone of the AI's responses -- the Free tier is practical and to-the-point, Premium is warmer and more attentive, and Premium+ is the most empathetic. The predictions and capabilities are identical across all tiers.
-
-### No wearable integration
-
-Luna cannot read data from wearable devices. If you track basal body temperature with an Oura Ring or Apple Watch, you'll need to enter that information manually.
-
-### Condition priors are based on published averages, not individual data
-
-The condition-specific starting points (e.g., 51-day cycle for PCOS) come from published research averages. They represent what's typical for a population, not what's true for any specific person. Individual variation within each condition is substantial.
-
----
-
-## Conclusion
-
-Luna is an attempt to make period tracking more adaptable and more accessible. It adjusts its expectations based on your health conditions and learns from your actual cycles. You log information by talking instead of tapping. And because it's open-source, its methods are transparent and inspectable -- something you can't say about most commercial trackers.
-
-But it is also unvalidated. None of its design choices -- the condition-specific priors, the adaptive learning rate, the skip gate, the soft clamping -- have been tested against real-world cycle data to see if they actually improve predictions. The bugs we found during code review tell us the implementation needed careful scrutiny, and more issues probably still exist.
-
-How does it compare to what's already out there? Natural Cycles has FDA clearance and a fundamentally different approach (basal body temperature-based). Clue has published some research. Flo has millions of users but no published validation. Open-source trackers like drip exist but lack condition awareness. Luna sits in its own spot -- condition-aware and conversational -- but being different is not the same as being better.
-
-If you use Luna, treat it as a tracking tool that gives statistical estimates, not a source of medical truth. Check that it logged what you meant. Know that its predictions are most useful once you have several cycles of data. And if something in your cycle concerns you, talk to a doctor -- not to an app.
-
----
-
-## References
-
-1. Johnson, S., Marriott, L., & Zinaman, M. (2018). The cycle: What we know and don't know about the menstrual cycle. *Journal of Women's Health*, 27(5), 623-633.
-
-2. Natural Cycles. (2018). FDA 510(k) clearance K171817: Natural Cycles -- a software application for contraception. U.S. Food and Drug Administration.
-
-3. ACOG Practice Bulletin No. 110. (2010). Noncontraceptive uses of hormonal contraceptives. *Obstetrics & Gynecology*, 115(1), 206-218.
-
-4. Azziz, R., et al. (2006). Positions statement: Criteria for defining polycystic ovary syndrome as a predominantly hyperandrogenic syndrome. *Journal of Clinical Endocrinology & Metabolism*, 91(11), 4237-4245.
-
-5. Harlow, S.D., & Matkowskyj, K.A. (2011). The epidemiology of the menstrual cycle. In *Menstrual Cycle* (pp. 1-22). Academic Press.
-
-6. Münster, K., Schmidt, L., & Helm, P. (1992). Length and variation in the menstrual cycle -- a cross-sectional study from a Danish county. *British Journal of Obstetrics and Gynaecology*, 99(5), 422-429.
-
-7. Pierce, M., et al. (2023). drip.: An open-source app for menstrual cycle tracking. *Journal of Open Source Software*, 8(86), 4875.
-
-8. Vrandečić, A., & Wulczyn, E. (2020). Cycle length distribution and variability in a large mobile health cohort. *NPJ Digital Medicine*, 3, 113.
-
-9. Symul, L., et al. (2019). Assessment of menstrual health status and evolution through mobile apps. *NPJ Digital Medicine*, 2, 64.
-
-10. Najmabadi, S., et al. (2020). Menstrual cycle characteristics: a cross-sectional analysis of three prospective cohorts. *Paediatric and Perinatal Epidemiology*, 34(3), 318-327. Pooled 581 eumenorrheic women, 3,324 cycles. General population prior source.
-
-11. Holman, D.J. (2006). Re-analysis of the Treloar/Tremin dataset: age at menopause and cycle length changes. *Fertility and Sterility*. Perimenopause cycle length source.
-
-12. Nutrients 2026 hypocaloric-diet trial. PCOS cycle length 51±15d vs 30±2d in controls. MOS2 community cohort range 21-111 days. PCOS prior source.
+Use Luna as a record and an estimate, not a medical conclusion. Check that saved dates match what you meant. A wide window is useful information, not a failure. If a cycle change concerns you, seek qualified medical care rather than relying on the app.

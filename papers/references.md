@@ -1,301 +1,95 @@
-# Luna project -- comprehensive source index
+# Luna project source and evidence index
 
-> Last updated: 2026-06-18 · Repository version: v0.9.15 (with consent tracking and transparency page)
+**Version:** 0.10.1  
+**Date:** 24 September 2026
 
----
+## Current implementation
 
-## Category 1: source code references
-
-All paths relative to repository root. Line counts from final commit (23a0e8e).
-
-| File | Description | Lines |
-|---|---|---|
-| [engine.ts, L1-780](../src/lib/prediction/engine.ts#L1-L780) | Condition-aware adaptive exponential smoothing engine. 10 condition-specific priors (including perimenopause_early/late), population prior, `resolveEffectivePrior()`, `resolvePerimenopausePrior()`, `skipGate()`, `exponentialSmooth()`, `blendWithPrior()`, `calculateJackknifeCI()`, `predictNextCycle()`. | 780 |
-| [cycle-tools.ts, L1-1271](../src/lib/cycle-tools.ts#L1-L1271) | 10 AI tools for cycle logging, prediction, stats. Date parsing, timezone resolution, note merging, `refreshCycleAnalytics()`, `refreshPredictionParam()`, `buildPredictionPayload()`, `buildAveragesFromParams()`, all tool entry functions. | 1271 |
-| [route.ts, L1-884](../src/app/api/chat/route.ts#L1-L884) | Chat streaming API with context assembly (recent messages + summary + keyword snippets + Supermemory recall), 10 tool definitions, AI tracing (cost, latency, tokens), session management, auto-summarization, image upload handling. | 884 |
-| [schema.ts, L1-176](../src/lib/db/schema.ts#L1-L176) | Drizzle ORM schema for 8 tables: `users` (with perimenoStage, consent tracking), `cycles`, `predictionParams`, `aiTraces`, `chatSessions`, `chatMessages`, `chatSummaries`, `uploadedImages`. Custom `pgDate` type for Neon Date-object bug. | 176 |
-| [prompt.ts, L1-334](../src/lib/chat/prompt.ts#L1-L334) | Base system prompt with OpenUI DSL specification, condition-aware prediction context, persona integration. | 334 |
-| [models.ts, L1-77](../src/lib/chat/models.ts#L1-L77) | Plan-tier model configuration. Same model (`x-ai/grok-4.3`) for all tiers; differences are persona prompts (free=practical, premium=warm, premium+=empathetic). | 77 |
-| [openui.ts, L1-5](../src/lib/chat/openui.ts#L1-L5) | OpenUI language detection via `looksLikeOpenUiLang()` -- checks if text starts with `root =`. | 5 |
-| [images.ts, L1-74](../src/lib/chat/images.ts#L1-L74) | Image storage with 7-day TTL. `storeImage()`, `cleanupExpiredImages()`, `getImage()` with expiry check. | 74 |
-| [email/index.ts, L1-528](../src/lib/email/index.ts#L1-L528) | Resend email templates: welcome, login notification (with IP geolocation + user-agent parsing), password reset, OTP, subscription request. HTML shell with inline styles. | 528 |
-| [schemas/auth.ts, L1-81](../src/lib/schemas/auth.ts#L1-L81) | Zod validation schemas for registration, password reset, profile update, and onboarding. Password max 128 chars (bcrypt DoS prevention). Onboarding schema includes consent fields. | 81 |
-| [accent.ts, L1-43](../src/lib/theme/accent.ts#L1-L43) | Plan-based accent colors: free=#FFB5C0 (pink), premium=#B8A9E8 (purple), premium+=#E8C547 (gold). | 43 |
-| [rate-limit.ts, L1-144](../src/lib/rate-limit.ts#L1-L144) | In-memory sliding-window rate limiter. Auto-cleanup every 5 minutes. Per-process only (not cross-instance in serverless). | 144 |
-| [utils.ts, L1-21](../src/lib/utils.ts#L1-L21) | `cn()` (clsx + tailwind-merge) and `logError()` (full object in dev, message-only in prod). | 21 |
-| [changelog.ts, L1-337](../src/lib/changelog.ts#L1-L337) | Version history from 0.0.1 (2026-05-04, project init) through 0.9.15 (2026-06-18, consent tracking and transparency page). | 337 |
-| [auth.ts, L1-96](../src/auth.ts#L1-L96) | Auth.js v5 config with credentials provider (email + password), JWT strategy, DrizzleAdapter, user-existence check on every token refresh, and consent tracking in JWT/session. | 96 |
-| [middleware.ts, L1-108](../src/middleware.ts#L1-L108) | Auth middleware with route protection, consent gate (redirects unconsented users to onboarding), public/cron/api route exemptions, and API route bypass for CSP header cloning. | 108 |
-| [dashboard/page.tsx, L1-335](../src/app/(app)/dashboard/page.tsx#L1-L335) | Server-rendered dashboard with condition-aware predictions. Fetches user conditions, computes predictions via `predictNextCycle()`, renders calendar with phase color-coding. | 335 |
-| [import/route.ts, L1-514](../src/app/api/data/import/route.ts#L1-L514) | Multi-format cycle data import: Luna JSON, Period Calendar, Clue CSV, Flo CSV/TXT, Apple Health XML. Timezone-safe date parsing. | 514 |
-| [export/route.ts, L1-32](../src/app/api/data/export/route.ts#L1-L32) | JSON cycle data export (all user cycles, ascending by mStart). | 32 |
-| [cleanup-images/route.ts, L1-38](../src/app/api/cron/cleanup-images/route.ts#L1-L38) | Cron job for expired image cleanup. Bearer token auth via CRON_SECRET. | 38 |
-| [profile/route.ts, L1-228](../src/app/api/user/profile/route.ts#L1-L228) | Profile CRUD with DOB edit limits (max 2 edits after initial set), email uniqueness check, password change with current-password verification. | 228 |
-| [onboarding/route.ts, L1-139](../src/app/api/user/onboarding/route.ts#L1-L139) | Onboarding flow: DOB, timezone, conditions, push notifications, consent tracking. DOB first-set doesn't count as edit. Stores consent as `consentGiven`, `consentGivenAt`, `consentVersion` on every completion. | 139 |
-| [next.config.ts, L1-26](../next.config.ts#L1-L26) | Security headers (CSP, HSTS, X-Frame-Options: DENY, etc.), `serverExternalPackages: ['@opentelemetry/api']`. | 26 |
-| [package.json, L1-97](../package.json#L1-L97) | Dependencies and scripts. Core deps: Next.js 16.2.4, AI SDK v6, Auth.js 5.0.0-beta.31, Drizzle 0.45.2, React 19. | 97 |
-| [page.tsx, L1-9](../src/app/page.tsx#L1-L9) | Landing page entry point. Forces dynamic rendering to stamp CSP nonces correctly. | 9 |
-| [home-client.tsx, L1-799](../src/app/home-client.tsx#L1-L799) | Client implementation of landing page with GSAP scroll animations and canvas frame sequencing. | 799 |
-| [login/page.tsx, L1-9](../src/app/login/page.tsx#L1-L9) | Login page entry point. Forces dynamic rendering to stamp CSP nonces correctly. | 9 |
-| [login/login-client.tsx, L1-124](../src/app/login/login-client.tsx#L1-L124) | Client implementation of login form and authentication triggers. | 124 |
-| [signup/page.tsx, L1-9](../src/app/signup/page.tsx#L1-L9) | Signup page entry point. Forces dynamic rendering to stamp CSP nonces. | 9 |
-| [signup/signup-client.tsx, L1-172](../src/app/signup/signup-client.tsx#L1-L172) | Client implementation of signup form and registration triggers. Includes legal links to Terms, Privacy, and Transparency. | 172 |
-| [forgot-password/page.tsx, L1-9](../src/app/forgot-password/page.tsx#L1-L9) | Forgot password entry point. Forces dynamic rendering. | 9 |
-| [forgot-password/forgot-password-client.tsx, L1-141](../src/app/forgot-password/forgot-password-client.tsx#L1-L141) | Client implementation of password reset request form. | 141 |
-| [reset-password/page.tsx, L1-9](../src/app/reset-password/page.tsx#L1-L9) | Reset password entry point. Forces dynamic rendering. | 9 |
-| [reset-password/reset-password-client.tsx, L1-236](../src/app/reset-password/reset-password-client.tsx#L1-L236) | Client implementation of new password setup form. | 236 |
-| [onboarding/page.tsx, L1-9](../src/app/onboarding/page.tsx#L1-L9) | Onboarding page entry point. Forces dynamic rendering. | 9 |
-| [onboarding/onboarding-client.tsx, L1-436](../src/app/onboarding/onboarding-client.tsx#L1-L436) | Client implementation of onboarding flow with 4 steps: Welcome, Consent (new), Quick Setup, Your Rhythm. Includes consent decline exit screen. | 436 |
-| [chat/page.tsx, L1-9](../src/app/(app)/chat/page.tsx#L1-L9) | Chat page entry point. Forces dynamic rendering. | 9 |
-| [chat/chat-client.tsx, L1-368](../src/app/(app)/chat/chat-client.tsx#L1-L368) | Client implementation of the AI chat window. | 368 |
-| [settings/page.tsx, L1-9](../src/app/(app)/settings/page.tsx#L1-L9) | Settings page entry point. Forces dynamic rendering. | 9 |
-| [settings/settings-client.tsx, L1-747](../src/app/(app)/settings/settings-client.tsx#L1-L747) | Client implementation of preferences and account settings. | 747 |
-| [privacy/privacy-client.tsx, L1-374](../src/app/privacy/privacy-client.tsx#L1-L374) | Interactive privacy policy with collapsible accordion sections, sticky TOC, and paper-backed data-handling details for Neon, HackClub, Supermemory, and Resend. | 374 |
-| [terms/terms-client.tsx, L1-312](../src/app/terms/terms-client.tsx#L1-L312) | Interactive Terms of Use with collapsible sections, prediction engine overview, third-party service disclosure, and consent requirements. | 312 |
-| [transparency/page.tsx, L1-7](../src/app/transparency/page.tsx#L1-L7) | Transparency page entry point. Forces dynamic rendering. | 7 |
-| [transparency/transparency-client.tsx, L1-516](../src/app/transparency/transparency-client.tsx#L1-L516) | Interactive transparency page with accordion sections, condition prior table with evidence quality ratings, data flow summary table, and full third-party infrastructure disclosure. | 516 |
-
-
----
-
-## Category 2: git history
-
-Commits from the `main` branch, May 4-6, 2026. Repository: `github.com/a3ro-dev/luna`.
-
-| Hash | Date | Message |
-|---|---|---|
-| `23a0e8e` | 2026-05-06 | chore: add v0.7.0 changelog entry |
-| `468da80` | 2026-05-06 | feat: condition-aware prediction engine and Luna AI responses |
-| `e43f9d9` | 2026-05-06 | fix: correct Grok-4.3 pricing to $0.25/M input, $0.50/M output tokens |
-| `4c945ef` | 2026-05-06 | Merge pull request #1 from a3ro-dev/luna-rewrite-pub |
-| `885f204` | 2026-05-06 | fix: disable Vercel fetch cache on Neon driver (fetchOptions cache: no-store) |
-| `be5575d` | 2026-05-06 | fix: pgDate custom type kills the Neon Date-object bug once and for all |
-| `e94b6a6` | 2026-05-06 | fix: harden chat mobile rendering and collapse raw tool payloads |
-| `9f8cc56` | 2026-05-06 | fix: dashboard cycles count caching, Neon date timezone bugs, import date parsing |
-| `297f119` | 2026-05-05 | fix: period length off-by-one, dashboard count, favicon, chat mobile nav |
-| `fdcad22` | 2026-05-05 | feat: auth improvements, rate limiting, schemas, middleware, next config cleanup |
-| `2800de1` | 2026-05-05 | chore: upgrade Next.js 15.0.0 → 16.2.4, remove deprecated eslint config |
-| `8a18915` | 2026-05-05 | feat: dashboard motion redesign, single-model tiers, design docs, polish |
-| `9220de9` | 2026-05-05 | feat: onboarding, tiered plans, password reset, email system, image storage, changelog |
-| `484b970` | 2026-05-05 | fix: AI SDK v6 migration, Supermemory v4 API, HackClub web search, auto-rename |
-| `4c3f753` | 2026-05-05 | feat: implement AI chat interface with context-aware tools and session memory management |
-| `59da12e` | 2026-05-05 | feat: implement agent-based NLP chat tools and OpenUI rendering for cycle tracking and predictions |
-| `934e96f` | 2026-05-05 | feat: implement cycle prediction and calendar display |
-| `c148058` | 2026-05-04 | feat: implement scroll-triggered GSAP animations and canvas-based frame sequencing |
-| `0f0d856` | 2026-05-04 | Initial commit from Create Next App |
-
-### Development timeline summary
-
-- Day 1 (May 4): Project init, landing page with GSAP animations, canvas frame sequencing
-- Day 2 (May 5): Auth system, cycle prediction engine, AI chat with tools, AI SDK v6, Supermemory, onboarding, email, dashboard redesign -- ~18 feature commits
-- Day 3 (May 6): Condition-aware engine (v0.7.0), Neon/Date bug fixes, pricing correction, Vercel cache fix -- merge of rewrite-pub branch
-
----
-
-## Category 3: internal research documents
-
-Located in `/research/` at repository root.
-
-| File | Summary | Evidence quality |
-|---|---|---|
-| `chatgpt-deep-research.md` | Internal research document: Menstrual cycle statistics by condition (PCOS, PCOD, endo, thyroid, hormonal BC, irregular, perimenopause). Mean±SD tables for each condition. Most values are low evidence -- estimates from clinical criteria and general knowledge, not large condition-specific cohorts. PCOS cycle length estimated ~40d (SD ~15d) from diagnostic criteria, not cohort data. PCOD treated as identical to PCOS. Thyroid hypo vs hyper split with directional data only. Perimenopause mid-transition ~45d (SD ~20d). Hormonal BC withdrawal bleed ~4d (SD ~1d). Irregular catch-all ~30d (SD ~15d). | Low for most condition-specific values. Hormonal BC numbers are more solid. |
-| `gemini-deep-research.md` | Internal research document: Clinical population priors and algorithmic framework. PCOS: 41d mean (SD 13.7) from AWHS. PCOD: 72.5d mean (SD 25) from Indian regional cohort. Endometriosis: 28.3d mean (SD 3.8). Thyroid split into hypo (31d) vs hyper (27d). Perimenopause split into early (26.5d, SD 7) and late (80.1d, SD 55) transition. Proposes α inversely proportional to condition SD. | Variable. PCOS/endo/thyroid/irregular values are directional or from small N. PCOD 72.5d comes from a single regional cohort -- not generalizable. Perimenopause early/late split is well-sourced (STRAW/SWAN) but phase lengths are extrapolated. |
-| `perplexit-deep-research.md` | Detailed condition-specific priors with quantitative tables and explicit evidence quality ratings. Najmabadi et al. pooled cohort data for general population. Perimenopause from Holman 2006 (Treloar/Tremin re-analysis) with year-by-year means: -4yr: 30.48d, -3yr: 35.02d, -2yr: 45.15d, -1yr: 80.22d. PCOS from Nutrients 2026 trial (51±15d, N=10 PCOS) and MOS2 cohort (range 21-111d). Endometriosis: OR data only (≤27d OR 1.22), no distributional data. Thyroid: no published mean±SD, directional only. Hormonal BC: RCT data for withdrawal bleeds (4.4-5.2d, SD 1.5-2.2). Irregular: no PCOS-excluded distributions. Explicitly flags where chains break. | Best of the three. Clearly distinguishes high/medium/low evidence, honest about gaps. Najmabadi and Holman data are well-sourced. Condition-specific data is honestly assessed as mostly low evidence. |
-
-### Cross-source comparison: main metrics
-
-| Metric | ChatGPT doc | Gemini doc | Perplexity doc | Prior used |
-|---|---|---|---|---|
-| General cycle length | ~28d (assumed) | -- | 30.3 ± 6.7d (Najmabadi) | 30.3 (σ=6.7) |
-| PCOS cycle length | ~40 ± 15 | 41 ± 13.7 | 51 ± 15 (Nutrients 2026) | 51 (σ=15) |
-| PCOD cycle length | ~40 ± 15 (same as PCOS) | 72.5 ± 25 | No separate data | 45 (σ=13) -- interpolated |
-| Endometriosis cycle length | ~26 ± 3 | 28.3 ± 3.8 | OR data only | 27 (σ=4) |
-| Perimenopause cycle length | ~45 ± 20 | Early: 26.5, Late: 80.1 | -4yr: 30.5, -1yr: 80.2 | 45 (σ=20) |
-| Hormonal BC bleed length | ~4 ± 1 | ~4 ± 1 | 4.5-5.2 ± 1.5-2.2 | 4.5 (σ=1.5) |
-
----
-
-## Category 4: external academic sources
-
-### 4.1 Directly cited (with access to original)
-
-- Najmabadi et al. Pooled 3 prospective cohorts, 581 eumenorrheic women, 3,324 cycles. Cycle length mean 30.3d (SD 6.7), period 6.2d (SD 1.5), follicular 18.5d (SD 6.5), luteal 11.7d (SD 2.8). Used as the general population prior in `POPULATION_PRIOR`.
-
-- Holman 2006 (Treloar/Tremin re-analysis): Perimenopause cycle lengths -- -4yr: 30.48d, -3yr: 35.02d, -2yr: 45.15d, -1yr: 80.22d. Published in *Fertility and Sterility*. Used for `CONDITION_PRIORS.perimenopause`.
-
-### 4.2 Indirectly cited (via research documents, not accessed)
-
-- Nutrients 2026 hypocaloric-diet trial: PCOS baseline MCL 51±15d in 10 PCOS vs 30±2 in 18 BMI-matched controls. Used for `CONDITION_PRIORS.pcos.cycleLength`. Small N (10 PCOS subjects).
-
-- MOS2 PCOS community cohort: Cycle range 21-111 days in PCOS women. Used to justify `maxCycleLength: 120` for PCOS prior.
-
-- Meta-analysis of 11 case-control studies: Endometriosis short cycles ≤27d OR 1.22 (95% CI: 1.05-1.43). Used directionally for endometriosis prior (shorter cycles, heavier bleeding). No distributional data.
-
-- RCTs of monophasic 21/7 and 24/4 combined pills: Withdrawal bleed 4.4-5.2d (SD 1.5-2.2). Used for `CONDITION_PRIORS.hormonal_bc.periodLength`.
-
-- Fukaya et al. (2016): "The forecasting of menstruation based on a state-space modeling of basal body temperature time series." arXiv:1606.02536. Bayesian state-space model for BBT-based menstrual forecasting. Not implemented in Luna; cited as related work.
-
-### 4.3 Referenced but not directly used in implementation
-
-- SWAN and ReSTAGE studies: Menopause transition markers, STRAW criteria. Luna uses a single blended perimenopause prior rather than STRAW-staged priors.
-
-- ACOG/WHO menstrual cycle definitions: Normal cycle 21-35 days (some sources 24-38), 2-7 day bleed. Luna's general population prior (30.3d) aligns with these ranges.
-
-- Apple Women's Health Study (AWHS): Large digital cohort. PCOS mean (41d) and irregular mean (37.04d). Not used directly in Luna's implementation.
-
-### 4.4 Traceability matrix: prior → source
-
-| Prior value | Source | Chain strength |
-|---|---|---|
-| `POPULATION_PRIOR.cycleLength` = 30.3 ± 6.7 | Najmabadi et al. | Strong (pooled cohort, N=581) |
-| `POPULATION_PRIOR.periodLength` = 6.2 ± 1.5 | Najmabadi et al. | Strong |
-| `POPULATION_PRIOR.follicularLength` = 18.5 ± 6.5 | Najmabadi et al. | Strong |
-| `POPULATION_PRIOR.lutealLength` = 11.7 ± 2.8 | Najmabadi et al. | Strong (pooled cohort, N=581) |
-| `pcos.cycleLength` = 51 ± 15 | Nutrients 2026 (N=10) | Weak (very small N) |
-| `pcos.maxCycleLength` = 120 | MOS2 (observed 111) + 9d buffer | Moderate (empirical max + buffer) |
-| `pcod.cycleLength` = 45 ± 13 | Interpolation (no PCOD-specific data) | Very weak (fabricated prior) |
-| `endometriosis.cycleLength` = 27 ± 4 | OR data (≤27d OR 1.22) → estimated mean+SD | Weak (OR ≠ distribution) |
-| `thyroid.cycleLength` = 35 ± 15 | Directional only (no published mean±SD) | Very weak (estimated) |
-| `hormonal_bc.cycleLength` = 28 ± 1 | Regimen design + RCT bleed data | Strong (by design) |
-| `hormonal_bc.periodLength` = 4.5 ± 1.5 | RCTs (4.4-5.2d, SD 1.5-2.2) → midpoint | Strong |
-| `irregular.cycleLength` = 30 ± 15 | General population mean + inflated SD | Very weak (no PCOS-excluded distributions) |
-| `perimenopause_early.cycleLength` = 30 ± 8 | Holman 2006 (~-4yr to -2yr) → [engine.ts](../src/lib/prediction/engine.ts) | Moderate (NIH cohort re-analysis) |
-| `perimenopause_late.cycleLength` = 80 ± 30 | Holman 2006 (~-2yr to -1yr) → [engine.ts](../src/lib/prediction/engine.ts) | Moderate (NIH cohort re-analysis) |
-| `perimenopause.cycleLength` = 45 ± 20 | Holman 2006 (-4yr to -1yr blend) | Moderate (blended across stages, SD estimated) |
-
----
-
-## Category 5: commercial tracker sources
-
-### Clue (helloclue.com)
-
-- Evidence-based design with public methodology discussion.
-- Li et al. / Urteaga et al. probabilistic forecasting papers. Generalized Poisson models, probabilistic predictive distributions, calibration metrics (MAE, CRPS, Brier score).
-- Explicitly models distinction between missing logs and true long cycles.
-- No public PCOS-specific model disclosed.
-- Only commercial tracker with published probabilistic forecasting methods.
-
-### Natural Cycles
-
-- FDA De Novo review DEN170052. Only FDA-cleared contraceptive app.
-- Validated on >22,000 women, >224,000 cycles.
-- BBT + statistical inference. Pearl Index effectiveness metrics.
-- Expands unsafe days when uncertain.
-- No public PCOS engine.
-
-### Flo Health (flo.health)
-
-- ML-based personalization, neural network forecasting per their accuracy page.
-- No peer-reviewed algorithmic disclosure.
-- Widens fertile window under irregularity but no open calibration benchmarks.
-- Proprietary and opaque.
-
-### drip (github.com/jfr3000/drip)
-
-- Open-source symptothermal tracker.
-- Rule-based, deterministic logic (no probabilistic forecasting).
-- No population priors, no uncertainty estimation, no PCOS handling.
-- Minimal baseline for comparison.
-
----
-
-## Category 6: Wikipedia / general reference
-
-- Wikipedia "Menstrual cycle": Median length 28 days, normal range 21-35 days, population average 27-29 days. Luteal phase ~14 days. Only 2/3 of overtly normal cycles are ovulatory. Background context only; not directly cited in implementation.
-
----
-
-## Evidence quality summary
-
-Most condition-specific priors are low evidence quality per the research documents:
-
-| Condition | Cycle length | Bleeding/phase | Overall |
-|---|---|---|---|
-| PCOS | Medium (small trial + diagnostic criteria + MOS2) | Low (no large PCOS-specific datasets) | Medium-Low |
-| PCOD | Very Low (no separate data; interpolated from PCOS) | Very Low | Very Low |
-| Endometriosis | Low (mostly OR data, not distributional) | Low | Low |
-| Thyroid | Very Low (no published mean±SD, directional only) | Low | Very Low |
-| Hormonal BC | High (by regimen design + RCTs for bleed length) | High | High |
-| Irregular | Very Low (heterogeneous catch-all, no PCOS-excluded distributions) | Low | Very Low |
-| Perimenopause | Medium-High (Tremin/SWAN cohorts for cycle length) | Low (for other metrics) | Medium |
-
-### Open gaps
-
-1. No PCOD-specific data. The PCOD prior (45d, σ=13) is an interpolation between PCOS and general population with no published evidence behind it.
-
-2. No thyroid mean±SD. The thyroid prior is estimated from directional data only (hypo→longer, hyper→shorter).
-
-3. Endometriosis OR ≠ distribution. An odds ratio of 1.22 for short cycles does not give you a mean or SD.
-
-4. "Irregular" is undefined. The catch-all has no PCOS/thyroid-excluded distributions; it just uses general population means with inflated variance.
-
-5. Perimenopause is a blend. The single prior blends early and late transition, which have fundamentally different distributions (30d vs 80d). STRAW staging would help.
-
-6. Luteal phase is assumed near-normal across all conditions. This rests on a biological constraint (corpus luteum lifespan ~11-17 days), but condition-specific luteal distribution data is essentially absent.
-
----
-
-## Category 7: third-party infrastructure
-
-Luna depends on three external services that process user data. This section documents each service's data handling practices based on publicly available information.
-
-### 7.1 Neon (database)
-
-| Attribute | Detail |
+| Source | Purpose |
 |---|---|
-| **What it is** | Serverless PostgreSQL platform. Separates storage and compute for auto-scaling, branching, and scale-to-zero. |
-| **What Luna sends it** | All structured data: cycle records, user accounts, chat messages, prediction parameters, AI traces. |
-| **Infrastructure** | AWS (8 regions, 4 continents). Each project locked to one region. Azure regions deprecated (sunsetting August 2026). |
-| **Encryption** | AES-256 at rest, TLS 1.2+ in transit, AWS KMS key management. |
-| **Certifications** | SOC 2 Type II, ISO/IEC 27001:2022, ISO/IEC 27701:2019. HIPAA available on Scale plan only (~$700/mo). GDPR, CCPA compliant. |
-| **Data selling** | Explicitly stated: no. |
-| **Third-party sharing** | Sub-processors only (annually reviewed, SOC 2 required for sensitive data). |
-| **Open source** | Storage engine: Apache 2.0 ([github.com/neondatabase/neon](https://github.com/neondatabase/neon), ~22k stars). Managed cloud service is proprietary. |
-| **Notable concern** | Acquired by Databricks (May 2025). Privacy policy now under Databricks legal framework. HIPAA unavailable on free/launch plans. No FedRAMP or PCI-DSS. |
-| **Trust center** | [trust.neon.com](https://trust.neon.com) |
+| [forecast.ts, L1-492](../src/lib/prediction/forecast.ts#L1-L492) | Pure `forecast-v2.0.0` model, population assumptions, condition adjustments, posterior predictive distributions, ongoing-cycle handling, provenance, and user-facing descriptions. |
+| [engine.ts, L1-780](../src/lib/prediction/engine.ts#L1-L780) | Retained legacy adaptive-smoothing engine used as the `forecast-v1` evaluation benchmark. It is not the current dashboard/chat forecast path. |
+| [backtest.ts, L1-270](../src/lib/prediction/backtest.ts#L1-L270) | Leakage-free rolling-origin evaluation, baselines, metrics, user-macro summaries, cluster bootstrap, and synthetic cohorts. |
+| [forecast.test.ts, L1-117](../src/lib/prediction/__tests__/forecast.test.ts#L1-L117) | Date, timezone, cold-start, uncertainty, contamination, long-cycle, ongoing-cycle, abstention, and validation tests. |
+| [backtest.test.ts, L1-54](../src/lib/prediction/__tests__/backtest.test.ts#L1-L54) | Prefix-only leakage test and predeclared synthetic calibration/non-inferiority test. |
+| [engine.test.ts, L1-566](../src/lib/prediction/__tests__/engine.test.ts#L1-L566) | Legacy engine regression suite. |
+| [cycle-tools.ts, L345-509](../src/lib/cycle-tools.ts#L345-L509) | Shared authenticated forecast service, deterministic analytics refresh, cycle validation, create/edit/delete behavior, and stale-observation cleanup. |
+| [db-profile.mts, L1-156](../scripts/db-profile.mts#L1-L156) | Bounded read-only aggregate database profile with small-cell suppression. |
+| [backtest.mts, L1-89](../scripts/backtest.mts#L1-L89) | Reproducible synthetic/database evaluation CLI with minimum-user metric suppression. |
+| [schema.ts, L1-175](../src/lib/db/schema.ts#L1-L175) | Current Drizzle schema and inclusive period-length definition. |
 
-### 7.2 Supermemory (AI memory)
+## Product and API integration
 
-| Attribute | Detail |
+| Source | Purpose |
 |---|---|
-| **What it is** | Persistent AI memory API. Vector graph engine with semantic search, auto-maintained user profiles, connectors. |
-| **What Luna sends it** | Personal facts only (health conditions, preferences, recurring patterns). NOT cycle data or chat messages. Scoped per user via `containerTag`. |
-| **Endpoints used** | `POST /v4/search` (recall, top 5 results), `POST /v4/memories` (store, with `isStatic` flag). |
-| **Infrastructure** | Timescale (database), Cloudflare (compute/CDN/edge). US-based. No region controls for non-enterprise users. |
-| **Encryption** | In transit: yes ("industry-standard"). At rest: not explicitly documented. No specific TLS version or algorithm disclosed. |
-| **Certifications** | Claims SOC 2, HIPAA, GDPR. No public audit reports, DPAs, or BAAs available for verification. |
-| **Data selling** | Explicitly stated: no. Also: "We don't train models on your data. Ever." |
-| **Third-party AI processing** | Privacy policy discloses content may be sent to OpenAI and Google Gemini when AI features are used. Unclear if this applies to core embedding pipeline. |
-| **Deletion** | Available via API (`DELETE /v3/documents/{id}`, `POST /v3/settings/reset`) and on request. Soft-delete for memories. |
-| **Open source** | Core engine: MIT ([github.com/supermemoryai/supermemory](https://github.com/supermemoryai/supermemory), ~22k stars). Cloud service is commercial. |
-| **Maker** | Supermemory Inc. (Delaware), founded by Dhravya Shah. Early-stage. Privacy contact: founder's personal email. |
-| **Notable concerns** | No documented at-rest encryption. No public audit reports despite compliance claims. Third-party AI processing disclosure is vague. PostHog analytics on landing page does not mask inputs by default. |
+| [home-client.tsx](../src/app/home-client.tsx) | Landing page Premium request dialog and status feedback. |
+| [subscribe route](../src/app/api/subscribe/route.ts) | Public subscription request validation and delivery status. |
+| [forgot-password route](../src/app/api/auth/forgot-password/route.ts) | Password reset token, link URL, and background email scheduling. |
+| [dashboard/page.tsx, L1-147](../src/app/(app)/dashboard/page.tsx#L1-L147) | Server dashboard using the shared forecast result rather than a parallel prediction calculation. |
+| [DashboardClient.tsx, L1-677](../src/app/(app)/dashboard/DashboardClient.tsx#L1-L677) | Fact/estimate labels, likely start window, history basis, caveats, observed versus estimated ovulation, and non-pulsing anomaly display. |
+| [chat route, L1-801](../src/app/api/chat/route.ts#L1-L801) | Authenticated AI SDK stream, user-scoped sessions, deterministic tools, abort handling, and complete `UIMessage`-parts persistence. |
+| [prompt.ts, L1-333](../src/lib/chat/prompt.ts#L1-L333) | Chat grounding, medical limitations, and OpenUI instructions. |
+| [openui.ts, L1-4](../src/lib/chat/openui.ts#L1-L4) | Strict `root =` structured-rendering gate. |
+| [import route, L460-522](../src/app/api/data/import/route.ts#L460-L522) | Atomic prevalidation of imported cycle rows and post-import analytics refresh. |
+| [profile route, L188-209](../src/app/api/user/profile/route.ts#L188-L209) | Profile update and dependent analytics refresh after condition/stage changes. |
+| [changelog.ts, L1-28](../src/lib/changelog.ts#L1-L28) | v0.10.0 release record. |
 
-### 7.3 HackClub (AI proxy and web search)
+## Primary scientific sources
 
-| Attribute | Detail |
-|---|---|
-| **What it is** | US 501(c)(3) nonprofit (EIN: 81-2908499) providing free AI and search services to its community. |
-| **What Luna sends it** | All AI chat prompts and responses (via proxy). All web search queries (via search API). |
-| **AI proxy** | `https://ai.hackclub.com/proxy/v1` -- forwards to OpenRouter, which routes to xAI (Grok), Anthropic (Claude), etc. Also provides image generation via Replicate. |
-| **Search API** | `https://search.hackclub.com/res/v1/web/search` -- proxies Brave Search API. |
-| **Infrastructure** | Bun + Hono + PostgreSQL (Drizzle ORM) + PostHog (analytics) + Sentry (errors). |
-| **Encryption** | Not separately documented (relies on HTTPS). |
-| **Certifications** | None. |
-| **Data selling** | Privacy policy states: "We do not (and never will) sell your personal data." |
-| **Prompt/response logging** | **Full logging.** Every AI prompt and response stored in `request_logs` table (jsonb `request` and `response` fields), linked to userId, slackId, and IP address. Search API logs full query parameters and ALL request headers (not sanitized). |
-| **Data retention** | No documented retention period. No automatic deletion. General privacy policy says data kept "as long as required" but does not address AI/search logs specifically. |
-| **Service-specific privacy policy** | **None.** General HackClub privacy policy does not address the AI proxy or Search API. No mention of prompt logging, upstream processing, or data retention for these services. |
-| **Open source** | Yes. AI proxy: [github.com/hackclub/ai](https://github.com/hackclub/ai). Search: [github.com/hackclub/search](https://github.com/hackclub/search). 905+ public repos in the org. |
-| **Content moderation** | OpenAI Moderation API screening. AI coding tools (Copilot, Cursor) explicitly blocked. Spending limits ($4 default/user). ID verification enforced. |
-| **Upstream data flow** | AI: Luna → HackClub → OpenRouter → xAI/Anthropic/DeepSeek/etc. Search: Luna → HackClub → Brave. Each upstream has their own data policies. |
-| **Notable concerns** | Full prompt+response logging with identity linkage and no retention policy is the most significant privacy concern in Luna's stack. Health information in chat messages (symptom descriptions, cycle details) is stored indefinitely in HackClub's database. No service-specific privacy notice. Search API logs unsanitized headers (potentially including cookies and auth tokens). |
-| **Leadership** | Founded by Zach Latta. Board includes Tom Preston-Werner (GitHub co-founder), Quinn Slack (Sourcegraph CEO). Major donors: Musk Foundation, Vitalik Buterin, Jack Dorsey, others. |
+### General cycle and phase distributions
 
-### 7.4 Third-party evidence quality summary
+**Najmabadi et al. (2020).** “Menstrual bleeding, cycle length, and follicular and luteal phase lengths in women without known subfertility: A pooled analysis of three cohorts.” *Paediatric and Perinatal Epidemiology*, 34(3), 318--327. DOI: [10.1111/ppe.12644](https://doi.org/10.1111/ppe.12644). PubMed PMID 32104920.
 
-| Service | Encryption at rest | Audit reports available | Service-specific privacy policy | Data retention documented | Health data appropriate? |
-|---|---|---|---|---|---|
-| Neon | Yes (AES-256) | Yes (SOC 2, ISO) | Yes | Yes (general) | Only on Scale plan (HIPAA) |
-| Supermemory | Not documented | No (claims only) | Yes (general) | Vague ("as needed") | Unverified |
-| HackClub | Not documented | No | No (missing for AI/search) | No | No |
+- Population: 581 women without known subfertility in three prospective cohorts; 3,324 cycles.
+- Reported quantities: menses 6.2 (SD 1.5), cycle 30.3 (SD 6.7), follicular 18.5 (SD 6.5), luteal 11.7 days (SD 2.8).
+- Use: broad general starting point and plausibility comparison.
+- Limitation: eumenorrheic/subfertility-screened cohort; total spread is not automatically within-person spread or uncertainty about an individual mean.
+
+**Bull et al. (2019).** “Real-world menstrual cycle characteristics of more than 600,000 menstrual cycles.” *npj Digital Medicine*, 2, 83. DOI: [10.1038/s41746-019-0152-7](https://doi.org/10.1038/s41746-019-0152-7). PMCID PMC6710244.
+
+- Population: 612,613 ovulatory cycles from 124,648 Natural Cycles app users.
+- Reported quantities: cycle 29.3 (SD 5.2), bleeding 4.0 (SD 1.5), follicular 16.9 (SD 5.3), luteal 12.4 days (SD 2.4).
+- Use: luteal starting point and general cycle plausibility.
+- Limitation: selected app users and ovulatory cycles; not representative of all Luna users or condition groups.
+
+### Within-person variability
+
+**Wang et al. / Apple Women's Health Study (2023).** “Menstrual cycle variability and length across the reproductive lifespan.” PMCID [PMC10226714](https://pmc.ncbi.nlm.nih.gov/articles/PMC10226714/).
+
+- Population: 49,238 participants under age 50; 742,747 prospectively logged cycles after exclusions.
+- Measured quantity: within-person cycle-length variability and age/race/ethnicity patterns.
+- Use: supports a nonzero variance floor and increased variability near ages 45--49.
+- Limitation: app/phone cohort, self-report, and age-stratified observational results do not identify a universal personal SD.
+
+### Perimenopause transition
+
+**Ferrell et al. (2006).** “Monitoring reproductive aging in a 5-year prospective study: aggregate and individual changes in steroid hormones and menstrual cycle lengths with age.” *Fertility and Sterility*, 86(1), 160--167. DOI: [10.1016/j.fertnstert.2006.01.045](https://doi.org/10.1016/j.fertnstert.2006.01.045). PubMed PMID 16889776.
+
+- Population: 120 white, college-educated US participants from the TREMIN cohort.
+- Measured quantity: longitudinal menstrual cycle lengths in years before the final menstrual period; means reported in the paper include about 30.48, 35.02, 45.15, and 80.22 days from four to one year before the final menstrual period.
+- Use: directional, deliberately wide late-transition assumption.
+- Limitation: small and nonrepresentative cohort; retrospective alignment to final menstrual period is unavailable at prediction time and does not justify precise staging.
+
+### PCOS directionality
+
+**Apple Women's Health Study (2025).** PubMed PMID [41297783](https://pubmed.ncbi.nlm.nih.gov/41297783/).
+
+- Population: 160,206 cycles from 15,586 participants, including 18,875 cycles from 1,842 participants reporting PCOS.
+- Measured quantity: age-stratified cycle length and irregularity associations.
+- Use: supports longer and more variable cycles as a direction, with differences changing by age.
+- Limitation: the abstract does not provide a single defensible mean and SD for a PCOS prior; version 2 therefore does not assign a fixed PCOS mean.
+
+## Rejected quantitative claims
+
+| Claim from the legacy engine | Decision | Reason |
+|---|---|---|
+| PCOD is a milder numerical subtype of PCOS | Rejected | No verified quantitative distribution distinguished the labels. |
+| Endometriosis implies a 27-day mean and 4-day SD | Rejected | An odds ratio for short cycles is not a mean/SD distribution. |
+| Thyroid conditions imply a 35-day mean and 15-day SD | Rejected | Hypothyroid and hyperthyroid effects differ; no suitable combined distribution was verified. |
+| Every hormonal method has a common cycle distribution | Rejected | Regimens and bleeding mechanisms differ substantially. |
+| A jackknife interval around a smoothed mean predicts the next cycle | Rejected | Uncertainty about a mean omits next-observation variability; ordered dependent histories also violate simple leave-one-out assumptions. |
+| Model-derived phase dates are observations | Rejected | They are dependent outputs and cannot serve as independent ground truth. |
+
+## Documentation notes
+
+The source line ranges above correspond to version 0.10.0 and may drift as the files evolve. The previous research documents described the legacy engine as current, claimed that automated tests were absent, and treated unverified condition parameters as evidence-backed. Those statements are superseded by this index, [luna-technical.md](./luna-technical.md), and [research-notes.md](./research-notes.md).

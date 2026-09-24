@@ -1,326 +1,223 @@
-# Luna project -- working research notes
+# Luna research and engineering record
 
-> Generated from repository inspection of v0.9.11
-> Working notes, not a final document. Gaps and uncertainties called out directly.
+**Run date:** 24 September 2026  
+**Release:** 0.10.1  
+**Model candidate:** `forecast-v2.0.0`  
+**Status:** implementation complete; real-world accuracy undetermined
 
----
+The landing page Premium buttons previously set modal state without rendering a modal, so clicking them had no visible effect. The request form is now rendered, and failed admin notification sends return an error. The password reset route now schedules the Resend call with Next.js `after()` and prefers the configured public app URL for reset links. A reset request for an address without a matching account intentionally skips email delivery while showing the same public success response.
 
-## 1. Repository analysis methodology
+## 1. Executive finding
 
-### What I inspected
+The strongest evidence supported correctness, uncertainty, integrity, and product-trust changes. It did not support a claim that Luna is more accurate for real users.
 
-1. Read all 780 lines of the prediction engine ([engine.ts, L1-780](../src/lib/prediction/engine.ts#L1-L780)) -- functions, constants, priors, everything.
+The live database contains 25 cycle records from five users and only four users with retrospective forecast targets. The predeclared privacy/reliability rule requires at least five contributing users before any performance number is released. All live accuracy metrics were therefore suppressed. Synthetic results favored forecast-v2, but the generator shares assumptions with the model and cannot establish clinical or real-world benefit.
 
-2. Read the outline and main functions of cycle tools ([cycle-tools.ts, L1-1271](../src/lib/cycle-tools.ts#L1-L1271)): `refreshCycleAnalytics`, `refreshPredictionParam`, `buildPredictionPayload`, `buildAveragesFromParams`, all tool entry functions.
+## 2. Repository baseline
 
-3. Read the full chat API ([route.ts, L1-884](../src/app/api/chat/route.ts#L1-L884)): context assembly logic, tool definitions, streaming setup, AI tracing, summarization, image handling.
+The checkout uses Next.js 16.2.4, not 15.0.0. The installed Next.js guides were read before route work. AI SDK 6.0.174 documentation was read before streaming changes. Context7 was required by project instructions but unavailable because the MCP connection was not configured; installed package documentation was used instead.
 
-4. All supporting files:
-   - [schema.ts, L1-173](../src/lib/db/schema.ts#L1-L173) -- 8 tables, perimenoStage, custom `pgDate` type
-   - [prompt.ts, L1-334](../src/lib/chat/prompt.ts#L1-L334) -- OpenUI system prompt
-   - [models.ts, L1-77](../src/lib/chat/models.ts#L1-L77) -- plan-tier persona configs
-   - [openui.ts, L1-5](../src/lib/chat/openui.ts#L1-L5) -- single regex check
-   - [images.ts, L1-74](../src/lib/chat/images.ts#L1-L74) -- 7-day TTL image storage
-   - [email/index.ts, L1-528](../src/lib/email/index.ts#L1-L528) -- 5 email templates
-   - [schemas/auth.ts, L1-79](../src/lib/schemas/auth.ts#L1-L79) -- Zod validation
-   - [accent.ts, L1-43](../src/lib/theme/accent.ts#L1-L43) -- 3 accent palettes
-   - [rate-limit.ts, L1-144](../src/lib/rate-limit.ts#L1-L144) -- in-memory sliding window
-   - [utils.ts, L1-21](../src/lib/utils.ts#L1-L21) -- cn + logError
-   - [changelog.ts, L1-287](../src/lib/changelog.ts#L1-L287) -- 18 version entries
-   - [auth.ts, L1-77](../src/auth.ts#L1-L77) -- Auth.js v5 config
-   - [middleware.ts, L1-86](../src/middleware.ts#L1-L86) -- auth + rate limiting
-   - [next.config.ts, L1-26](../next.config.ts#L1-L26) -- security headers, CSP
-   - [package.json, L1-95](../package.json#L1-L95) -- dependencies
+Before changes:
 
-5. API routes:
-   - [import/route.ts, L1-514](../src/app/api/data/import/route.ts#L1-L514) -- 5-format import
-   - [export/route.ts, L1-32](../src/app/api/data/export/route.ts#L1-L32) -- JSON export
-   - [profile/route.ts, L1-228](../src/app/api/user/profile/route.ts#L1-L228) -- profile CRUD
-   - [onboarding/route.ts, L1-133](../src/app/api/user/onboarding/route.ts#L1-L133) -- onboarding flow
+- 68 automated tests passed.
+- TypeScript failed at the import refresh call and a discriminated-union narrowing site.
+- `pnpm lint` called the removed `next lint` command and could not run on Next.js 16.
+- The first production build reached page-data collection but an empty `.env.production.local` database value overrode the valid development value.
+- The dashboard and chat did not share one current forecast result.
+- Existing research papers described the legacy engine as current and claimed that no automated tests existed.
 
-6. Dashboard page ([dashboard/page.tsx, L1-335](../src/app/(app)/dashboard/page.tsx#L1-L335)) -- read the first 60 lines (server component, prediction logic).
+Existing user changes were preserved. The preexisting untracked forecast/evaluation work was audited, corrected, integrated, tested, and documented rather than discarded.
 
-7. All three research documents in `/research/`:
-   - `chatgpt-deep-research.md` -- internal research doc, condition stats, mostly Low evidence
-   - `gemini-deep-research.md` -- clinical priors + algorithmic framework
-   - `perplexit-deep-research.md` -- detailed priors with evidence ratings
+## 3. Read-only database profile
 
-8. Git history: full `git log --oneline` (40+ commits), development timeline.
+The profiler in [db-profile.mts, L1-156](../scripts/db-profile.mts#L1-L156) selected only IDs, cycle dates, derived numerical fields, condition/stage flags, and timestamps required for the audit. It did not select emails, password hashes, images, free-text notes, or chat content. Queries were bounded and no record was written, repaired, or recomputed.
 
-### How I inspected
+### 3.1 Counts and denominators
 
-- Read files directly. For large files (>200 lines), started with the outline then read specific line ranges.
-- Verified line counts with `wc -l` on all main files.
-- Cross-referenced `CONDITION_PRIORS` values in [engine.ts](../src/lib/prediction/engine.ts) against the three research documents.
-- Traced commit messages to changelog entries to check consistency.
-- Did NOT run the application, execute tests (there are none), or query the database.
+| Quantity | Result |
+|---|---:|
+| All users | 10 |
+| Users with product consent | 5 |
+| Onboarded users | 10 |
+| Users with any cycle row | 5 |
+| Cycle rows | 25 |
+| Start-to-start intervals | 20 |
+| Missing end dates | 7 |
+| Latest open rows | 5 |
+| Historical missing ends | 2 |
+| Recorded ovulation dates | 0 |
+| Users with at least 3 plausible intervals | fewer than 5 |
 
-### What I did not inspect
+### 3.2 Integrity findings
 
-- Client components (DashboardClient, Conversation, etc.) -- only read server component entry points.
-- CSS/styling files.
-- Drizzle migration files.
-- Public assets (images, videos).
-- Vercel/deployment config beyond `vercel.json` and [next.config.ts](../next.config.ts).
+No duplicate starts, overlapping bleeding records, future starts, reversed start/end ordering, impossible period durations, or stored-versus-recomputed derived-value drift were detected. There was one persisted anomaly flag and three persisted prediction-parameter rows; no stale parameter value was detected by the bounded check.
 
----
+Nineteen of 20 intervals were 21--35 days. Fewer than five were 46--90 days. The cycle-length quantiles were 26, 27, 27.5, 28.3, and 35.1 days. Period-length quantiles were 4, 4, 4, 4, and 5.1 days. Quantiles are descriptive only and do not make this sample representative.
 
-## 2. Bugs found and fixed
+Seventeen of 25 records were created more than 30 days after the recorded start. One user had a bulk-created history. Available timestamps describe when rows were stored, not necessarily when an event was first known or edited. The schema has no row provenance, profile history, or immutable forecast issuance.
 
-From git history and changelog entries:
+### 3.3 Interpretation rules
 
-### Bug 1: period length off-by-one
+- A missing end on the latest row is treated as potentially ongoing.
+- A missing end on an older row is treated as incomplete history.
+- A long start-to-start interval is not automatically a missed log.
+- A single implausibly long or short interval is classified as uncertain for forecasting, not repaired or deleted.
+- There were no ovulation outcomes suitable for an accuracy analysis.
+- Small condition/stage cells are suppressed below five users.
 
-`297f119` (v0.6.2). Period length was `mEnd - mStart` (exclusive count), so Jan 28-31 came out as 3 days. Fixed to inclusive count -- now 4 days. All historical period data before this fix is off by 1 day, and `predictionParams` smoothed values are affected too. No migration to correct existing data.
+The existing consent text permits use of the application but does not clearly authorize pooled health-data model training. No population parameter was fitted from live user data.
 
-### Bug 2: dashboard cycles count
+## 4. Mathematical audit
 
-`297f119` / `9f8cc56`. Dashboard showed only 6 cycles instead of the actual total -- probably a `LIMIT 6` on the count query, or caching from an early limited query. Fixed to show the correct count. UI display only; prediction engine was unaffected.
+### 4.1 Confirmed definitions
 
-### Bug 3: Neon date timezone bug
+Cycle length is the exclusive day difference from one start to the next and belongs to the earlier cycle. Bleeding duration is inclusive. Follicular and luteal quantities require suitable ovulation observations; model-derived dates are not independent observations. ISO date calculations use UTC calendar components to avoid DST and host-timezone drift.
 
-`9f8cc56`, `be5575d`. The Neon serverless HTTP driver returns PostgreSQL `date` columns as JavaScript `Date` objects, parsed as local midnight (no Z suffix). The same date value shifts depending on server timezone. If the server is UTC and the user is IST (UTC+5:30), `2026-01-28` becomes `2026-01-27T18:30:00` and displays as January 27. Fixed with a custom `pgDate` Drizzle type ([schema.ts](../src/lib/db/schema.ts)) that converts `Date` objects back to `YYYY-MM-DD` strings at the ORM boundary using `getFullYear()`, `getMonth()`, `getDate()` (which respect local time). The original date string is now preserved regardless of server timezone.
+### 4.2 Legacy engine problems
 
-This one is serious -- date corruption cascades into cycle length, period length, and predictions. Cycles logged through the buggy path may have incorrect `mStart`, `mEnd`, or `ovulationDate` values in the database. No migration was found.
+The retained v1 engine is deterministic and has useful regression coverage, but its user-facing uncertainty and several priors are not scientifically defensible:
 
-### Bug 4: Vercel fetch cache on Neon driver
+1. Its jackknife estimates sensitivity of a smoothed estimator, not the predictive distribution of the next cycle.
+2. Leave-one-out resampling is poorly matched to ordered, dependent time series and a discontinuous skip gate.
+3. Sparse-history ranges can be too narrow because they omit enough next-observation variability.
+4. Fixed PCOD, thyroid, endometriosis, irregular-cycle, and hormonal-contraception distributions were not supported by suitable primary numerical data.
+5. A single maximum threshold conflated genuine long cycles with missed logs.
+6. Persisted full-history parameters could leak future information into a naive retrospective evaluation.
+7. Profile changes did not reliably recompute dependent personal state.
 
-`885f204`. Vercel's edge runtime caches `fetch()` responses by default. The Neon serverless driver uses `fetch()` internally, so database query results could be cached and return stale data -- dashboard showing old predictions, chat operating on outdated cycle data, AI tools returning stale results. Fixed by adding `fetchOptions: { cache: 'no-store' }` to the Neon client config.
+### 4.3 Current model assumptions
 
-### Bug 5: Grok-4.3 token pricing
+Forecast-v2 is implemented in [forecast.ts, L1-492](../src/lib/prediction/forecast.ts#L1-L492). It uses a normal-normal posterior predictive model, a log scale for cycle lengths, variance shrinkage with four pseudo-observations, an 80% central prediction interval, and a 12-observation recency window.
 
-`e43f9d9`. The changelog says pricing was corrected to "$0.25/M input, $0.50/M output tokens." But the code in [route.ts, L854-857](../src/app/api/chat/route.ts#L854-L857) calculates `(usage.inputTokens ?? 0) * (1.25 / 1_000_000) + (usage.outputTokens ?? 0) * (2.5 / 1_000_000)` -- that's a 5x multiplier over the changelog's stated price. Either the changelog is wrong, the code is wrong, or there's an undocumented markup. AI cost tracking in `ai_traces.costUsd` is wrong if the pricing doesn't match actual HackClub proxy billing. Needs verification.
+The general cycle median of 29 days, between-person SD of 4 days, within-person SD of 4 days, bleeding mean of 5.5 days, bleeding SD components, and the pseudo-observation strength are engineering assumptions informed by but not directly estimated from the cited studies. They are retained because they are transparent, conservative in cold start, and testable. They are not established biological constants.
 
-### Bug 6: chat mobile rendering and tool payloads
+Condition logic follows an evidence hierarchy:
 
-`e94b6a6`. Raw tool result payloads (JSON objects with `responseMode`, `kind`, `cycles`, etc.) were showing up in the mobile chat UI. This cluttered the display and exposed internal data structures. Fixed -- tool payloads are now collapsed, showing only the AI's natural language response. UI only; no data integrity impact.
+- Retain a numerical shift only when a suitable measured distribution exists and transfer is plausible.
+- Where evidence is directional, widen uncertainty or withhold an unsuitable output.
+- Unknown conditions fall back to the base model and are surfaced in assumptions rather than silently changing arithmetic.
+- PCOS and PCOD do not receive distinct means.
+- Hormonal contraception does not receive a universal cycle mean.
+- Late perimenopause uses a very wide directional adjustment, not a precise stage classifier.
 
-### Bug 7: landing page auth redirect
+## 5. Evaluation protocol
 
-v0.6.1 changelog. `/start` and landing page CTAs always redirected to `/signup` even for signed-in users. Fixed -- signed-in users now see "Dashboard" / "Open Luna" CTAs and get auto-redirected to `/dashboard`. UX issue only.
+The rolling-origin harness in [backtest.ts, L1-270](../src/lib/prediction/backtest.ts#L1-L270) reconstructs state at every origin from the preceding prefix. Future ends, future ovulation reports, persisted `prediction_params`, and later condition values are excluded. A test mutates future history and verifies that earlier predictions do not change.
 
-### Bug 8: Vercel build failure (pnpm lockfile overrides config mismatch)
+Benchmarks are:
 
-v0.9.11. The local development environment was upgraded to pnpm v11, which no longer reads the `pnpm.overrides` configuration from `package.json` (warning that the `pnpm` field is ignored). This caused the local `pnpm install` execution to write a `pnpm-lock.yaml` file that did not resolve transitive react types (`@types/react` and `@types/react-dom`) to the overridden `19.0.0` version, resolving them to `18.3.29` instead. However, Vercel defaults to pnpm v10 which still parses the legacy `package.json` overrides. This caused the Vercel frozen lockfile build check to crash with a `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` mismatch error. Fixed by adding the `overrides` configuration to `pnpm-workspace.yaml` (which is the new standard hub for workspace settings in both pnpm v10 and v11) while keeping the fallback in `package.json`, then regenerating the lockfile.
+1. Legacy forecast-v1.
+2. Population-prior only.
+3. Last observed value.
+4. Expanding personal median.
+5. Rolling personal mean.
+6. Rolling personal median.
+7. Simple exponential smoothing.
+8. Forecast-v2.
 
----
+Metrics include MAE, median absolute error, RMSE, signed bias, 90th-percentile absolute error, proportions within 2/3/7 days, user-macro MAE, interval coverage and width, interval score, abstention, sample size, and exclusions. Pairwise uncertainty uses a user-cluster bootstrap so repeated cycles are not treated as independent people.
 
-## 3. Algorithm audit findings
+The intended real-data design is chronological development, validation, and untouched test periods with user-disjoint evaluation for any pooled fitting. The current database is too small for that design. No tuning was performed on live data.
 
-### What works well
+## 6. Results
 
-1. The condition-aware skip gate. The two-stage approach (max-cycle-length threshold → 2.5σ soft clamp) prevents the common failure mode where long PCOS/perimenopause cycles get discarded as "missed logs." The condition-specific `maxCycleLength` values (45d for regular, 120d for PCOS, 90d for thyroid/irregular, 35d for hormonal BC) are well-motivated.
+### 6.1 Live data
 
-2. Inverse-variance prior blending. For users with <6 observations, blending user data with population priors using inverse-variance weighting is the correct Bayesian approach. `blendWithPrior()` handles the cold-start case and fades out the prior at n≥6.
+Only four users contributed forecast targets. The database command reports the counts and suppression reason but no MAE, coverage, subgroup result, or pairwise difference. This is the result, not a failed attempt to find favorable numbers.
 
-3. Adaptive alpha. Using the MAD of recent residuals to adjust α is clever -- high variability → lower α (more smoothing), low variability → higher α (more responsive). The range [0.1, 0.5] with KAPPA=5.0 seems reasonable, though there's no theoretical justification for these specific constants.
+Retrospective evaluation would still be approximate at a larger sample because most rows were logged after the event and historical profile values are missing.
 
-4. Jackknife CI for n≥6. Delete-one jackknife to estimate confidence intervals is robust and doesn't assume normality. Good choice for small-sample, potentially skewed data.
+### 6.2 Synthetic cycle-length results
 
-5. Hormonal BC handling. Setting `follicularLength: null` and `lutealLength: null` for hormonal BC, and suppressing ovulation predictions, is clinically correct. The system prompt explicitly tells the AI not to predict ovulation or follicular/luteal phases for these users.
+Seed 42 used 400 simulated users and produced 2,938 forecasts:
 
-6. Condition resolution. `resolveEffectivePrior()` picks the condition with the highest cycle-length variance when multiple conditions are present. Hormonal BC always wins. Sensible heuristic -- most disruptive condition dominates.
+| Metric | Forecast-v1 | Forecast-v2 |
+|---|---:|---:|
+| MAE | 5.83 d | 4.89 d |
+| Median absolute error | 2.57 d | 2.14 d |
+| RMSE | 10.37 d | 9.05 d |
+| Signed bias | -0.20 d | -0.91 d |
+| 90th percentile absolute error | 18.00 d | 12.17 d |
+| Within 2 days | 0.42 | 0.47 |
+| Within 3 days | 0.56 | 0.60 |
+| Within 7 days | 0.79 | 0.84 |
+| User-macro MAE | 5.76 d | 4.86 d |
+| 80% interval coverage | 0.42 | 0.84 |
+| Mean interval width | 6.9 d | 13.6 d |
+| Interval score | 44.7 | 30.4 |
 
-7. Residual-only MAD tracking. Anomaly-gated observations don't push residuals, which prevents the MAD from being artificially deflated by clamped values. Subtle but important.
+The v2-minus-v1 user-macro MAE difference was -1.13 days with a 95% user-cluster bootstrap interval of [-1.57, -0.75] among 365 evaluable users.
 
-### What's questionable
+Seeds 43, 44, and 45 produced v2-minus-v1 macro-MAE differences of -1.26, -1.27, and -0.63 days. V2 80% coverage was 0.84--0.85. Cold-start MAE on seed 42 was 6.22 days for v1 and 4.96 for v2.
 
-1. Variance floor of 4.0 in skipGate. At [engine.ts, L520](../src/lib/prediction/engine.ts#L520): `const sigma = Math.sqrt(Math.max(variance, 4.0))`. This floors variance at 4.0 (σ≥2d) to prevent tight convergence from flagging normal variation. But it means the anomaly gate never tightens below σ=2d, even for hormonal BC users where true σ should be ~1d. For hormonal BC, a cycle 5 days off (2.5×2 = 5d) passes the anomaly gate when it should arguably be flagged. The floor keeps the gate from being appropriately tight for regular users.
+### 6.3 Synthetic bleeding-duration results
 
-2. Initial variance = 0. At [engine.ts, L539](../src/lib/prediction/engine.ts#L539): `let variance = 0`. The smoother starts with zero variance. The first observation becomes the initial smoothed value, and the first residual is computed from observation 2. The first few cycles contribute with an artificially low variance estimate, which could cause the 2.5σ gate to trigger prematurely on observation 2 or 3 if it differs from observation 1.
+On seed 42, v1 versus v2 MAE was 1.05 versus 0.94 days, user-macro MAE was 1.08 versus 0.94, 80% coverage was 0.48 versus 0.80, interval width was 1.7 versus 3.1 days, and interval score was 6.5 versus 4.2. Independent seeds preserved the direction with small macro-MAE differences from -0.05 to -0.07 days.
 
-3. PCOD prior is fabricated. The `pcod` prior (45d, σ=13) is interpolated between PCOS (51d) and general population (30.3d) with no published evidence. A single Indian regional cohort reported a 72.5d mean (SD 25), which would make 45d far too low. No separate PCOD-specific data exists in peer-reviewed literature. The implementation chose a middle ground with no empirical basis.
+### 6.4 Interpretation
 
-4. Perimenopause is a single blended prior. Mean=45d (σ=20d) blends early transition (~30d) and late transition (~80d). The STRAW staging system recommends splitting these into separate priors with different anomaly gates (59d for early, 365d for late). A single prior at 45d underestimates late transition and overestimates early transition. The engine has no mechanism to detect transition stage from user data.
+The candidate improves recovery and interval calibration under the synthetic generator. This is expected because the generator and model share distributional ideas. The experiment validates code paths, leakage protection, sparse-history behavior, contamination handling, and uncertainty scoring. It does not validate transfer to people.
 
-5. No double exponential smoothing (trend component). The engine uses simple exponential smoothing, which assumes no trend. For PCOD users who may be normalizing (cycles shortening from 90d to 35d over several months due to treatment), Holt's linear method (double exponential smoothing) would be appropriate. The current engine will lag behind a normalizing trend because α is bounded at 0.5 max.
+## 7. Implemented product and integrity changes
 
-6. Exponential smoothing variance estimate. The variance update at [engine.ts, L559](../src/lib/prediction/engine.ts#L559) (`variance = (1 - alpha) * (variance + alpha * diff * diff)`) is an approximation. It doesn't correctly estimate the variance of the smoothed value -- it's more like a discounted sum of squared errors. The jackknife CI partially compensates at n≥6, but for n<6, the CI from `blendWithPrior` depends on this approximate variance.
+- One shared forecast service now feeds dashboard and chat.
+- Forecast output includes model version, target, point and interval, usable history, exclusions, data cutoff, assumptions, caveats, and abstention reason.
+- Dashboard labels recorded versus estimated dates and no longer paints estimated bleeding as observed.
+- Ovulation is withheld for unsuitable profiles and described as an estimate elsewhere.
+- Ongoing-cycle behavior is explicit and never declares a missed period.
+- Real-calendar validation catches dates such as 31 February.
+- Create/edit/import/delete/profile paths recompute dependent state.
+- Import validates all prospective rows before the first insertion.
+- Cycle edits remove an ovulation observation outside the edited cycle boundary.
+- Chat session updates require both session ID and user ID.
+- AI SDK streams persist complete `UIMessage` parts and propagate request aborts.
+- The obsolete Next.js `config.bodyParser` export was removed.
+- `pnpm lint` now invokes ESLint directly instead of removed `next lint`.
 
-7. `resolveEffectivePrior` picks highest-variance condition. When a user has multiple conditions (e.g., endometriosis + thyroid), the engine picks the one with the highest cycle-length variance. But endometriosis (short cycles, low variance) + thyroid (long/irregular cycles, high variance) would pick thyroid, completely ignoring the endometriosis contribution. A weighted blend or a max-of-extremes approach (shortest cycle mean from endo, highest variance from thyroid) might work better.
+## 8. Retained and rejected hypotheses
 
-8. Alpha range [0.1, 0.5] may be too narrow. For hormonal BC users where σ≈1d, the engine should use a very high α (≈0.8-0.95) to lock onto the regimen. But `computeAdaptiveAlpha` maps low MAD → low α (0.1), which is the opposite of what's needed. The ideal α should be proportional to regularity (high for BC, low for irregular). The current implementation has α inversely proportional to recent variability, which is correct for conditions with high variability but wrong for conditions with low variability.
+### Retained
 
-   Wait -- re-reading the code: `computeAdaptiveAlpha` returns `ALPHA_MIN + (ALPHA_MAX - ALPHA_MIN) * (mad / (mad + KAPPA))`. High MAD → α approaches 0.5. Low MAD → α approaches 0.1. So:
-   - Regular cycles (low MAD) → low α → slower adaptation (undesirable for BC)
-   - Irregular cycles (high MAD) → high α → faster adaptation (undesirable for PCOS/irregular)
+- A simple posterior-predictive model is preferable to a more complex state-space model at this sample size.
+- A variance floor is necessary for honest cold-start uncertainty.
+- Repeated long intervals should become a personal pattern rather than permanent anomalies.
+- Condition evidence is more useful for widening/withholding than for unsupported precision.
+- Prospective issuance records are the cleanest route to genuine future evaluation.
 
-   This appears to be backwards. α should be inversely proportional to condition SD (high α for BC, low α for PCOS). But the code makes α proportional to recent residual MAD, which is correlated with condition SD. Irregular conditions get higher α, causing the smoother to overreact to individual long cycles.
+### Rejected or deferred
 
-   That said, this might be intentional: when residuals are high, the algorithm needs to adapt faster because the user's pattern is changing. The KAPPA=5.0 and range [0.1, 0.5] limit the damage. But the theoretical justification is weak, and it contradicts the research documents.
+- Neural networks, fine-tuning, a vector database, or a separate ML service: no sample size or failure mode justifies them.
+- A fixed “milder PCOD” distribution: unsupported.
+- Mean/SD inferred from an odds ratio: invalid.
+- One distribution for all hormonal contraception: unsupported.
+- Automatic production model promotion: unsafe and unnecessary.
+- Persisting prospective forecasts in this release: deferred until consent, retention, deletion, and expected sample size justify a migration.
+- Elaborate shadow-deployment infrastructure: disproportionate for the current product.
 
-9. No age covariate. PCOS cycle length and irregularity decrease with age, converging toward non-PCOS patterns by ~40 (documented in AWHS and SWAN cohorts). The engine has no age input. The user's `dateOfBirth` exists in the schema but is never passed to the prediction engine.
+## 9. Verification record
 
-10. No PCOS/thyroid subtype discrimination. The thyroid prior blends hypo and hyper into a single 35d mean, but these conditions push in opposite directions (hypo→long, hyper→short). Letting users specify "underactive" vs "overactive." would provide dramatically better priors. The current implementation doesn't distinguish.
+- Baseline: 68 tests passed.
+- Current suite: 80 tests passed.
+- TypeScript: passed after integration.
+- Targeted ESLint on touched code: passed with zero errors and zero warnings after removing two unused legacy-test variables.
+- Full ESLint: now runs, but exits nonzero with 24 errors and 28 warnings in untouched code, largely generated AI Elements and older client components. The scoped touched-code run is clean.
+- Production build: Vercel compiled Next.js, passed TypeScript, generated all 18 static pages, and completed the production build.
+- Browser: public login route rendered; authenticated journeys were not exercised because no user credentials were used.
+- Database profiler and database backtest: rerun after Vercel environment pull, with values bounded and secrets suppressed.
+- Production deployment: Vercel deployment `dpl_2ww26rANPK6iE6DggRtKYwqWe89Y` reached `READY`, was aliased to `https://luna-tracker.a3ro.dev`, and returned HTTP 200 through the deployment-protection-aware smoke check.
 
----
+## 10. Operational update procedure
 
-## 4. Evidence chain analysis
+1. Use a read-only database URL for profiling/evaluation.
+2. Run tests and typecheck before any model comparison.
+3. Freeze model version, evaluation code, seeds, cutoff, exclusions, and predeclared acceptance criteria.
+4. Keep personal recomputation separate from population fitting.
+5. Never fit pooled parameters without an adequate consent basis.
+6. Promote manually only after untouched evaluation; retain the previous model for rollback.
+7. Do not run historical repairs or production migrations silently.
 
-### Which claims trace to which sources
+No migration or backfill is required for v0.10.0. Existing prediction-parameter rows remain for legacy compatibility but are not trusted as historical forecast state.
 
-#### Strong chains (high confidence)
+## 11. Next experiment
 
-| Claim in code | Source | Chain |
-|---|---|---|
-| General population cycle length = 30.3 ± 6.7 | Najmabadi et al., pooled 3 cohorts, N=581 | Najmabadi et al. → `POPULATION_PRIOR` → [engine.ts](../src/lib/prediction/engine.ts). Direct numeric transfer. |
-| General population period length = 6.2 ± 1.5 | Najmabadi et al. | Same chain. |
-| General population follicular phase = 18.5 ± 6.5 | Najmabadi et al. | Same chain. |
-| Hormonal BC cycle = 28 ± 1 | Regimen design (21/7, 24/4 pills) | Pharmacological fact. |
-| Hormonal BC bleed = 4.5 ± 1.5 | RCTs of monophasic pills | RCT midpoint of 4.4-5.2d range → [engine.ts](../src/lib/prediction/engine.ts). |
-| Perimenopause -4yr = ~30d, -1yr = ~80d | Holman 2006 (Treloar/Tremin) | Holman 2006 → [engine.ts](../src/lib/prediction/engine.ts) (blended to single 45d prior). |
-
-#### Weak chains (low confidence)
-
-| Claim in code | Source | Chain | Where it breaks |
-|---|---|---|---|
-| PCOS cycle = 51 ± 15 | Nutrients 2026 trial, N=10 | Nutrients 2026 trial → [engine.ts](../src/lib/prediction/engine.ts) | N=10 is very small. Single trial, not a meta-analysis. May not be representative. |
-| PCOS max cycle = 120 | MOS2 cohort (observed 111) + 9d buffer | MOS2 cohort → [engine.ts](../src/lib/prediction/engine.ts) | The +9d buffer is arbitrary. MOS2 is a community sample, not necessarily representative. |
-| PCOD cycle = 45 ± 13 | No source. Interpolated between PCOS (51) and general (30.3) | [engine.ts](../src/lib/prediction/engine.ts) only | No published PCOD-specific data exists. The interpolation weights are undocumented. A single Indian regional cohort reported 72.5d (SD 25), which would make 45d far too low. |
-| Endometriosis cycle = 27 ± 4 | OR data: ≤27d OR 1.22 for endo | Parazzini et al. meta-analysis → [engine.ts](../src/lib/prediction/engine.ts) | OR is not a distribution. An odds ratio of 1.22 for short cycles tells us short cycles are over-represented, but it doesn't provide a mean or SD. The mean of 27d and SD of 4d are estimates, not measurements. |
-| Thyroid cycle = 35 ± 15 | Directional data only (hypo→long, hyper→short) | Directional clinical observation → [engine.ts](../src/lib/prediction/engine.ts) | No published mean±SD for thyroid conditions. The 35d mean and 15d SD are fabricated estimates. The blended mean averages hypo and hyper, which push in opposite directions. |
-| Irregular cycle = 30 ± 15 | General population mean + inflated SD | [engine.ts](../src/lib/prediction/engine.ts) only | No PCOS/thyroid-excluded distributions exist. The "irregular" catch-all is too heterogeneous for a meaningful prior. 30d is just the general population mean; 15d SD is an inflation factor. |
-| Perimenopause (single prior) = 45 ± 20 | Holman 2006 blended across -4yr to -1yr | Holman 2006 → [engine.ts](../src/lib/prediction/engine.ts) | Blending early (30d) and late (80d) transition loses critical information. A user in early transition gets an overestimated mean; a user in late transition gets an underestimated mean. |
-
-#### Where the chain breaks completely
-
-1. PCOD → No data. The chain starts and ends at "interpolation." No external source to validate against.
-
-2. Thyroid → No distributional data. The chain goes: clinical observation (hypo→long, hyper→short) → arbitrary mean of 35d and SD of 15d. No study provides these numbers.
-
-3. Irregular → Catch-all with no definition. "Irregular" has no diagnostic criteria beyond "not PCOS/thyroid/etc." It's a negative definition, which makes any prior inherently speculative.
-
-4. Luteal phase across all conditions → Assumed near-normal. The chain goes: biological constraint (corpus luteum lifespan 11-17d) → assume 12-14d for all conditions. Reasonable but untested. Luteal phase defects in thyroid and PCOS are documented but not quantified in distributional terms.
-
-5. Endometriosis phase lengths → Reverse-engineered from cycle length. Short cycles (OR 1.22) → assumed mean 27d → split into follicular 14d + luteal 12d. The phase decomposition has no direct evidence; it's inferred from the assumed total cycle length minus assumed luteal length.
-
----
-
-## 5. Open questions
-
-### Questions that couldn't be resolved from repository inspection
-
-1. Is the Grok-4.3 pricing in code correct? The changelog (v0.7.0) says pricing was corrected to "$0.25/M input, $0.50/M output." But the code calculates `(usage.inputTokens ?? 0) * (1.25 / 1_000_000) + (usage.outputTokens ?? 0) * (2.5 / 1_000_000)`, which is 5x the changelog's stated price. Either the changelog is wrong, the code is wrong, or there's an undocumented markup. Requires checking actual HackClub AI billing.
-
-2. What happened to the existing data from the Neon date bug? The `pgDate` custom type was added in commit `be5575d`. But cycles logged before that fix may have incorrect date values in the database. Is there a migration to fix corrupted dates? No migration was found in the repository.
-
-3. Is the α direction correct? `computeAdaptiveAlpha` gives higher α for higher MAD (more irregular → faster adaptation). The ideal behavior is the opposite (more irregular → lower α to dampen noise). The current approach could cause the smoother to overreact to individual outlier cycles in PCOS/irregular users. Requires validation on real data, which doesn't exist yet.
-
-4. How does the engine perform at n=1 to n=5? `blendWithPrior` handles this regime, but there are no unit tests or integration tests. The jackknife CI requires n≥6. For n=1-5, the CI comes from the blended variance, which depends on the approximate variance estimate from exponential smoothing. Untested.
-
-5. What happens when a user's condition changes? A user might start on hormonal BC, then stop. Or start treatment for PCOS and normalize. The engine reads conditions from the `users.conditions` array on every cycle write, but `predictionParams` stores smoothed values computed under the old condition. There's no mechanism to reset or adjust params when conditions change. Potential data integrity issue.
-
-6. Does the in-memory rate limiter work in serverless? The code itself acknowledges this: "In a serverless environment with multiple instances, limits apply per-instance." If Luna runs on Vercel with multiple serverless functions, each instance has its own rate limit state. An attacker could bypass limits by hitting different instances. Architectural limitation, not a bug.
-
-7. ~~Is the luteal phase adjustment from 11.7 to 12.0 documented?~~ **RESOLVED**: `POPULATION_PRIOR.lutealLength.mean` has been corrected to 11.7d, matching Najmabadi et al. directly. The `none` condition prior also now uses 11.7d. The previous 12.0 value was an undocumented round-up that has been removed.
-
-8. What's the evidence for the specific KAPPA, ALPHA_MIN, ALPHA_MAX, OUTLIER_SIGMA values? These constants (5.0, 0.1, 0.5, 2.5) have no citations or justification in comments. They look like tuning parameters chosen by the developer. Requires sensitivity analysis on real data.
-
-9. ~~Does `refreshCycleAnalytics` handle edge cases correctly?~~ **RESOLVED**: The anomaly detection in `refreshCycleAnalytics` now delegates entirely to the prediction engine's `skipGate()`, eliminating the previous inconsistency where a separate z-score-based detector could flag different observations than the prediction engine's running-variance skip gate. The function now takes an optional `perimenoStage` parameter that gets passed through to `skipGate()`.
-
-10. How accurate is date parsing in `normalizeDateInput`? The function handles ISO dates, "January 28" style, "Jan 28" style, and MM/DD/YYYY. But what about:
-    - "28th of January" → likely fails
-    - "1/28/2026" → ambiguous (MM/DD vs DD/MM depending on locale)
-    - "2026-01-28T12:00:00Z" → ISO with time component → likely parsed by the first regex
-    The NLP layer (Grok-4.3) normalizes dates to YYYY-MM-DD before calling tools, so many edge cases are handled upstream. But the tool functions still accept free-form input as a fallback.
-
-11. Are the Supermemory v4 API calls correct? The code uses `POST https://api.supermemory.ai/v4/search` and `POST https://api.supermemory.ai/v4/memories`. There's no versioned SDK -- just raw `fetch()` calls. If Supermemory changes their API, these will silently break. No error handling beyond try/catch returning empty string.
-
-12. What's the actual model behind `x-ai/grok-4.3`? The HackClub AI proxy maps model IDs to underlying models. The code assumes this maps to a capable chat model, but there's no documentation of what Grok-4.3 actually is, its context window, or its capabilities. Dependent on third-party proxy behavior.
-
-### Methodological questions for future work
-
-1. Validation framework needed. The engine has zero tests. No synthetic data validation, no backtesting against known cycle patterns, no comparison to other methods (rolling average, Clue's Poisson model, etc.).
-
-2. Sensitivity analysis on priors. How much do predictions change when PCOS prior moves from 51d (Nutrients 2026 trial) to 41d (AWHS cohort) or 40d (diagnostic criteria estimate)? A 10d difference in prior mean could shift cold-start predictions considerably.
-
-3. Condition change detection. The engine should detect when a user's observed cycles are consistently inconsistent with their condition prior (e.g., a "PCOS" user with regular 28-day cycles) and either suggest a condition update or adaptively reduce the prior's influence.
-
-4. Stratified perimenopause model. The STRAW staging system provides clear markers (≥7d cycle-to-cycle change for early transition, ≥60d amenorrhea for late transition). These could be detected from logged data and used to switch priors automatically.
-
-5. Hypo/hyper thyroid discrimination. The current blended thyroid prior is a poor compromise. A simple UI toggle would allow dramatically better priors.
-
-6. Extended/continuous hormonal BC regimens. The current prior assumes 28-day cycles, but extended regimens (84/7, continuous) are increasingly common. The engine should detect regimen type from cycle patterns or explicit user input.
-
----
-
-## Appendix: file inventory
-
-| File | Lines | Role |
-|---|---|---|
-| [engine.ts, L1-780](../src/lib/prediction/engine.ts#L1-L780) | 780 | Core prediction engine |
-| [cycle-tools.ts, L1-1271](../src/lib/cycle-tools.ts#L1-L1271) | 1271 | AI tools + cycle management |
-| [route.ts, L1-884](../src/app/api/chat/route.ts#L1-L884) | 884 | Chat API + streaming |
-| [prompt.ts, L1-334](../src/lib/chat/prompt.ts#L1-L334) | 334 | System prompt |
-| [import/route.ts, L1-514](../src/app/api/data/import/route.ts#L1-L514) | 514 | Multi-format import |
-| [email/index.ts, L1-528](../src/lib/email/index.ts#L1-L528) | 528 | Email templates |
-| [dashboard/page.tsx, L1-335](../src/app/(app)/dashboard/page.tsx#L1-L335) | 335 | Dashboard server component |
-| [profile/route.ts, L1-228](../src/app/api/user/profile/route.ts#L1-L228) | 228 | Profile CRUD |
-| [schema.ts, L1-173](../src/lib/db/schema.ts#L1-L173) | 173 | Database schema (8 tables, perimenoStage added) |
-| [changelog.ts, L1-287](../src/lib/changelog.ts#L1-L287) | 287 | Version history |
-| [onboarding/route.ts, L1-133](../src/app/api/user/onboarding/route.ts#L1-L133) | 133 | Onboarding flow |
-| [models.ts, L1-77](../src/lib/chat/models.ts#L1-L77) | 77 | Plan-tier config |
-| [auth.ts, L1-77](../src/auth.ts#L1-L77) | 77 | Auth.js config |
-| [images.ts, L1-74](../src/lib/chat/images.ts#L1-L74) | 74 | Image storage |
-| [rate-limit.ts, L1-144](../src/lib/rate-limit.ts#L1-L144) | 144 | Rate limiter |
-| [middleware.ts, L1-86](../src/middleware.ts#L1-L86) | 86 | Auth middleware |
-| [schemas/auth.ts, L1-79](../src/lib/schemas/auth.ts#L1-L79) | 79 | Zod schemas |
-| [accent.ts, L1-43](../src/lib/theme/accent.ts#L1-L43) | 43 | Accent colors |
-| [next.config.ts, L1-26](../next.config.ts#L1-L26) | 26 | Next.js config |
-| [export/route.ts, L1-32](../src/app/api/data/export/route.ts#L1-L32) | 32 | JSON export |
-| [utils.ts, L1-21](../src/lib/utils.ts#L1-L21) | 21 | Utilities |
-| [openui.ts, L1-5](../src/lib/chat/openui.ts#L1-L5) | 5 | OpenUI detection |
-| [package.json, L1-95](../package.json#L1-L95) | 95 | Dependencies |
-| Total | 6226 | |
-
----
-
-## 6. Third-party infrastructure findings
-
-This section documents data handling findings from inspecting the three external services Luna depends on. Source: public documentation, source code, and privacy policies for each service.
-
-### 6.1 Neon -- strongest privacy posture
-
-Neon is the most mature and audited of the three providers. SOC 2 Type II, ISO 27001, ISO 27701, AES-256 at rest, TLS 1.2+ in transit, AWS KMS. They explicitly do not sell data. The Databricks acquisition (May 2025) is a watch-item -- privacy policy URLs now redirect to `databricks.com/legal/` -- but no negative impact has been observed.
-
-The gap: HIPAA is only on the Scale plan. Luna stores health-adjacent data (cycle records, health conditions) on a plan that cannot legally be used for PHI. Whether cycle tracking data constitutes PHI depends on whether Luna is a covered entity, which it is not (it is not a healthcare provider). But the spirit of the concern remains: sensitive health data on non-HIPAA infrastructure.
-
-### 6.2 Supermemory -- unverifiable compliance claims
-
-Supermemory claims SOC 2, HIPAA, and GDPR compliance on their marketing page, but no audit reports, DPAs, or BAAs are publicly available. The privacy contact is the founder's personal email (`dhravya@supermemory.com`). Encryption at rest is not documented. Third-party AI processing (OpenAI, Google Gemini) is disclosed but the scope is vague -- it is unclear whether the core embedding pipeline routes through these providers or only optional AI features.
-
-On the positive side: they explicitly state they do not sell data and do not train models on user data. The core engine is MIT-licensed and self-hostable. Luna sends only personal facts (not cycle data or chat messages) and scopes them per user.
-
-The concern is not that Supermemory is doing something wrong -- it is that their compliance claims cannot be independently verified. For a service storing health-adjacent facts like "I have PCOS," this matters.
-
-### 6.3 HackClub -- the most significant privacy concern
-
-This is the finding I consider most important for Luna users.
-
-HackClub's AI proxy ([github.com/hackclub/ai](https://github.com/hackclub/ai)) stores every prompt and every response in full in a PostgreSQL `request_logs` table:
-
-- `request` (jsonb): the full request body, including all messages
-- `response` (jsonb): the full response body, including all AI-generated content
-- `userId` (uuid): linked to user identity
-- `slackId` (text): linked to Slack identity
-- `ip` (text): user's IP address
-
-The Search API ([github.com/hackclub/search](https://github.com/hackclub/search)) logs full query parameters and ALL request headers (not sanitized to a safe list -- unlike the AI proxy which filters to safe headers).
-
-There is no documented retention period, no automatic deletion, and no service-specific privacy policy. The general HackClub privacy policy does not mention the AI proxy, search API, prompt logging, or upstream data processing.
-
-For Luna, this means: every message a user sends to the AI assistant -- which can contain cycle details, symptom descriptions, health condition information -- is stored indefinitely in HackClub's database, linked to identity and IP. The data also passes through OpenRouter and then to model providers (xAI, Anthropic, etc.), each with their own data handling policies.
-
-HackClub is a well-intentioned nonprofit with open-source code, strong community values, and a "we do not sell your data" stance. The logging appears to be for abuse monitoring and cost tracking rather than data exploitation. But the absence of a retention policy, a service-specific privacy notice, or any opt-out mechanism is a real gap -- especially for a service being used as infrastructure for a health-adjacent application.
-
-### 6.4 Combined risk assessment
-
-| Risk | Severity | Mitigation |
-|---|---|---|
-| Neon Databricks acquisition changes data handling | Low | SOC 2 audits continue; Neon's open-source engine is independently auditable |
-| Supermemory at-rest encryption gap | Medium | Self-host Supermemory (MIT license) for full control |
-| Supermemory unverifiable compliance claims | Medium | Request BAA/DPA from Supermemory; switch to self-hosted if needed |
-| HackClub full prompt/response logging | High | No current mitigation. Self-hosting requires replacing the entire AI proxy and search API |
-| HackClub no retention policy | High | No current mitigation. Data stored indefinitely |
-| HackClub search API logs unsanitized headers | Medium | Headers from Luna contain API keys, not user credentials; lower severity |
-| Upstream AI provider data handling | Low-Medium | Depends on xAI/Anthropic/OpenRouter policies; not within Luna's control |
+Design a minimal prospective forecast record with user ID, model version, target type, issuance timestamp, data cutoff, point, interval, abstention reason, and later target linkage. Specify retention and cascading deletion before migration. With sufficient consented users and targets, compare forecast-v2 against expanding median and rolling mean on an untouched chronological set, report user-macro metrics and calibration, and stratify only where privacy-safe denominators exist.

@@ -8,6 +8,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.10.1",
+    date: "2026-09-24",
+    type: "fix",
+    title: "Restore landing page subscription requests",
+    description:
+      "The Premium Subscribe buttons now open the request form and show sending, error, and success states. Subscription requests report an error when the admin email is rejected. Password reset email delivery is kept alive after the API response, and reset links use the configured app URL.",
+  },
+  {
+    version: "0.10.0",
+    date: "2026-09-24",
+    type: "feat",
+    title: "Calibrated forecasts, safer cycle writes, and shared prediction truth",
+    description:
+      "Introduced forecast-v2, an explainable posterior-predictive model with explicit 80% next-cycle ranges, structured provenance, cautious condition handling, uncertain-log gates, and honest abstention for unsupported ovulation estimates. Dashboard and chat now use the same forecast service. Cycle edits, imports, deletions, and profile changes share strict calendar, overlap, and refresh validation. Added privacy-bounded database profiling, leakage-free rolling-origin evaluation, synthetic stress tests, and durable research documentation. Chat streaming now preserves structured UIMessage parts and scopes session updates to the authenticated user.",
+  },
+  {
     version: "0.9.17",
     date: "2026-06-23",
     type: "fix",
