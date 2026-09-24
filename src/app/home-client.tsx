@@ -24,6 +24,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger, useGSAP);
@@ -771,7 +778,7 @@ export default function HomeClient() {
 
               {showInstallHelp && (
                 <p className="mt-3 text-xs font-light text-[#8E7D82]/60">
-                  If you don't see an install prompt, open your browser menu and
+                  If you don&apos;t see an install prompt, open your browser menu and
                   choose Install app (or Add to Home Screen).
                 </p>
               )}
@@ -794,6 +801,78 @@ export default function HomeClient() {
           </a>
         </p>
       </footer>
+
+      <Dialog
+        open={subModal.open}
+        onOpenChange={(open) => {
+          if (!open) closeSubscribeModal();
+        }}
+      >
+        <DialogContent className="border border-[#FFDDE0] bg-[#FFF9F9] text-[#6D5A60]">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-2xl font-light">
+              {subStatus === "success" ? "Request received" : `Request ${subModal.plan}`}
+            </DialogTitle>
+            <DialogDescription className="text-[#8E7D82]">
+              {subStatus === "success"
+                ? "We will email you with the next steps soon."
+                : "Subscriptions are handled personally for now. Leave your email and we will follow up with the next steps."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {subStatus === "success" ? (
+            <button
+              type="button"
+              onClick={closeSubscribeModal}
+              className="h-11 rounded-full bg-[#6D5A60] px-6 text-sm font-medium text-white hover:bg-[#8E7D82]"
+            >
+              Done
+            </button>
+          ) : (
+            <form onSubmit={handleSubscribe} className="space-y-4">
+              <div className="space-y-1.5">
+                <label htmlFor="subscribe-name" className="block text-sm font-medium">
+                  Name (optional)
+                </label>
+                <input
+                  id="subscribe-name"
+                  type="text"
+                  autoComplete="name"
+                  value={subForm.name}
+                  onChange={(e) => setSubForm((form) => ({ ...form, name: e.target.value }))}
+                  className="h-11 w-full rounded-xl border border-[#D6CBE3] bg-white px-3 outline-none focus-visible:ring-2 focus-visible:ring-[#6D5A60]"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="subscribe-email" className="block text-sm font-medium">
+                  Email
+                </label>
+                <input
+                  id="subscribe-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={subForm.email}
+                  onChange={(e) => setSubForm((form) => ({ ...form, email: e.target.value }))}
+                  className="h-11 w-full rounded-xl border border-[#D6CBE3] bg-white px-3 outline-none focus-visible:ring-2 focus-visible:ring-[#6D5A60]"
+                />
+              </div>
+              {subStatus === "error" && (
+                <p role="alert" className="text-sm text-red-700">
+                  {subError}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={subStatus === "loading"}
+                className="h-11 w-full rounded-full bg-[#6D5A60] px-6 text-sm font-medium text-white hover:bg-[#8E7D82] disabled:cursor-wait disabled:opacity-60"
+              >
+                {subStatus === "loading" ? "Sending…" : "Send request"}
+              </button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

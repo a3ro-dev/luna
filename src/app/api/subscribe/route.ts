@@ -50,10 +50,18 @@ export async function POST(req: NextRequest) {
       subscriberName: name?.trim() || undefined,
     });
 
+    if (!result.adminSent) {
+      return NextResponse.json(
+        { error: "We could not send your request. Please try again later." },
+        { status: 502 },
+      );
+    }
+
     return NextResponse.json({
       success: true,
-      message: "Subscription request sent! Check your email for confirmation.",
-      adminNotified: result.adminSent,
+      message: result.subscriberSent
+        ? "Subscription request sent! Check your email for confirmation."
+        : "Subscription request sent! We will email you with next steps.",
     });
   } catch (error) {
     console.error("Subscribe API error:", error);

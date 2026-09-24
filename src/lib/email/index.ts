@@ -509,19 +509,25 @@ export async function sendSubscriptionRequestEmail({
   ]);
 
   const adminResult = results[0];
-  if (adminResult.status === "rejected") {
-    console.error("Failed to send admin notification:", adminResult.reason);
-  }
   const subscriberResult = results[1];
-  if (subscriberResult.status === "rejected") {
+  const adminSent = adminResult.status === "fulfilled" && !adminResult.value.error;
+  const subscriberSent = subscriberResult.status === "fulfilled" && !subscriberResult.value.error;
+
+  if (!adminSent) {
+    console.error(
+      "Failed to send admin notification:",
+      adminResult.status === "rejected" ? adminResult.reason : adminResult.value.error,
+    );
+  }
+  if (!subscriberSent) {
     console.error(
       "Failed to send subscriber confirmation:",
-      subscriberResult.reason,
+      subscriberResult.status === "rejected" ? subscriberResult.reason : subscriberResult.value.error,
     );
   }
 
   return {
-    adminSent: adminResult.status === "fulfilled",
-    subscriberSent: subscriberResult.status === "fulfilled",
+    adminSent,
+    subscriberSent,
   };
 }
