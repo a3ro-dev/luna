@@ -1,223 +1,95 @@
-# Luna research and engineering record
+# Forecast audit and reproducibility record
 
-**Run date:** 24 September 2026  
-**Release:** 0.10.1  
-**Model candidate:** `forecast-v2.0.0`  
-**Status:** implementation complete; real-world accuracy undetermined
+**Release:** 0.10.2 · **Model:** `forecast-v2.0.0` · **Database snapshot:** 24 September 2026
 
-The landing page Premium buttons previously set modal state without rendering a modal, so clicking them had no visible effect. The request form is now rendered, and failed admin notification sends return an error. The password reset route now schedules the Resend call with Next.js `after()` and prefers the configured public app URL for reset links. A reset request for an address without a matching account intentionally skips email delivery while showing the same public success response.
+**Conclusion:** Implementation checks pass; real-user predictive accuracy is undetermined.
 
-## 1. Executive finding
+This record preserves the audit trail behind [the technical paper](./luna-technical.md). It distinguishes a dated database snapshot, reproducible simulation output, published evidence, and assumptions in the code. The source index contains the [verified study references](./references.md).
 
-The strongest evidence supported correctness, uncertainty, integrity, and product-trust changes. It did not support a claim that Luna is more accurate for real users.
+## Evidence ledger
 
-The live database contains 25 cycle records from five users and only four users with retrospective forecast targets. The predeclared privacy/reliability rule requires at least five contributing users before any performance number is released. All live accuracy metrics were therefore suppressed. Synthetic results favored forecast-v2, but the generator shares assumptions with the model and cannot establish clinical or real-world benefit.
+| Evidence | What it can establish | What it cannot establish |
+|:--|:--|:--|
+| [Forecast source](../src/lib/prediction/forecast.ts) and tests | Implemented arithmetic and tested edge cases | Clinical or prospective accuracy |
+| [Read-only profile](../scripts/db-profile.mts), run on 24 September 2026 | Aggregate properties of the inspected records | Population parameters or a representative user sample |
+| [Rolling-origin runner](../scripts/backtest.mts), seeds 42--45 | Behavior under its synthetic generator | Transfer to real cycles |
+| [Published cohorts](./references.md) | Cycle characteristics in their sampled populations | Luna-specific priors, calibration, or individual diagnosis |
 
-## 2. Repository baseline
+### Source correction
 
-The checkout uses Next.js 16.2.4, not 15.0.0. The installed Next.js guides were read before route work. AI SDK 6.0.174 documentation was read before streaming changes. Context7 was required by project instructions but unavailable because the MCP connection was not configured; installed package documentation was used instead.
+The previous reference index assigned the 2006 Ferrell DOI and its four-year results to the title of a different 2005 Ferrell paper. The correct source is [“The length of perimenopausal menstrual cycles increases later and to a greater degree than previously reported”](https://pubmed.ncbi.nlm.nih.gov/16889776/), a secondary analysis of prospectively collected Tremin records.
 
-Before changes:
+The prior index also named the 2023 Apple Women's Health Study paper incorrectly and treated 742,747 cycles from 49,238 participants as the final analyzed cohort. [Li et al. (2023)](https://pubmed.ncbi.nlm.nih.gov/37248288/) analyzed 165,668 cycles from 12,608 participants after further selection. Both denominator stages now appear in [the source index](./references.md).
 
-- 68 automated tests passed.
-- TypeScript failed at the import refresh call and a discriminated-union narrowing site.
-- `pnpm lint` called the removed `next lint` command and could not run on Next.js 16.
-- The first production build reached page-data collection but an empty `.env.production.local` database value overrode the valid development value.
-- The dashboard and chat did not share one current forecast result.
-- Existing research papers described the legacy engine as current and claimed that no automated tests existed.
+## Database snapshot
 
-Existing user changes were preserved. The preexisting untracked forecast/evaluation work was audited, corrected, integrated, tested, and documented rather than discarded.
+The [profile script](../scripts/db-profile.mts) uses a read-only transaction and selects bounded cycle dates, derived numerical values, profile flags, IDs, and timestamps. It does not query email addresses, password hashes, images, free-text health notes, or chat. The figures below describe the 24 September 2026 run; they have **not** been remeasured for this document revision.
 
-## 3. Read-only database profile
-
-The profiler in [db-profile.mts, L1-156](../scripts/db-profile.mts#L1-L156) selected only IDs, cycle dates, derived numerical fields, condition/stage flags, and timestamps required for the audit. It did not select emails, password hashes, images, free-text notes, or chat content. Queries were bounded and no record was written, repaired, or recomputed.
-
-### 3.1 Counts and denominators
-
-| Quantity | Result |
-|---|---:|
-| All users | 10 |
-| Users with product consent | 5 |
-| Onboarded users | 10 |
-| Users with any cycle row | 5 |
+| Quantity | Snapshot |
+|:--|--:|
+| Users in the database | 10 |
+| Users with at least one cycle row | 5 |
 | Cycle rows | 25 |
-| Start-to-start intervals | 20 |
+| Completed start-to-start intervals | 20 |
 | Missing end dates | 7 |
-| Latest open rows | 5 |
-| Historical missing ends | 2 |
-| Recorded ovulation dates | 0 |
-| Users with at least 3 plausible intervals | fewer than 5 |
+| Logged ovulation dates | 0 |
+| Users with retrospective forecast targets | 4 |
 
-### 3.2 Integrity findings
+Five of the missing ends were on the latest record for a user; two were historical. Nineteen of the 20 intervals were between 21 and 35 days. The count in the 46--90 day band was below five and is deliberately suppressed. The bounded check found no duplicate starts, overlapping bleeding ranges, future starts, reversed ranges, or persisted derived-value drift. These are checks on a small snapshot, not estimates of error prevalence.
 
-No duplicate starts, overlapping bleeding records, future starts, reversed start/end ordering, impossible period durations, or stored-versus-recomputed derived-value drift were detected. There was one persisted anomaly flag and three persisted prediction-parameter rows; no stale parameter value was detected by the bounded check.
+Seventeen rows were entered more than 30 days after their recorded start. One user had a bulk-created history. The timestamps do not prove when the user first knew or reported each event. The schema does not preserve historical condition settings or issued forecasts. Retrospective prediction from these rows cannot reproduce what the app actually knew on a past day.
 
-Nineteen of 20 intervals were 21--35 days. Fewer than five were 46--90 days. The cycle-length quantiles were 26, 27, 27.5, 28.3, and 35.1 days. Period-length quantiles were 4, 4, 4, 4, and 5.1 days. Quantiles are descriptive only and do not make this sample representative.
+The product consent text does not clearly authorize fitting a pooled health-data model. No population prior was fitted from these records. A future collection of immutable forecast issues would need explicit purpose, retention, deletion, and consent rules.
 
-Seventeen of 25 records were created more than 30 days after the recorded start. One user had a bulk-created history. Available timestamps describe when rows were stored, not necessarily when an event was first known or edited. The schema has no row provenance, profile history, or immutable forecast issuance.
+## Model audit
 
-### 3.3 Interpretation rules
+The [current forecast](../src/lib/prediction/forecast.ts) uses a normal model on log cycle length and on linear bleeding duration. It shrinks the sample within-person variance toward a fixed starting value with four pseudo-observations, then plugs that estimate into a normal posterior for a personal typical value. Its next-observation variance adds the estimated within-person variance to uncertainty about that typical value. This is an empirical-Bayes approximation. It does not propagate uncertainty in the estimated variance itself; nominal interval coverage must be checked prospectively.
 
-- A missing end on the latest row is treated as potentially ongoing.
-- A missing end on an older row is treated as incomplete history.
-- A long start-to-start interval is not automatically a missed log.
-- A single implausibly long or short interval is classified as uncertain for forecasting, not repaired or deleted.
-- There were no ovulation outcomes suitable for an accuracy analysis.
-- Small condition/stage cells are suppressed below five users.
+The base 29-day cycle median, four-day between-person and within-person spreads, 5.5-day bleeding mean, bleeding spreads, and shrinkage strength are design settings. The cited studies report relevant cycle characteristics but do not jointly estimate these parameters for Luna users. The condition-specific spread settings are also design choices, not fitted clinical priors. The final implementation uses at most 12 usable observations. [Published evidence and transfer limits](./references.md)
 
-The existing consent text permits use of the application but does not clearly authorize pooled health-data model training. No population parameter was fitted from live user data.
+Two rules deserve special attention:
 
-## 4. Mathematical audit
+1. A short or isolated long interval may be set aside. When at least two of the six most recent intervals exceed the profile gate, the code treats long intervals as a pattern. This is a logging and forecasting heuristic; it does not distinguish a missed entry from a genuine long cycle.
+2. The forecast remains anchored to the last logged start. A conditional remaining window is calculated only while the current date lies inside the original interval. Once past that interval, the UI shows a late or long-gap status instead of extrapolating a normal tail.
 
-### 4.1 Confirmed definitions
+Calendar ovulation uses a population luteal starting value and a rough spread calculation. It is withheld for profiles where calendar timing is especially unsuitable. No logged ovulation outcomes were available to score. The bleeding-duration predictive distribution is linear and is not explicitly truncated to the app's 1--14-day input range.
 
-Cycle length is the exclusive day difference from one start to the next and belongs to the earlier cycle. Bleeding duration is inclusive. Follicular and luteal quantities require suitable ovulation observations; model-derived dates are not independent observations. ISO date calculations use UTC calendar components to avoid DST and host-timezone drift.
+## Evaluation design and its limits
 
-### 4.2 Legacy engine problems
+At each origin, [the backtest](../src/lib/prediction/backtest.ts) uses earlier cycle starts and bleeding ends to predict the next eligible target. It excludes future cycle records, persisted `prediction_params`, and model-derived ovulation dates. A regression test changes later history and checks that an earlier result stays fixed.
 
-The retained v1 engine is deterministic and has useful regression coverage, but its user-facing uncertainty and several priors are not scientifically defensible:
+There is an important exception to a fully historical replay: the database has no profile-history table. The runner applies the user's **current** conditions and perimenopause stage at every origin. The former paper's statement that later profile state was excluded was wrong. This issue affects the live retrospective design; the synthetic cohort uses fixed profile settings by construction.
 
-1. Its jackknife estimates sensitivity of a smoothed estimator, not the predictive distribution of the next cycle.
-2. Leave-one-out resampling is poorly matched to ordered, dependent time series and a discontinuous skip gate.
-3. Sparse-history ranges can be too narrow because they omit enough next-observation variability.
-4. Fixed PCOD, thyroid, endometriosis, irregular-cycle, and hormonal-contraception distributions were not supported by suitable primary numerical data.
-5. A single maximum threshold conflated genuine long cycles with missed logs.
-6. Persisted full-history parameters could leak future information into a naive retrospective evaluation.
-7. Profile changes did not reliably recompute dependent personal state.
+Comparators are the retained smoother (`forecast-v1`), population-only model, last observed interval, expanding median, rolling mean and median, and simple exponential smoothing. The retained smoother emits a nominal 95% interval; the backtest rescales its half-width to 80% using a normal approximation. Thus the v1 coverage comparison measures that approximation too. Point-only baselines have no interval-coverage value.
 
-### 4.3 Current model assumptions
+The runner calculates point error, user-macro error, coverage, interval width, interval score, and abstention. Its paired bootstrap resamples users rather than cycles. This accounts for repeated observations within a simulated user, but a bootstrap interval over simulated users is not evidence about real people.
 
-Forecast-v2 is implemented in [forecast.ts, L1-492](../src/lib/prediction/forecast.ts#L1-L492). It uses a normal-normal posterior predictive model, a log scale for cycle lengths, variance shrinkage with four pseudo-observations, an 80% central prediction interval, and a 12-observation recency window.
+The runner's source comment lists synthetic acceptance thresholds. This repository record does not independently establish that those thresholds were fixed before any result was seen. They should be treated as documented checks, not a prospectively registered study protocol.
 
-The general cycle median of 29 days, between-person SD of 4 days, within-person SD of 4 days, bleeding mean of 5.5 days, bleeding SD components, and the pseudo-observation strength are engineering assumptions informed by but not directly estimated from the cited studies. They are retained because they are transparent, conservative in cold start, and testable. They are not established biological constants.
+### Live data decision
 
-Condition logic follows an evidence hierarchy:
+The runner requires at least five users with targets before showing any live performance metric. The snapshot has four. It therefore shows counts and a suppression reason, with no MAE, calibration, subgroup result, or model difference. Even after reaching five users, late entry and missing profile history would remain major sources of bias. No real-world improvement claim follows from this dataset.
 
-- Retain a numerical shift only when a suitable measured distribution exists and transfer is plausible.
-- Where evidence is directional, widen uncertainty or withhold an unsuitable output.
-- Unknown conditions fall back to the base model and are surfaced in assumptions rather than silently changing arithmetic.
-- PCOS and PCOD do not receive distinct means.
-- Hormonal contraception does not receive a universal cycle mean.
-- Late perimenopause uses a very wide directional adjustment, not a precise stage classifier.
+### Synthetic results
 
-## 5. Evaluation protocol
+Run `node --no-warnings scripts/backtest.mts synthetic 42` from the repository root. The command uses 400 simulated users and fixed missed-log, duplicate-log, and irregular-profile settings in [the runner](../scripts/backtest.mts). Seeds 43, 44, and 45 can replace `42`. The numbers below were reproduced during this revision.
 
-The rolling-origin harness in [backtest.ts, L1-270](../src/lib/prediction/backtest.ts#L1-L270) reconstructs state at every origin from the preceding prefix. Future ends, future ovulation reports, persisted `prediction_params`, and later condition values are excluded. A test mutates future history and verifies that earlier predictions do not change.
+| Seed 42 cycle metric, 2,938 targets | Forecast-v1 | Forecast-v2 |
+|:--|--:|--:|
+| Mean absolute error | 5.83 d | 4.89 d |
+| User-macro mean absolute error | 5.76 d | 4.86 d |
+| Nominal 80% coverage | 0.42 | 0.84 |
+| Mean 80% interval width | 6.9 d | 13.6 d |
+| 80% interval score, lower is better | 44.7 | 30.4 |
 
-Benchmarks are:
+Among the 365 simulated users with at least one past interval, the v2-minus-v1 macro-error difference was -1.13 days; the user-cluster bootstrap 95% interval was [-1.57, -0.75]. Seeds 43--45 retained the direction of the difference, and v2 nominal 80% coverage was 0.84--0.85. For 2,292 simulated bleeding-duration targets on seed 42, v1 versus v2 MAE was 1.05 versus 0.94 days and coverage was 0.48 versus 0.80.
 
-1. Legacy forecast-v1.
-2. Population-prior only.
-3. Last observed value.
-4. Expanding personal median.
-5. Rolling personal mean.
-6. Rolling personal median.
-7. Simple exponential smoothing.
-8. Forecast-v2.
+The generator shares distributional choices with the candidate. These results detect implementation regressions and overconfident synthetic intervals. They do not measure clinical usefulness, real-user calibration, or causal improvement. Wider intervals account for much of the coverage gain and should be judged alongside interval score and point error.
 
-Metrics include MAE, median absolute error, RMSE, signed bias, 90th-percentile absolute error, proportions within 2/3/7 days, user-macro MAE, interval coverage and width, interval score, abstention, sample size, and exclusions. Pairwise uncertainty uses a user-cluster bootstrap so repeated cycles are not treated as independent people.
+## Verification and outstanding work
 
-The intended real-data design is chronological development, validation, and untouched test periods with user-disjoint evaluation for any pooled fitting. The current database is too small for that design. No tuning was performed on live data.
+During this revision, `pnpm test` passed all 80 tests, and the seed 42 synthetic output reproduced the table above. These checks do not exercise email delivery, authenticated browser flows, or forecast performance in real users.
 
-## 6. Results
+Product fixes in release 0.10.1 are documented separately from the forecast evidence: the Premium buttons now render the subscription request form, and the password reset route schedules email after the response for a matched account. An unknown address intentionally receives the same public success response without sending mail. Neither behavior was measured in the forecast backtest. [Subscription flow](../src/app/home-client.tsx) · [Reset route](../src/app/api/auth/forgot-password/route.ts)
 
-### 6.1 Live data
-
-Only four users contributed forecast targets. The database command reports the counts and suppression reason but no MAE, coverage, subgroup result, or pairwise difference. This is the result, not a failed attempt to find favorable numbers.
-
-Retrospective evaluation would still be approximate at a larger sample because most rows were logged after the event and historical profile values are missing.
-
-### 6.2 Synthetic cycle-length results
-
-Seed 42 used 400 simulated users and produced 2,938 forecasts:
-
-| Metric | Forecast-v1 | Forecast-v2 |
-|---|---:|---:|
-| MAE | 5.83 d | 4.89 d |
-| Median absolute error | 2.57 d | 2.14 d |
-| RMSE | 10.37 d | 9.05 d |
-| Signed bias | -0.20 d | -0.91 d |
-| 90th percentile absolute error | 18.00 d | 12.17 d |
-| Within 2 days | 0.42 | 0.47 |
-| Within 3 days | 0.56 | 0.60 |
-| Within 7 days | 0.79 | 0.84 |
-| User-macro MAE | 5.76 d | 4.86 d |
-| 80% interval coverage | 0.42 | 0.84 |
-| Mean interval width | 6.9 d | 13.6 d |
-| Interval score | 44.7 | 30.4 |
-
-The v2-minus-v1 user-macro MAE difference was -1.13 days with a 95% user-cluster bootstrap interval of [-1.57, -0.75] among 365 evaluable users.
-
-Seeds 43, 44, and 45 produced v2-minus-v1 macro-MAE differences of -1.26, -1.27, and -0.63 days. V2 80% coverage was 0.84--0.85. Cold-start MAE on seed 42 was 6.22 days for v1 and 4.96 for v2.
-
-### 6.3 Synthetic bleeding-duration results
-
-On seed 42, v1 versus v2 MAE was 1.05 versus 0.94 days, user-macro MAE was 1.08 versus 0.94, 80% coverage was 0.48 versus 0.80, interval width was 1.7 versus 3.1 days, and interval score was 6.5 versus 4.2. Independent seeds preserved the direction with small macro-MAE differences from -0.05 to -0.07 days.
-
-### 6.4 Interpretation
-
-The candidate improves recovery and interval calibration under the synthetic generator. This is expected because the generator and model share distributional ideas. The experiment validates code paths, leakage protection, sparse-history behavior, contamination handling, and uncertainty scoring. It does not validate transfer to people.
-
-## 7. Implemented product and integrity changes
-
-- One shared forecast service now feeds dashboard and chat.
-- Forecast output includes model version, target, point and interval, usable history, exclusions, data cutoff, assumptions, caveats, and abstention reason.
-- Dashboard labels recorded versus estimated dates and no longer paints estimated bleeding as observed.
-- Ovulation is withheld for unsuitable profiles and described as an estimate elsewhere.
-- Ongoing-cycle behavior is explicit and never declares a missed period.
-- Real-calendar validation catches dates such as 31 February.
-- Create/edit/import/delete/profile paths recompute dependent state.
-- Import validates all prospective rows before the first insertion.
-- Cycle edits remove an ovulation observation outside the edited cycle boundary.
-- Chat session updates require both session ID and user ID.
-- AI SDK streams persist complete `UIMessage` parts and propagate request aborts.
-- The obsolete Next.js `config.bodyParser` export was removed.
-- `pnpm lint` now invokes ESLint directly instead of removed `next lint`.
-
-## 8. Retained and rejected hypotheses
-
-### Retained
-
-- A simple posterior-predictive model is preferable to a more complex state-space model at this sample size.
-- A variance floor is necessary for honest cold-start uncertainty.
-- Repeated long intervals should become a personal pattern rather than permanent anomalies.
-- Condition evidence is more useful for widening/withholding than for unsupported precision.
-- Prospective issuance records are the cleanest route to genuine future evaluation.
-
-### Rejected or deferred
-
-- Neural networks, fine-tuning, a vector database, or a separate ML service: no sample size or failure mode justifies them.
-- A fixed “milder PCOD” distribution: unsupported.
-- Mean/SD inferred from an odds ratio: invalid.
-- One distribution for all hormonal contraception: unsupported.
-- Automatic production model promotion: unsafe and unnecessary.
-- Persisting prospective forecasts in this release: deferred until consent, retention, deletion, and expected sample size justify a migration.
-- Elaborate shadow-deployment infrastructure: disproportionate for the current product.
-
-## 9. Verification record
-
-- Baseline: 68 tests passed.
-- Current suite: 80 tests passed.
-- TypeScript: passed after integration.
-- Targeted ESLint on touched code: passed with zero errors and zero warnings after removing two unused legacy-test variables.
-- Full ESLint: now runs, but exits nonzero with 24 errors and 28 warnings in untouched code, largely generated AI Elements and older client components. The scoped touched-code run is clean.
-- Production build: Vercel compiled Next.js, passed TypeScript, generated all 18 static pages, and completed the production build.
-- Browser: public login route rendered; authenticated journeys were not exercised because no user credentials were used.
-- Database profiler and database backtest: rerun after Vercel environment pull, with values bounded and secrets suppressed.
-- Production deployment: Vercel deployment `dpl_2ww26rANPK6iE6DggRtKYwqWe89Y` reached `READY`, was aliased to `https://luna-tracker.a3ro.dev`, and returned HTTP 200 through the deployment-protection-aware smoke check.
-
-## 10. Operational update procedure
-
-1. Use a read-only database URL for profiling/evaluation.
-2. Run tests and typecheck before any model comparison.
-3. Freeze model version, evaluation code, seeds, cutoff, exclusions, and predeclared acceptance criteria.
-4. Keep personal recomputation separate from population fitting.
-5. Never fit pooled parameters without an adequate consent basis.
-6. Promote manually only after untouched evaluation; retain the previous model for rollback.
-7. Do not run historical repairs or production migrations silently.
-
-No migration or backfill is required for v0.10.0. Existing prediction-parameter rows remain for legacy compatibility but are not trusted as historical forecast state.
-
-## 11. Next experiment
-
-Design a minimal prospective forecast record with user ID, model version, target type, issuance timestamp, data cutoff, point, interval, abstention reason, and later target linkage. Specify retention and cascading deletion before migration. With sufficient consented users and targets, compare forecast-v2 against expanding median and rolling mean on an untouched chronological set, report user-macro metrics and calibration, and stratify only where privacy-safe denominators exist.
+The next useful study needs consented, immutable forecast issuance records with issue time, model version, data cutoff, point and interval, profile state, and later outcome linkage. After enough users contribute prospective targets, compare the model with a personal median and rolling mean on a held-out chronological period. Report user-macro error and empirical interval coverage, including denominators and missing-outcome handling. Do not fit pooled priors or report condition subgroups without an adequate consent basis and privacy-safe counts.

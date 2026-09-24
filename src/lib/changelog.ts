@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.10.2",
+    date: "2026-09-24",
+    type: "docs",
+    title: "Correct and reorganize forecast research papers",
+    description:
+      "Rewrote the technical, plain-language, source, and research records with renderable equations, reproducible commands, explicit model and backtest limitations, and corrected primary-study citations and denominators.",
+  },
+  {
     version: "0.10.1",
     date: "2026-09-24",
     type: "fix",

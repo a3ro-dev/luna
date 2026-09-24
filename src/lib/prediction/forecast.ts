@@ -54,8 +54,8 @@ export interface ForecastPrior {
 }
 
 // ─── Priors ───────────────────────────────────────────────────────
-// See papers/research-notes.md ("Prior provenance") for sources, populations
-// and why each number was kept, widened or dropped.
+// See papers/luna-technical.md and papers/references.md for the evidence
+// and limits behind these design assumptions.
 const BASE: ForecastPrior = {
   // Median cycle 29 d (Najmabadi 2020; Apple WHS 28). Between-person SD of
   // personal means ~4.4 = sqrt(total^2 - within^2) from Bull 2019 / Apple WHS.
