@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
@@ -50,25 +50,27 @@ export async function POST(req: Request) {
     }
 
     // Send login notification (non-blocking)
-    sendLoginNotification({
-      to: userRecord.email,
-      userName: userRecord.name || undefined,
-      location: {
-        ip: rawIp,
-        city: geo.city,
-        region: geo.region,
-        country: geo.country,
-        browser,
-        os,
-        device,
-        timestamp: new Date().toLocaleString("en-US", {
-          dateStyle: "medium",
-          timeStyle: "short",
-        }),
-      },
-    }).catch((err) => {
-      console.error("Failed to send login notification:", err);
-    });
+    after(() =>
+      sendLoginNotification({
+        to: userRecord.email,
+        userName: userRecord.name || undefined,
+        location: {
+          ip: rawIp,
+          city: geo.city,
+          region: geo.region,
+          country: geo.country,
+          browser,
+          os,
+          device,
+          timestamp: new Date().toLocaleString("en-US", {
+            dateStyle: "medium",
+            timeStyle: "short",
+          }),
+        },
+      }).catch((err) => {
+        console.error("Failed to send login notification:", err);
+      }),
+    );
 
     return NextResponse.json({ sent: true });
   } catch (err) {

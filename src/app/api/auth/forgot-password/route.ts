@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -60,21 +60,27 @@ export async function POST(req: Request) {
       })
       .where(eq(users.id, userRecord.id));
 
-    // Build reset URL
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+    // Build reset URL. Prefer the canonical app URL: VERCEL_URL is the
+    // per-deployment host, which may sit behind deployment protection.
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      ? process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "")
+      : process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
         : "http://localhost:3000";
     const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
-    // Send reset email (non-blocking)
-    sendPasswordResetEmail({
-      to: userRecord.email,
-      resetUrl,
-      userName: userRecord.name || undefined,
-    }).catch((err) => {
-      logError("password-reset-email", err);
-    });
+    // A bare un-awaited promise can be dropped when the serverless function
+    // is frozen after the response. after() keeps it alive without making
+    // the response slower for existing accounts (no enumeration signal).
+    after(() =>
+      sendPasswordResetEmail({
+        to: userRecord.email,
+        resetUrl,
+        userName: userRecord.name || undefined,
+      }).catch((err) => {
+        logError("password-reset-email", err);
+      }),
+    );
 
     return NextResponse.json({ success: true });
   } catch (err) {

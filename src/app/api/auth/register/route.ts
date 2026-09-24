@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -44,10 +44,12 @@ export async function POST(req: Request) {
     });
 
     // Send welcome email (non-blocking — don't block the response)
-    sendWelcomeEmail({ to: email, userName: name || undefined }).catch(
-      (err) => {
-        logError("welcome-email", err);
-      },
+    after(() =>
+      sendWelcomeEmail({ to: email, userName: name || undefined }).catch(
+        (err) => {
+          logError("welcome-email", err);
+        },
+      ),
     );
 
     return NextResponse.json({ success: true }, { status: 201 });
