@@ -6,6 +6,9 @@ forecast-v2's point forecast is close to the floor this simulator allows. Seven 
 
 The reason is not the estimator. Across scenarios, 6% (base), 13% (noisy) and 3% (regular) of forecast *targets* are themselves logging artifacts: a merged gap from a missed period, or a short gap from a double log. Every model covers about 0% of those, and they carry 45--60% of the interval score. On clean, in-gate targets, v2 already over-covers (0.89--0.91 for the base profile). The apparent "noisy under-coverage / regular over-coverage" pattern is one fixed block of artifact misses sitting on top of intervals that are slightly too wide for clean data.
 
+## Result that shipped (R3)
+Once a period is late, v2's own truncated tail covers only 48% of real outcomes because 55% of late targets are missed logs. A three-component skip mixture (0, 1 or 2 missed periods; population skip rate 4.5% updated by the person's set-aside gaps) gives calibrated late windows on unseen data (coverage in range in 90-100% of runs per scenario, interval score under 70% of the baseline in every run). It shipped as forecast-v2.1.0 for the "late" status only. Point accuracy improved only 1-9%, which is why it failed the round-2 MAE rule: its value is an honest window, not a sharper guess.
+
 ## Patterns and insights
 - Location alternatives are nearly redundant with v2: rolling-median errors correlate 0.97--0.99 with v2's (H5), Huber moves the point by >= 0.5 d on only 3--13% of forecasts (H1), and simulator drift is too small to pay for recency weighting (H2).
 - Width knobs trade one scenario against another: narrowing calibrates base/regular but pushes noisy below 0.73 coverage; widening does the reverse (H6). Student-t tails widen everything equally because noisy under-coverage is flat across history length, i.e. not a small-n tail problem (H3).

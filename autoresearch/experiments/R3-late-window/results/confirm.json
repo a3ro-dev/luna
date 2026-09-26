@@ -1,0 +1,91 @@
+{
+  "verdict": {
+    "B1-norm-c2": {
+      "pass": false,
+      "is80ShareUnder70pct": 1,
+      "perScenario": {
+        "base": {
+          "covInRange": 1,
+          "day40Cov": 0.8348519658216225,
+          "maeRatio": 0.9597287105116311
+        },
+        "noisy": {
+          "covInRange": 0.925,
+          "day40Cov": 0.7818164300578129,
+          "maeRatio": 0.9378938180406174
+        },
+        "regular": {
+          "covInRange": 0.75,
+          "day40Cov": 0.8631048111039524,
+          "maeRatio": 0.9916897591063916
+        },
+        "literature": {
+          "covInRange": 1,
+          "day40Cov": 0.8444727935578318,
+          "maeRatio": 0.9665211498440258
+        }
+      }
+    },
+    "A-c23": {
+      "pass": true,
+      "is80ShareUnder70pct": 1,
+      "perScenario": {
+        "base": {
+          "covInRange": 1,
+          "day40Cov": 0.8364563807420146,
+          "maeRatio": 0.952664239363454
+        },
+        "noisy": {
+          "covInRange": 0.9,
+          "day40Cov": 0.7837213866013519,
+          "maeRatio": 0.9147996458092064
+        },
+        "regular": {
+          "covInRange": 0.9,
+          "day40Cov": 0.869777150246885,
+          "maeRatio": 0.9935306893230511
+        },
+        "literature": {
+          "covInRange": 1,
+          "day40Cov": 0.8451507231992563,
+          "maeRatio": 0.9637135419949017
+        }
+      }
+    }
+  },
+  "late": {
+    "v2-trunc": {
+      "lateMae": 12.01071668248404,
+      "lateMacroMae": 12.509453138369194,
+      "lateCov80": 0.49844063545542294,
+      "lateCovOk": false,
+      "lateIs80": 94.37020381174537,
+      "day40Mae": 12.006480041407235,
+      "day40Cov80": 0.47002100364971666,
+      "litLateMae": null,
+      "nLate": 212.7875
+    },
+    "B1-norm-c2": {
+      "lateMae": 11.517762353179647,
+      "lateMacroMae": 11.98844065020859,
+      "lateCov80": 0.8263273464034018,
+      "lateCovOk": false,
+      "lateIs80": 39.08158632810371,
+      "day40Mae": 8.470191377679052,
+      "day40Cov80": 0.831061500135305,
+      "litLateMae": null,
+      "nLate": 212.7875
+    },
+    "A-c23": {
+      "lateMae": 11.395240861721028,
+      "lateMacroMae": 11.890032487171581,
+      "lateCov80": 0.8117958909239873,
+      "lateCovOk": false,
+      "lateIs80": 39.623135924681414,
+      "day40Mae": 8.543484367234964,
+      "day40Cov80": 0.833776410197377,
+      "litLateMae": null,
+      "nLate": 212.7875
+    }
+  }
+}

@@ -25,8 +25,10 @@ hypotheses:
   R2-1-personal-gate: {status: refuted}
   R2-2-adaptive-conformal: {status: refuted}
   R2-3-late-skip-mixture: {status: mixed, note: fails MAE rule; late cov80 0.48->0.81, IS80 -59%}
+  R3-late-window: {status: confirmed, winner: A-c23, note: B1 failed regular-scenario coverage}
   R2-4-age-prior: {status: deferred, needs: read-only real-data backtest}
   R2-5-literature-scenario: {status: built into harness v2 as report-only scenario}
   R2-6-clean-width: {status: rejected-by-verifier, note: breaks coverage on unseen noisy seeds}
-production_promotions: none (rounds 1-2)
+production_promotions:
+  - R3 A-c23 late window -> forecast-v2.1.0 (status late only)
 direction: BROADEN -> harness v2 locked -> round 2

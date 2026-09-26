@@ -18,3 +18,8 @@
 - R2-6 narrower width for clean histories: met clause (c) on the harness, REJECTED by the adversarial verifier: noisy coverage breaks the 0.72 floor on 10/40 unseen seeds and the gain depends on the generator's tight regular users (reverses with a literature-realistic 3.8 d SD).
 - R2-3 late-regime skip mixture (two independent designs): failed the locked MAE rule (-5.6/-5.7% vs -10%) but fixes late calibration (cov80 0.48 -> 0.78-0.84, every run in range), late IS80 -59%, day-40 MAE -30%; literature scenario keeps the sign. 55% of late rows are merged gaps.
 - Decision: promote nothing from round 2. Pre-register R3 as a confirmatory test of the interval-quality claim on unseen seeds before any product use.
+
+## 2026-09-26 -- R3 confirmatory late window (unseen seeds 101-140, 160 runs)
+- A-c23 PASSES every pre-registered criterion: late cov80 in [0.72, 0.90] in 90-100% of runs per scenario, late IS80 under 0.70x v2-trunc in 100% of runs, day-40 cov80 0.78-0.87, late MAE 0.91-0.99x v2-trunc.
+- B1-norm-c2 FAILS criterion 1 (regular scenario only 75% of runs in range: over-covers).
+- Decision: promote A-c23 as the production late window (forecast-v2.1.0), frozen, with a parity test against the experiment code. Scope limited to status "late" (validated range); "long-gap" unchanged.
