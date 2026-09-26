@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.19.4",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Premium+: a journal for this cycle",
+    description:
+      "Premium+ now opens like a journal. The left page holds a large dial with one sentence about where you are, drawn only from your logs, and quick logging. The right page is This cycle: your notes, newest first, then the estimated next window, clearly labelled as an estimate, and notes from the same point in earlier cycles as a quiet aside. On phones it becomes one column in the same order. Ovulation marks on Premium+ now use a calm sky blue so they never blend with the amber period marks.",
+  },
+  {
     version: "0.19.3",
     date: "2026-09-26",
     type: "feat",

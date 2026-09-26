@@ -1,126 +1,45 @@
 "use client";
 
 import React from "react";
-import { motion } from "motion/react";
-import QuickLog from "./QuickLog";
-import {
-  AskLunaCard,
-  Calendar,
-  Hero,
-  Nav,
-  OvulationCard,
-  PatternCheck,
-  RecentCycles,
-  RhythmSection,
-  TodayCard,
-  useEnter,
-  card,
-  longDate,
-  sectionTitle,
-  type DashboardProps,
-} from "./parts";
+import { AskLunaCard, Calendar, Hero, Nav, PatternCheck, RecentCycles, RhythmSection, type DashboardProps } from "./parts";
+import { Spread } from "./premium-plus/Pages";
 
-/** Premium+: spacious split layout with a cycle timeline. */
+/**
+ * Premium+: softest, holds space. An open journal (dial and one sentence on
+ * the left, this cycle's notes and what's ahead on the right), then the
+ * pattern check, calendar and history. DOM order is the phone order.
+ */
 export default function PremiumPlusDashboard(props: DashboardProps) {
-  const {
-    plan,
-    userName,
-    nextPeriodDate,
-    nextPeriodWindow,
-    forecastStatus,
-    forecastBasis,
-    forecastCaveats,
-    nextOvulationWindow,
-    ovulationNote,
-    avgCycleLength,
-    avgPeriodLength,
-    cyclesTracked,
-    consistency,
-    calendarMonths,
-    ring,
-    cycles,
-    today,
-    openPeriod,
-    patternCheck,
-  } = props;
-  const enterQuickLog = useEnter(0.13);
-
-  const hero = <Hero userName={userName} plan={plan} today={today} />;
-  const todayCard = <TodayCard ring={ring} headline={nextPeriodDate} window={nextPeriodWindow} status={forecastStatus} />;
-  const quickLog = (
-    <motion.div {...enterQuickLog}>
-      <QuickLog today={today} openPeriod={openPeriod} />
-    </motion.div>
-  );
-  const ovulation = <OvulationCard window={nextOvulationWindow} note={ovulationNote} />;
-  const ask = <AskLunaCard />;
-  const calendar = <Calendar months={calendarMonths} today={today} />;
-  const rhythm = (
-    <RhythmSection avgCycleLength={avgCycleLength} avgPeriodLength={avgPeriodLength} cyclesTracked={cyclesTracked} consistency={consistency} />
-  );
-  const history = <RecentCycles cycles={cycles} />;
-  const pattern = <PatternCheck check={patternCheck} />;
-  const explanation = (
-    <section className="max-w-3xl px-1" aria-labelledby="basis-heading">
-      <h2 id="basis-heading" className="font-serif text-xl italic text-[var(--tier-ink)]">
-        How this estimate works
-      </h2>
-      <p className="mt-2 text-sm leading-relaxed text-[var(--tier-ink)]">{forecastBasis}</p>
-      {forecastCaveats.slice(0, 2).map((caveat) => (
-        <p key={caveat} className="mt-2 text-[13px] leading-relaxed text-[var(--tier-muted)]">
-          {caveat}
-        </p>
-      ))}
-    </section>
-  );
-  const stack = "min-w-0 space-y-5 md:space-y-6";
-  const stackWide = "min-w-0 space-y-6 md:space-y-7";
-  void stack;
+  const { plan, userName, today } = props;
   return (
-<div className="mx-auto max-w-[1440px] space-y-6 px-5 pb-8 pt-4 md:space-y-9 md:px-10 md:py-10">
-            <Nav plan={plan} />
-            <main className="grid min-w-0 gap-6 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)] xl:grid-rows-[auto_1fr] xl:gap-x-10 xl:gap-y-7">
-              <div className={`${stackWide} xl:col-start-1 xl:row-start-1`}>
-                {hero}
-                {todayCard}
-                {quickLog}
-                {ovulation}
-              </div>
-              <div className={`${stackWide} xl:col-start-2 xl:row-span-2 xl:row-start-1`}>
-                {calendar}
-                {rhythm}
-                {pattern}
-                <section className={`${card} p-5 sm:p-8`} aria-labelledby="timeline-heading">
-                  <h2 id="timeline-heading" className={sectionTitle}>
-                    Cycle timeline
-                  </h2>
-                  <ol className="mt-5 space-y-4 border-l border-[var(--tier-line)] pl-5 text-sm text-[var(--tier-muted)]">
-                    {cycles
-                      .slice(0, 3)
-                      .reverse()
-                      .map((cycle) => (
-                        <li
-                          key={cycle.id}
-                          className="relative before:absolute before:-left-[25px] before:top-1 before:size-2 before:rounded-full before:bg-[var(--tier-accent)]"
-                        >
-                          <span className="font-medium text-[var(--tier-ink)]">
-                            {longDate(cycle.mStart, { month: "short", day: "numeric", year: "numeric" })}
-                          </span>{" "}
-                          · Period logged
-                        </li>
-                      ))}
-                    <li className="relative before:absolute before:-left-[25px] before:top-1 before:size-2 before:rounded-full before:border before:border-dashed before:border-[var(--tier-accent)] before:bg-[var(--tier-surface)]">
-                      {nextPeriodWindow ? `${nextPeriodWindow} · estimated` : "Next period estimate is still learning"}
-                    </li>
-                  </ol>
-                </section>
-                {explanation}
-              </div>
-              <div className={`${stackWide} xl:col-start-1 xl:row-start-2`}>
-                {ask}
-                {history}
-              </div>
-            </main>
+    <div className="mx-auto max-w-[1200px] px-4 pb-10 md:px-6 md:pb-14">
+      <Nav plan={plan} />
+      <main className="min-w-0">
+        <Hero userName={userName} plan={plan} today={today} />
+        <div className="mt-4">
+          <Spread {...props} />
+        </div>
+        <div className="mt-9 grid min-w-0 gap-9 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-start lg:gap-x-6">
+          <div className="min-w-0 lg:col-start-2 lg:row-start-1">
+            <PatternCheck check={props.patternCheck} />
           </div>
+          <div className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+            <Calendar months={props.calendarMonths} today={today} />
+          </div>
+          <div className="min-w-0 space-y-9 lg:col-start-2 lg:row-start-2">
+            <RecentCycles cycles={props.cycles} />
+            <AskLunaCard />
+          </div>
+        </div>
+        <div className="mt-9">
+          <RhythmSection
+            avgCycleLength={props.avgCycleLength}
+            avgPeriodLength={props.avgPeriodLength}
+            cyclesTracked={props.cyclesTracked}
+            consistency={props.consistency}
+          />
+        </div>
+      </main>
+    </div>
   );
 }
