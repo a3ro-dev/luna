@@ -194,7 +194,7 @@ export function PhaseChip({ phase }: { phase: PhaseInfo }) {
       }`}
     >
       {phase.label}
-      {phase.estimated ? <span className="ml-1 font-normal text-[var(--label-secondary)]">estimated</span> : null}
+      {phase.estimated ? <span className="whitespace-pre font-normal text-[var(--label-secondary)]">{" estimated"}</span> : null}
     </span>
   );
 }

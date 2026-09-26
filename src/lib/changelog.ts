@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.20.0",
+    date: "2026-09-26",
+    type: "feat",
+    title: "The dashboard asks the two logging questions too",
+    description:
+      "Logging from the dashboard now asks the same gentle questions as chat. If a new start is within 15 days of another one, Luna checks whether it's a separate period before saving. If a new period comes much later than your usual rhythm, Luna asks whether one in between didn't get logged and offers to add it, with a likely date already picked and the calendar limited to sensible days. You can always say no.",
+  },
+  {
     version: "0.19.7",
     date: "2026-09-26",
     type: "feat",

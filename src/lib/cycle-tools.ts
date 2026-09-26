@@ -470,6 +470,11 @@ async function afterWrite(userId: string, id: string): Promise<WriteResult> {
   return { ok: true, cycle: summarizeCycle(row), forecast: f, missedLog };
 }
 
+/** An existing start within CLOSE_START_DAYS of `iso`: probably the same period, spotting or a corrected date. */
+export async function closeStartFor(userId: string, iso: string): Promise<string | null> {
+  return findCloseStart(await loadCycles(userId), iso)?.mStart ?? null;
+}
+
 export async function createCycle(userId: string, draft: CycleDraft, notes: CycleNotes = {}): Promise<WriteResult> {
   const [profile, rows] = await Promise.all([loadCycleProfile(userId), loadCycles(userId)]);
   const error = validateCycleDraft(draft, rows, getCurrentIsoDate(profile.timeZone));

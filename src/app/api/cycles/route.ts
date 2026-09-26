@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
-import { createCycle } from "@/lib/cycle-tools";
+import { closeStartFor, createCycle, diffInDays } from "@/lib/cycle-tools";
 import { logError } from "@/lib/utils";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const cycleCreateSchema = z.object({ mStart: isoDate, mEnd: isoDate.nullable().optional() });
+const cycleCreateSchema = z.object({
+  mStart: isoDate,
+  mEnd: isoDate.nullable().optional(),
+  /** The user already confirmed a start close to another one is a separate period. */
+  confirmedSeparatePeriod: z.boolean().optional(),
+});
 
 /** Log a period directly (the dashboard's quick-log path; chat uses the same validated writer). */
 export async function POST(req: Request) {
@@ -17,7 +22,16 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid dates." }, { status: 400 });
 
   try {
-    const result = await createCycle(userId, { mStart: parsed.data.mStart, mEnd: parsed.data.mEnd ?? null });
+    const { mStart, mEnd, confirmedSeparatePeriod } = parsed.data;
+    // Same question chat asks: a second start this close is usually the same period (autoresearch R4-1).
+    const existingStart = confirmedSeparatePeriod ? null : await closeStartFor(userId, mStart);
+    if (existingStart) {
+      return NextResponse.json(
+        { confirm: { kind: "close-to-existing", existingStart, days: Math.abs(diffInDays(existingStart, mStart)) } },
+        { status: 409 },
+      );
+    }
+    const result = await createCycle(userId, { mStart, mEnd: mEnd ?? null });
     if ("error" in result) return NextResponse.json({ error: result.error }, { status: 400 });
     return NextResponse.json({ cycle: result.cycle, missedLog: result.missedLog }, { status: 201 });
   } catch (err) {
