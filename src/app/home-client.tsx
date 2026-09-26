@@ -6,6 +6,7 @@ import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useGSAP } from "@gsap/react";
+import MoonHero from "@/components/moon/MoonHero";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
@@ -483,6 +484,12 @@ export default function HomeClient() {
           <div className="absolute left-[10%] top-[10%] h-[60vw] w-[60vw] rounded-full bg-[#FFDDE0]/30 blur-[120px]" />
           <div className="absolute bottom-[10%] right-[10%] h-[50vw] w-[50vw] rounded-full bg-[#D6CBE3]/25 blur-[100px]" />
         </div>
+
+        {/* Rises behind the wordmark; the lit crescent faces the open space between copy and phone. */}
+        <MoonHero
+          trigger={heroRef}
+          className="absolute left-1/2 top-[calc(3.25rem+env(safe-area-inset-top))] z-[1] aspect-square w-[min(112vw,30rem)] -translate-x-1/2 md:left-[max(-2rem,calc(50%-35rem))] md:top-[6%] md:w-[min(44vw,38rem)] md:translate-x-0"
+        />
 
         <div className="relative z-10 mx-auto grid w-full max-w-5xl items-center gap-12 md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] md:gap-16">
           <div

@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.15.0",
+    date: "2026-09-26",
+    type: "feat",
+    title: "A moon that fills as you scroll",
+    description:
+      "The front page now has a 3D moon rising behind the Luna wordmark. It starts as a thin crescent and fills to full as you scroll past the hero, and tilts slightly toward your pointer on desktop. It is drawn entirely in code, with no images to download, and only draws while it is moving. With reduced motion, Save-Data, older devices or no WebGL, a still crescent is shown instead and the 3D code is never downloaded.",
+  },
+  {
     version: "0.14.5",
     date: "2026-09-26",
     type: "fix",
