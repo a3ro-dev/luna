@@ -9,6 +9,9 @@ The reason is not the estimator. Across scenarios, 6% (base), 13% (noisy) and 3%
 ## Result that shipped (R3)
 Once a period is late, v2's own truncated tail covers only 48% of real outcomes because 55% of late targets are missed logs. A three-component skip mixture (0, 1 or 2 missed periods; population skip rate 4.5% updated by the person's set-aside gaps) gives calibrated late windows on unseen data (coverage in range in 90-100% of runs per scenario, interval score under 70% of the baseline in every run). It shipped as forecast-v2.1.0 for the "late" status only. Point accuracy improved only 1-9%, which is why it failed the round-2 MAE rule: its value is an honest window, not a sharper guess.
 
+## Result that changes the product (R4-1)
+The cheapest accuracy left is at input time. In the simulator, if users confirm half of their missed periods when asked, the base scenario's interval score falls 17% and macro MAE falls 0.68 d, about 20 times the best estimator change from round 1. Catching half of the double logs is worth another 7%. The effect keeps its sign in every scenario, including the literature-anchored one. So Luna should ask, gently and at the right moment: "did you have a period in between that you didn't log?" after a long gap, and "is this the same period?" when a start follows another within 15 days. Chat already asks the second; the dashboard does not.
+
 ## Patterns and insights
 - Location alternatives are nearly redundant with v2: rolling-median errors correlate 0.97--0.99 with v2's (H5), Huber moves the point by >= 0.5 d on only 3--13% of forecasts (H1), and simulator drift is too small to pay for recency weighting (H2).
 - Width knobs trade one scenario against another: narrowing calibrates base/regular but pushes noisy below 0.73 coverage; widening does the reverse (H6). Student-t tails widen everything equally because noisy under-coverage is flat across history length, i.e. not a small-n tail problem (H3).
@@ -23,6 +26,7 @@ Once a period is late, v2's own truncated tail covers only 48% of real outcomes 
 - Subagents cannot write .md report files in this environment; they return analyses and the orchestrator saves them.
 
 ## Open questions
+- How often do real users act on a missed-log prompt? R4-1's gain scales with it; worth measuring once the prompt ships (count prompts shown vs periods backfilled, no content).
 - Does a skip-mixture predictive (R2-3) give useful, calibrated windows once a period is late, where Luna currently shows none?
 - Does a personal artifact gate (AWHS rule, R2-1) catch in-gate doubles like 2 x 22 = 44 d without flagging real long cycles?
 - Can per-user adaptive conformal levels (R2-2) fix calibration per person where global knobs cannot?

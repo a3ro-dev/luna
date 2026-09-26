@@ -29,6 +29,9 @@ hypotheses:
   R2-4-age-prior: {status: deferred, needs: read-only real-data backtest}
   R2-5-literature-scenario: {status: built into harness v2 as report-only scenario}
   R2-6-clean-width: {status: rejected-by-verifier, note: breaks coverage on unseen noisy seeds}
+  R4-1-artifact-voi: {status: confirmed, note: halving missed logs cuts base IS80 17% and macroMAE 0.68 d; halving double logs cuts IS80 7%; product nudges, no model change}
 production_promotions:
   - R3 A-c23 late window -> forecast-v2.1.0 (status late only)
-direction: BROADEN -> harness v2 locked -> round 2
+product_decisions:
+  - R4-1 -> missed-log backfill prompt + dashboard same-period check (no model change)
+direction: BROADEN -> harness v2 locked -> round 2 -> R3 promoted -> PIVOT to input-time artifact capture (R4)
