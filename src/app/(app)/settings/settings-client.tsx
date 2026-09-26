@@ -1,10 +1,17 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { MotionConfig } from "motion/react";
+import { Bell, ChevronLeft, Download, Gem, Heart, Lock, LogOut, Moon, SunMoon, User } from "lucide-react";
 import AppTabBar from "@/components/AppTabBar";
+import { LargeTitle } from "@/components/apple/LargeTitle";
+import { GroupedRow, GroupedSection, RowIcon } from "@/components/apple/Grouped";
+import { Segmented } from "@/components/apple/Segmented";
+import { Sheet } from "@/components/apple/Sheet";
+import ThemeToggle from "@/components/ThemeToggle";
 import { normalizeUserPlan } from "@/lib/theme/accent";
 import {
   CONDITIONS,
@@ -18,14 +25,21 @@ import {
   type PerimenoStage,
 } from "./options";
 import {
-  Chip,
-  Field,
+  ButtonRow,
+  CheckRow,
+  ControlRow,
+  IdentityCard,
+  InputRow,
+  PickerRow,
   SaveRow,
-  Section,
+  StatusText,
+  Switch,
   describedBy,
   inputClass,
-  labelClass,
-  secondaryButtonClass,
+  pickerSelectClass,
+  plainButton,
+  primaryButton,
+  rowClass,
   type SaveState,
 } from "./settings-ui";
 
@@ -41,23 +55,33 @@ const PLAN_INFO = {
     description:
       "A guided layout and a warmer companion. The same tools and cycle data are available on every plan.",
   },
+  // No subtitle: Premium+'s serif line is the screen's one display moment.
   "premium+": {
     label: "Luna Premium+",
-    subtitle: "Your space, your preferences.",
     description:
       "A spacious, reflective layout and Luna's gentlest voice. The same tools and cycle data are available on every plan.",
   },
 } as const;
 
-const SECTION_LINKS = [
-  ["profile", "Profile"],
-  ["cycle", "Cycle"],
-  ["notifications", "Notifications"],
-  ["security", "Password"],
-  ["plan", "Plan"],
-  ["onboarding", "Onboarding"],
-  ["account-actions", "Account"],
+// Icon tiles appear only in Premium's sidebar source list, where they act as
+// navigation, like System Settings; grouped lists stay text-only so every row
+// in a group lines up. Two token tones keep them calm and let dark mode restyle
+// them. The glyph takes the surface colour (RowIcon defaults to white).
+const TINT = "var(--tint)";
+const QUIET = "var(--tier-muted)";
+const G = { className: "size-4 text-[var(--tier-surface)]", strokeWidth: 2.25 } as const;
+const PANES = [
+  { key: "profile", label: "Profile", color: TINT, icon: <User {...G} /> },
+  { key: "cycle", label: "Cycle", color: TINT, icon: <Moon {...G} fill="currentColor" /> },
+  { key: "health", label: "Health context", color: TINT, icon: <Heart {...G} fill="currentColor" /> },
+  { key: "appearance", label: "Appearance", color: QUIET, icon: <SunMoon {...G} /> },
+  { key: "notifications", label: "Notifications", color: TINT, icon: <Bell {...G} /> },
+  { key: "password", label: "Password", color: QUIET, icon: <Lock {...G} /> },
+  { key: "plan", label: "Plan", color: TINT, icon: <Gem {...G} /> },
+  { key: "data", label: "Data", color: QUIET, icon: <Download {...G} /> },
+  { key: "account", label: "Account", color: QUIET, icon: <LogOut {...G} /> },
 ] as const;
+type PaneKey = (typeof PANES)[number]["key"];
 
 const MAX_DOB_EDITS = 2;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -75,17 +99,28 @@ interface UserProfile {
   dobEditCount: number;
 }
 
-type SectionKey = "profile" | "cycle" | "notifications" | "password";
+type SectionKey = "profile" | "cycle" | "health" | "notifications" | "password";
 type Status = { state: SaveState; message?: string };
 const IDLE: Status = { state: "idle" };
 
 export default function SettingsPageClient() {
+  return (
+    <MotionConfig reducedMotion="user">
+      <Settings />
+    </MotionConfig>
+  );
+}
+
+function Settings() {
   const { status: authStatus } = useSession();
   const router = useRouter();
 
-  // Profile
+  // Profile (the header shows the saved account, never unsaved typing)
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [account, setAccount] = useState({ name: "", email: "" });
+  // The last values the server confirmed; a failed instant change returns to these.
+  const confirmed = useRef<UserProfile | null>(null);
 
   // Cycle preferences
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -102,6 +137,8 @@ export default function SettingsPageClient() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(false);
 
   // Plan
   const [plan, setPlan] = useState("free");
@@ -112,11 +149,14 @@ export default function SettingsPageClient() {
   const [status, setStatus] = useState<Record<SectionKey, Status>>({
     profile: IDLE,
     cycle: IDLE,
+    health: IDLE,
     notifications: IDLE,
     password: IDLE,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  // Premium's desktop source list shows one pane at a time, like System Settings.
+  const [pane, setPane] = useState<PaneKey>("profile");
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -136,6 +176,8 @@ export default function SettingsPageClient() {
         if (!res.ok) throw new Error("Failed to load profile");
         const data: UserProfile = await res.json();
 
+        confirmed.current = data;
+        setAccount({ name: data.name || "", email: data.email });
         setName(data.name || "");
         setEmail(data.email);
         setTimezone(data.timezone || "Asia/Kolkata");
@@ -209,6 +251,8 @@ export default function SettingsPageClient() {
       }
       setStatus((prev) => ({ ...prev, [key]: { state: "saved" } }));
       if (data.user) {
+        confirmed.current = data.user;
+        setAccount({ name: data.user.name || "", email: data.user.email });
         setDobEditCount(data.user.dobEditCount ?? 0);
         setSavedDob(data.user.dateOfBirth || "");
       }
@@ -226,38 +270,72 @@ export default function SettingsPageClient() {
     }
   }, []);
 
+  // Only the typed fields (name, email, birthday) wait for Save.
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
     const next: Record<string, string> = {};
     if (!name.trim()) next["s-name"] = "Add a name so Luna knows what to call you.";
     if (!EMAIL_RE.test(email.trim())) next["s-email"] = "That email doesn't look quite right.";
-    if (applyErrors(["s-name", "s-email"], next)) return;
-    save("profile", { name: name.trim(), email: email.trim() });
-  };
-
-  const handleSaveCycle = (e: React.FormEvent) => {
-    e.preventDefault();
-    const next: Record<string, string> = {};
     if (dateOfBirth && dateOfBirth > localIsoDate()) next["s-dob"] = "That date is in the future.";
     else if (dateOfBirth && dateOfBirth < "1900-01-01") next["s-dob"] = "Please check the year.";
-    if (applyErrors(["s-dob"], next)) return;
-    save("cycle", {
+    if (applyErrors(["s-name", "s-email", "s-dob"], next)) return;
+    save("profile", {
+      name: name.trim(),
+      email: email.trim(),
       // An empty string fails the API's date check, so leave it out instead
       dateOfBirth: dateOfBirth || undefined,
-      timezone,
-      weekStart,
-      conditions: selectedConditions,
-      perimenoStage: perimenoStageFor(selectedConditions),
     });
   };
 
-  const handleSaveNotif = (e: React.FormEvent) => {
-    e.preventDefault();
-    save("notifications", { pushNotificationsEnabled: pushEnabled });
+  // Pickers, switches and checkmarks apply at once, as in iOS Settings. Requests
+  // go out one at a time so the last tap wins on the server; if the latest change
+  // to a field fails, the control returns to the value the server last confirmed.
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const latest = useRef<Record<string, number>>({});
+  const applyNow = (
+    key: SectionKey,
+    fields: Record<string, unknown>,
+    restore: (saved: UserProfile) => void,
+  ) => {
+    const field = Object.keys(fields).join();
+    const n = (latest.current[field] = (latest.current[field] ?? 0) + 1);
+    queue.current = queue.current.then(async () => {
+      if (!(await save(key, fields)) && latest.current[field] === n && confirmed.current) {
+        restore(confirmed.current);
+      }
+    });
+  };
+
+  const changeZone = (zone: string) => {
+    setTimezone(zone);
+    applyNow("cycle", { timezone: zone }, (s) => setTimezone(s.timezone || "Asia/Kolkata"));
+  };
+
+  const changeWeekStart = (value: string) => {
+    setWeekStart(Number(value));
+    applyNow("cycle", { weekStart: Number(value) }, (s) => setWeekStart(s.weekStart ?? 1));
+  };
+
+  // Conditions are the only settings the forecast reads, and the API refreshes it when they arrive.
+  const toggleHealth = (id: string) => {
+    const next = toggleCondition(selectedConditions, id);
+    setSelectedConditions(next);
+    applyNow("health", { conditions: next, perimenoStage: perimenoStageFor(next) }, (s) =>
+      setSelectedConditions(normalizeConditions(s.conditions ?? [], s.perimenoStage)),
+    );
+  };
+
+  const togglePush = () => {
+    const next = !pushEnabled;
+    setPushEnabled(next);
+    applyNow("notifications", { pushNotificationsEnabled: next }, (s) =>
+      setPushEnabled(s.pushNotificationsEnabled ?? false),
+    );
   };
 
   const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (passwordChanged) return;
     const next: Record<string, string> = {};
     if (!currentPassword) next["s-current-password"] = "Enter your current password.";
     if (newPassword.length < 6) next["s-new-password"] = "Use at least 6 characters.";
@@ -269,19 +347,41 @@ export default function SettingsPageClient() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      // The server ends every session when the password changes; leave time to read why.
+      setPasswordChanged(true);
+      setTimeout(() => signOut({ callbackUrl: "/login" }), 2200);
     }
   };
 
+  // While the change is in flight, or Luna is about to sign out, the sheet stays
+  // up so the reason is still on screen when the redirect happens.
+  const passwordBusy = status.password.state === "saving" || passwordChanged;
+  const onPasswordSheet = (open: boolean) => {
+    if (!open && passwordBusy) return;
+    setPasswordOpen(open);
+    if (open) return;
+    // Don't keep typed passwords around once the sheet is dismissed.
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    applyErrors(["s-current-password", "s-new-password", "s-confirm-password"], {});
+    setStatus((prev) => ({ ...prev, password: IDLE }));
+  };
+
   const tier = normalizeUserPlan(plan);
+  // Rows inside grouped lists keep their focus ring inside the rounded surface.
+  const rootClass = "tier-app font-sans [&_.grouped_:is(a,button):focus-visible]:-outline-offset-3!";
 
   if (authStatus === "loading" || (authStatus === "authenticated" && loadState !== "ready")) {
     return (
-      <div className="tier-app tier-settings font-sans" data-plan={tier}>
+      <div className={rootClass} data-plan={tier}>
         <main className="flex min-h-dvh items-center justify-center px-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
           {loadState === "error" ? (
             <div role="alert" className="max-w-sm text-center">
-              <p className="font-serif text-3xl leading-tight">We couldn&apos;t load your settings.</p>
-              <p className="mt-2 text-sm text-[var(--tier-muted)]">
+              <p className="font-display text-[22px] font-semibold tracking-[-0.02em] text-[var(--tier-ink)]">
+                We couldn&apos;t load your settings
+              </p>
+              <p className="mt-2 text-[15px] leading-snug text-[var(--label-secondary)]">
                 Nothing was changed. Check your connection and try again.
               </p>
               <button
@@ -290,15 +390,15 @@ export default function SettingsPageClient() {
                   setLoadState("loading");
                   setReloadKey((k) => k + 1);
                 }}
-                className="tier-primary-action mt-6 px-7"
+                className={`${primaryButton} mt-6 px-7`}
               >
                 Try again
               </button>
             </div>
           ) : (
-            <div role="status" className="flex flex-col items-center gap-3 text-sm text-[var(--tier-muted)]">
-              <span className="size-6 animate-spin rounded-full border-2 border-[var(--tier-line)] border-t-[var(--tier-ink)] motion-reduce:animate-none" />
-              Loading your settings...
+            <div role="status" className="flex flex-col items-center gap-3 text-[15px] text-[var(--label-secondary)]">
+              <span className="size-6 animate-spin rounded-full border-2 border-[var(--separator)] border-t-[var(--label-secondary)] motion-reduce:animate-none" />
+              Loading your settings…
             </div>
           )}
         </main>
@@ -313,223 +413,384 @@ export default function SettingsPageClient() {
   const dobLocked = Boolean(savedDob) && dobEditCount >= MAX_DOB_EDITS;
   const dobEditsLeft = Math.max(0, MAX_DOB_EDITS - dobEditCount);
   const dobHint = dobLocked
-    ? "This can't be changed again here. Contact support if it needs fixing."
+    ? "Your date of birth can't be changed again here. Contact support if it needs fixing."
     : savedDob
-      ? `You can change this ${dobEditsLeft} more time${dobEditsLeft === 1 ? "" : "s"}.`
-      : "Once saved, you can change it twice.";
+      ? `You can change your date of birth ${dobEditsLeft} more time${dobEditsLeft === 1 ? "" : "s"}.`
+      : "Once saved, your date of birth can be changed twice.";
   const today = localIsoDate();
+  const zoneLabel = timeZones.find((z) => z.value === timezone)?.label ?? timezone;
+  const showDeviceZone = Boolean(deviceZone) && canonicalZone(deviceZone!) !== canonicalZone(timezone);
 
-  const sections = (
-    <>
-      {/* Profile */}
-      <Section id="profile" tier={tier} title="Profile" description="How Luna knows you.">
-        <form onSubmit={handleSaveProfile} noValidate>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field id="s-name" label="Name" error={errors["s-name"]}>
-              <input
-                {...describedBy("s-name", errors["s-name"])}
-                type="text"
-                autoComplete="name"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  clearError("s-name");
-                }}
-                className={inputClass}
-                placeholder="Your name"
-              />
-            </Field>
-            <Field
-              id="s-email"
-              label="Email"
-              error={errors["s-email"]}
-              hint="Changing it may need a fresh verification."
-            >
-              <input
-                {...describedBy("s-email", errors["s-email"], true)}
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                autoCapitalize="none"
-                spellCheck={false}
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  clearError("s-email");
-                }}
-                className={inputClass}
-                placeholder="you@example.com"
-              />
-            </Field>
-          </div>
-          <SaveRow label="Save profile" state={status.profile.state} message={status.profile.message} />
-        </form>
-      </Section>
+  const panes: Record<PaneKey, React.ReactNode> = {
+    profile: (
+      <form onSubmit={handleSaveProfile} noValidate>
+        <GroupedSection
+          id="profile"
+          header="Profile"
+          className="scroll-mt-16"
+          footer={
+            <>
+              <span id="s-email-hint">Changing your email may need a fresh verification.</span>{" "}
+              <span id="s-dob-hint">{dobHint}</span>
+            </>
+          }
+        >
+          <InputRow id="s-name" label="Name" error={errors["s-name"]}>
+            <input
+              {...describedBy("s-name", errors["s-name"])}
+              type="text"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                clearError("s-name");
+              }}
+              className={inputClass}
+              placeholder="Your name"
+            />
+          </InputRow>
+          <InputRow id="s-email" label="Email" error={errors["s-email"]}>
+            <input
+              {...describedBy("s-email", errors["s-email"], true)}
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                clearError("s-email");
+              }}
+              className={inputClass}
+              placeholder="you@example.com"
+            />
+          </InputRow>
+          <InputRow id="s-dob" label="Birthday" error={errors["s-dob"]}>
+            <input
+              {...describedBy("s-dob", errors["s-dob"], dobHint)}
+              type="date"
+              autoComplete="bday"
+              min="1900-01-01"
+              max={today}
+              disabled={dobLocked}
+              value={dateOfBirth}
+              onChange={(e) => {
+                setDateOfBirth(e.target.value);
+                clearError("s-dob");
+              }}
+              className={inputClass}
+            />
+          </InputRow>
+        </GroupedSection>
+        <SaveRow what="profile" state={status.profile.state} message={status.profile.message} />
+      </form>
+    ),
 
-      {/* Cycle preferences */}
-      <Section id="cycle" tier={tier} title="Cycle preferences" description="Context that shapes your calendar and predictions.">
-        <form onSubmit={handleSaveCycle} noValidate className="space-y-7">
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field id="s-dob" label="Date of birth" error={errors["s-dob"]} hint={dobHint}>
-              <input
-                {...describedBy("s-dob", errors["s-dob"], dobHint)}
-                type="date"
-                autoComplete="bday"
-                min="1900-01-01"
-                max={today}
-                disabled={dobLocked}
-                value={dateOfBirth}
-                onChange={(e) => {
-                  setDateOfBirth(e.target.value);
-                  clearError("s-dob");
-                }}
-                className={inputClass}
-              />
-            </Field>
-
-            <Field
-              id="s-timezone"
-              label="Timezone"
-              hint={
-                deviceZone && canonicalZone(deviceZone) !== canonicalZone(timezone) ? (
-                  <>
-                    Your device is on {deviceZone.replace(/_/g, " ")}.{" "}
-                    <button
-                      type="button"
-                      onClick={() => setTimezone(deviceZone)}
-                      className="inline-flex min-h-11 items-center font-semibold text-[var(--tier-ink)] underline decoration-[color:var(--tier-accent)] decoration-2 underline-offset-4"
-                    >
-                      Use it
-                    </button>
-                  </>
-                ) : (
-                  "Sets when your day starts in Luna."
-                )
-              }
-            >
-              <div className="relative">
-                <select
-                  {...describedBy("s-timezone", undefined, true)}
-                  value={timezone}
-                  onChange={(e) => setTimezone(e.target.value)}
-                  className={`${inputClass} cursor-pointer appearance-none truncate pr-11`}
-                >
-                  {timeZones.map((tz) => (
-                    <option key={tz.value} value={tz.value}>
-                      {tz.label}
-                    </option>
-                  ))}
-                </select>
-                <svg
-                  aria-hidden
-                  viewBox="0 0 24 24"
-                  className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[var(--tier-muted)]"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </div>
-            </Field>
-          </div>
-
-          <fieldset>
-            <legend className={labelClass}>Week starts on</legend>
-            <div className="inline-flex rounded-full border border-[var(--tier-line)] bg-[var(--tier-bg)] p-1">
-              {(
-                [
-                  [0, "Sunday"],
-                  [1, "Monday"],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={weekStart === value}
-                  onClick={() => setWeekStart(value)}
-                  className="min-h-11 rounded-full px-5 text-sm font-semibold text-[var(--tier-muted)] transition-colors duration-150 hover:text-[var(--tier-ink)] aria-pressed:bg-[var(--tier-ink)] aria-pressed:text-[var(--tier-surface)]"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className={labelClass}>Health context</legend>
-            <p className="-mt-1 mb-3 text-sm text-[var(--tier-muted)]">
-              Choose any that apply. Luna adjusts its estimates to match.
-            </p>
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              {CONDITIONS.map((c) => (
-                <Chip
-                  key={c.id}
-                  pressed={selectedConditions.includes(c.id)}
-                  onClick={() => setSelectedConditions((prev) => toggleCondition(prev, c.id))}
-                  label={c.label}
-                  description={c.description}
-                />
-              ))}
-            </div>
-          </fieldset>
-
-          <SaveRow label="Save preferences" state={status.cycle.state} message={status.cycle.message} />
-        </form>
-      </Section>
-
-      {/* Notifications */}
-      <Section id="notifications" tier={tier} title="Notifications" description="Gentle nudges, when they arrive.">
-        <form onSubmit={handleSaveNotif} noValidate>
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <p id="s-push-label" className="text-base text-[var(--tier-ink)]">
-                Push notifications
-              </p>
-              <p id="s-push-hint" className="mt-0.5 text-sm text-[var(--tier-muted)]">
-                Coming soon. Luna will send gentle reminders.
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={pushEnabled}
-              aria-labelledby="s-push-label"
-              aria-describedby="s-push-hint"
-              onClick={() => setPushEnabled((v) => !v)}
-              className="inline-flex min-h-11 min-w-14 shrink-0 items-center justify-center rounded-full"
-            >
-              <span
-                aria-hidden
-                className={`relative h-7 w-12 rounded-full transition-colors duration-200 ${
-                  pushEnabled
-                    ? "bg-[var(--tier-ink)]"
-                    : "bg-[var(--tier-tint)] ring-1 ring-inset ring-[color:var(--tier-muted)]"
-                }`}
+    cycle: (
+      <div className="space-y-8">
+        <div>
+          <GroupedSection
+            id="cycle"
+            header="Cycle"
+            className="scroll-mt-16"
+            footer={<span id="s-timezone-hint">Your time zone sets when each day starts in Luna.</span>}
+          >
+            <PickerRow id="s-timezone" label="Time zone" display={zoneLabel.replace(/^.*\//, "")}>
+              <select
+                {...describedBy("s-timezone", undefined, true)}
+                value={timezone}
+                onChange={(e) => changeZone(e.target.value)}
+                className={pickerSelectClass}
               >
-                <span
-                  className={`absolute left-0.5 top-0.5 size-6 rounded-full shadow-sm transition-transform duration-200 ${
-                    pushEnabled ? "translate-x-5 bg-[var(--tier-surface)]" : "bg-[var(--tier-muted)]"
-                  }`}
-                />
-              </span>
-            </button>
-          </div>
-          <SaveRow label="Save" state={status.notifications.state} message={status.notifications.message} />
-        </form>
-      </Section>
+                {timeZones.map((tz) => (
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </option>
+                ))}
+              </select>
+            </PickerRow>
+            {showDeviceZone ? (
+              <GroupedRow
+                tone="accent"
+                label="Use this device's time zone"
+                detail={deviceZone!.replace(/_/g, " ")}
+                onClick={() => changeZone(deviceZone!)}
+              />
+            ) : null}
+            <ControlRow label="Week starts on">
+              <Segmented
+                label="Week starts on"
+                className="w-44"
+                options={[
+                  { value: "0", label: "Sunday" },
+                  { value: "1", label: "Monday" },
+                ]}
+                value={String(weekStart) as "0" | "1"}
+                onChange={changeWeekStart}
+              />
+            </ControlRow>
+          </GroupedSection>
+          <StatusText state={status.cycle.state} message={status.cycle.message} className="px-4 pt-1.5" />
+        </div>
 
-      {/* Password */}
-      <Section id="security" tier={tier} title="Password" description="Change the password you sign in with.">
+        <GroupedSection footer="Walk through the welcome steps again to refresh your details.">
+          <GroupedRow href="/onboarding" label="Redo onboarding" />
+        </GroupedSection>
+      </div>
+    ),
+
+    health: (
+      <div>
+        <GroupedSection
+          id="health"
+          header="Health context"
+          className="scroll-mt-16"
+          footer="Choose any that apply. Luna adjusts its estimates to match."
+        >
+          {CONDITIONS.map((c) => (
+            <CheckRow
+              key={c.id}
+              checked={selectedConditions.includes(c.id)}
+              onToggle={() => toggleHealth(c.id)}
+              label={c.label}
+              detail={c.description}
+            />
+          ))}
+        </GroupedSection>
+        <StatusText state={status.health.state} message={status.health.message} className="px-4 pt-1.5" />
+      </div>
+    ),
+
+    appearance: (
+      <GroupedSection
+        id="appearance"
+        header="Appearance"
+        footer="System follows your device, day or night."
+        className="scroll-mt-16"
+      >
+        <ControlRow label="Mode">
+          <ThemeToggle className="w-56" />
+        </ControlRow>
+      </GroupedSection>
+    ),
+
+    notifications: (
+      <div>
+        <GroupedSection id="notifications" header="Notifications" className="scroll-mt-16">
+          <GroupedRow
+            label={<span id="s-push-label">Push notifications</span>}
+            detail={<span id="s-push-hint">Coming soon. Luna will send gentle reminders.</span>}
+            value={
+              <Switch
+                checked={pushEnabled}
+                onChange={togglePush}
+                labelledBy="s-push-label"
+                describedById="s-push-hint"
+              />
+            }
+          />
+        </GroupedSection>
+        <StatusText
+          state={status.notifications.state}
+          message={status.notifications.message}
+          className="px-4 pt-1.5"
+        />
+      </div>
+    ),
+
+    password: (
+      <GroupedSection
+        id="password"
+        header="Password"
+        className="scroll-mt-16"
+        footer="Changing your password signs you out on every device, so only the new one works."
+      >
+        <GroupedRow label="Change password" chevron onClick={() => onPasswordSheet(true)} />
+        <GroupedRow href="/forgot-password" tone="accent" label="Forgot password?" />
+      </GroupedSection>
+    ),
+
+    plan: (
+      <GroupedSection id="plan" header="Plan" className="scroll-mt-16" footer={currentPlan.description}>
+        <GroupedRow label="Current plan" value={currentPlan.label} />
+        {tier === "free" ? <GroupedRow href="/#pricing" tone="accent" label="Explore plans" /> : null}
+      </GroupedSection>
+    ),
+
+    data: (
+      <GroupedSection
+        id="data"
+        header="Data"
+        className="scroll-mt-16"
+        footer="A file of your logged cycles and notes. You can also ask Luna for it in chat."
+      >
+        {/* A plain anchor: the route returns a file, not a page to route to */}
+        <a
+          href="/api/data/export"
+          download="luna-cycles.json"
+          className={`${rowClass} flex min-h-11 items-center py-2.5 pr-4 text-[17px] tracking-[-0.01em] text-[var(--tint)]`}
+        >
+          Export your data
+        </a>
+      </GroupedSection>
+    ),
+
+    // Destructive actions sit apart, last, in their own groups.
+    account: (
+      <div className="space-y-8">
+        <GroupedSection
+          id="account"
+          header="Account"
+          className="scroll-mt-16"
+          footer="Your cycles stay saved. Sign back in anytime."
+        >
+          {confirmSignOut ? (
+            <div role="group" aria-labelledby="s-signout-q">
+              <p
+                id="s-signout-q"
+                className="px-4 py-3 text-center text-[13px] leading-snug text-[var(--label-secondary)]"
+              >
+                Sign out of Luna on this device?
+              </p>
+              <ButtonRow tone="destructive" label="Sign out" onClick={() => signOut({ callbackUrl: "/login" })} />
+              <ButtonRow tone="accent" label="Stay signed in" autoFocus onClick={() => setConfirmSignOut(false)} />
+            </div>
+          ) : (
+            <ButtonRow tone="destructive" label="Sign out" onClick={() => setConfirmSignOut(true)} />
+          )}
+        </GroupedSection>
+        <GroupedSection footer="Coming soon. Until then, you can export your data at any time.">
+          {/* Greyed like an unavailable iOS row: nothing to tap yet */}
+          <GroupedRow label={<span className="text-[var(--label-tertiary)]">Delete account</span>} value="Soon" />
+        </GroupedSection>
+      </div>
+    ),
+  };
+
+  const identity = <IdentityCard name={account.name} email={account.email} plan={currentPlan.label} />;
+  const backLink = (
+    <Link
+      href="/dashboard"
+      className="-ml-2 hidden min-h-11 items-center gap-0.5 rounded-lg px-1 text-[17px] tracking-[-0.01em] text-[var(--tint)] transition-opacity duration-150 active:opacity-60 md:inline-flex"
+    >
+      <ChevronLeft aria-hidden className="size-6" strokeWidth={2.25} />
+      Today
+    </Link>
+  );
+  const title = (
+    <LargeTitle
+      title="Settings"
+      subtitle={tier === "premium+" ? undefined : PLAN_INFO[tier].subtitle}
+      leading={backLink}
+    />
+  );
+
+  let body: React.ReactNode;
+  if (tier === "premium") {
+    // Sidebar source list on desktop (one pane at a time); a single stacked list below lg.
+    body = (
+      <div className="mx-auto max-w-5xl">
+        {title}
+        <div className="mt-4 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-10">
+          <nav
+            aria-label="Settings sections"
+            className="hidden lg:sticky lg:top-[calc(3.5rem+env(safe-area-inset-top))] lg:block lg:self-start"
+          >
+            <IdentityCard name={account.name} email={account.email} plan={currentPlan.label} compact />
+            <ul className="mt-4 space-y-0.5">
+              {PANES.map((p) => (
+                <li key={p.key}>
+                  <button
+                    type="button"
+                    aria-current={pane === p.key ? "true" : undefined}
+                    onClick={() => setPane(p.key)}
+                    className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-[10px] px-2.5 text-left text-[15px] tracking-[-0.01em] text-[var(--tier-ink)] transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--fill-tertiary)_60%,transparent)] aria-[current=true]:bg-[var(--fill-tertiary)]"
+                  >
+                    <RowIcon color={p.color}>{p.icon}</RowIcon>
+                    {p.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <div className="min-w-0">
+            <div className="mb-8 lg:hidden">{identity}</div>
+            {/* Panes switch instantly, like System Settings; below lg they all stack. */}
+            <div className="space-y-8">
+              {PANES.map((p) => (
+                <div key={p.key} className={pane === p.key ? "" : "lg:hidden"}>
+                  {panes[p.key]}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  } else if (tier === "premium+") {
+    // Wide two-column spread on desktop. Fixed columns (not CSS multi-column), so a
+    // growing section never hops sides under the pointer; account stays last on the right.
+    const column = (keys: PaneKey[]) => (
+      <div className="space-y-8">
+        {keys.map((k) => (
+          <div key={k}>{panes[k]}</div>
+        ))}
+      </div>
+    );
+    body = (
+      <div className="mx-auto max-w-6xl">
+        {title}
+        <div className="mb-10 mt-4 grid gap-6 lg:grid-cols-2 lg:items-center lg:gap-10">
+          {identity}
+          <div className="px-1">
+            <p className="max-w-[22ch] font-serif text-[28px] leading-tight text-[var(--tier-ink)]">
+              Make Luna feel like your own quiet space.
+            </p>
+            <p className="mt-2 max-w-md text-[15px] leading-snug text-[var(--label-secondary)]">
+              Update your details, cycle context and account at your own pace. Each change stays under your control.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-10">
+          {column(["profile", "cycle", "health"])}
+          {column(["appearance", "notifications", "password", "plan", "data", "account"])}
+        </div>
+      </div>
+    );
+  } else {
+    // Free: one calm column, the iOS Settings list as it is.
+    body = (
+      <div className="mx-auto max-w-[40rem]">
+        {title}
+        <div className="mb-8 mt-4">{identity}</div>
+        <div className="space-y-8">
+          {PANES.map((p) => (
+            <div key={p.key}>{panes[p.key]}</div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={rootClass} data-plan={tier}>
+      <main className="w-full min-w-0 px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-6 md:pb-16">{body}</main>
+
+      <Sheet
+        open={passwordOpen}
+        onOpenChange={onPasswordSheet}
+        title="Change password"
+        description="Afterwards Luna signs you out on every device, so only the new password works."
+      >
         <form onSubmit={handleSavePassword} noValidate>
           {/* Lets password managers attach the new password to the right account */}
           <input type="email" autoComplete="username" value={email} readOnly hidden />
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field id="s-current-password" label="Current password" error={errors["s-current-password"]} className="sm:col-span-2">
+          <GroupedSection footer={<span id="s-new-password-hint">Use at least 6 characters.</span>}>
+            <InputRow id="s-current-password" label="Current" error={errors["s-current-password"]}>
               <input
                 {...describedBy("s-current-password", errors["s-current-password"])}
+                aria-label="Current password"
                 type="password"
                 autoComplete="current-password"
                 value={currentPassword}
@@ -538,16 +799,13 @@ export default function SettingsPageClient() {
                   clearError("s-current-password");
                 }}
                 className={inputClass}
+                placeholder="Required"
               />
-            </Field>
-            <Field
-              id="s-new-password"
-              label="New password"
-              error={errors["s-new-password"]}
-              hint="At least 6 characters."
-            >
+            </InputRow>
+            <InputRow id="s-new-password" label="New" error={errors["s-new-password"]}>
               <input
                 {...describedBy("s-new-password", errors["s-new-password"], true)}
+                aria-label="New password"
                 type="password"
                 autoComplete="new-password"
                 value={newPassword}
@@ -556,11 +814,13 @@ export default function SettingsPageClient() {
                   clearError("s-new-password");
                 }}
                 className={inputClass}
+                placeholder="Required"
               />
-            </Field>
-            <Field id="s-confirm-password" label="Confirm new password" error={errors["s-confirm-password"]}>
+            </InputRow>
+            <InputRow id="s-confirm-password" label="Verify" error={errors["s-confirm-password"]}>
               <input
                 {...describedBy("s-confirm-password", errors["s-confirm-password"])}
+                aria-label="Verify new password"
                 type="password"
                 autoComplete="new-password"
                 value={confirmPassword}
@@ -569,169 +829,31 @@ export default function SettingsPageClient() {
                   clearError("s-confirm-password");
                 }}
                 className={inputClass}
+                placeholder="Required"
               />
-            </Field>
-          </div>
-          <SaveRow
-            label="Change password"
-            busyLabel="Changing..."
-            savedLabel="Password updated"
-            state={status.password.state}
+            </InputRow>
+          </GroupedSection>
+          <StatusText
+            state={passwordChanged ? "saved" : status.password.state}
             message={status.password.message}
-          >
-            <Link
-              href="/forgot-password"
-              className="inline-flex min-h-11 items-center text-sm text-[var(--tier-muted)] underline-offset-4 transition-colors hover:text-[var(--tier-ink)] hover:underline sm:ml-auto"
-            >
-              Forgot password?
-            </Link>
-          </SaveRow>
-        </form>
-      </Section>
-
-      {/* Plan */}
-      <Section id="plan" tier={tier} title="Plan" description="Every plan has the same tools and cycle data.">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="inline-flex items-center rounded-full bg-[var(--tier-tint)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--tier-ink)]">
-              {currentPlan.label}
-            </p>
-            <p className="mt-3 max-w-md text-sm leading-relaxed text-[var(--tier-muted)]">{currentPlan.description}</p>
-          </div>
-          {tier === "free" && (
-            <Link href="/#pricing" className={secondaryButtonClass}>
-              Upgrade
-            </Link>
-          )}
-        </div>
-      </Section>
-
-      {/* Onboarding */}
-      <Section id="onboarding" tier={tier} title="Onboarding" description="Walk through the welcome steps again.">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="max-w-md text-sm leading-relaxed text-[var(--tier-muted)]">
-            Revisit setup to update your details and re-verify your email.
-          </p>
-          <Link href="/onboarding" className={secondaryButtonClass}>
-            Redo onboarding
-          </Link>
-        </div>
-      </Section>
-    </>
-  );
-
-  const accountSection = (
-    <Section id="account-actions" tier={tier} danger title="Account" description="Kept apart so nothing here happens by accident.">
-      <div className="divide-y divide-[var(--tier-line)]">
-        <div className="flex flex-col gap-3 pb-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-base text-[var(--tier-ink)]">
-              {confirmSignOut ? "Sign out on this device?" : "Sign out"}
-            </p>
-            <p className="mt-0.5 text-sm text-[var(--tier-muted)]">Your cycles stay saved. Sign back in anytime.</p>
-          </div>
-          {confirmSignOut ? (
-            <div role="group" aria-label="Confirm sign out" className="flex flex-wrap gap-2">
-              <button type="button" autoFocus onClick={() => setConfirmSignOut(false)} className={secondaryButtonClass}>
-                Stay signed in
-              </button>
-              <button
-                type="button"
-                onClick={() => signOut({ callbackUrl: "/login" })}
-                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#9E4A63] px-5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-[#86394F]"
-              >
-                Yes, sign out
-              </button>
-            </div>
-          ) : (
-            <button type="button" onClick={() => setConfirmSignOut(true)} className={secondaryButtonClass}>
-              Sign out
-            </button>
-          )}
-        </div>
-        <div className="flex flex-col gap-3 pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-base text-[var(--tier-ink)]">Delete account</p>
-            <p className="mt-0.5 text-sm text-[var(--tier-muted)]">
-              Coming soon. Until then, ask Luna in chat to export your data.
-            </p>
-          </div>
+            savedLabel="Password changed, so Luna is signing you out everywhere to keep your account safe."
+            className="px-4 pt-3"
+          />
+          <button type="submit" disabled={passwordBusy} className={`${primaryButton} mt-3 w-full`}>
+            {status.password.state === "saving" ? "Changing…" : "Change password"}
+          </button>
+          {/* The one dismiss control screen-reader and switch users can reach (Escape and the backdrop aren't). */}
           <button
             type="button"
-            disabled
-            className="inline-flex min-h-11 shrink-0 cursor-not-allowed items-center justify-center rounded-full border border-dashed border-[var(--tier-line)] px-5 text-sm font-semibold text-[var(--tier-muted)]"
+            disabled={passwordBusy}
+            onClick={() => onPasswordSheet(false)}
+            className={`${plainButton} mt-1 w-full`}
           >
-            Coming soon
+            Cancel
           </button>
-        </div>
-      </div>
-    </Section>
-  );
+        </form>
+      </Sheet>
 
-  return (
-    <div className="tier-app tier-settings font-sans" data-plan={tier}>
-      <main
-        className={`mx-auto w-full min-w-0 px-5 pt-[calc(2rem+env(safe-area-inset-top))] pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-10 md:pt-14 md:pb-16 ${
-          tier === "free" ? "max-w-3xl" : "max-w-6xl"
-        }`}
-      >
-        {/* Header */}
-        <header className="mb-8 flex items-start gap-4 sm:mb-12">
-          <Link
-            href="/dashboard"
-            aria-label="Back to dashboard"
-            className="mt-1 hidden size-11 shrink-0 items-center justify-center rounded-full border border-[var(--tier-line)] text-[var(--tier-ink)] transition-colors hover:bg-[var(--tier-tint)] md:flex"
-          >
-            <svg aria-hidden viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="m15 18-6-6 6-6" />
-            </svg>
-          </Link>
-          <div className="min-w-0">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--tier-muted)]">
-              <svg aria-hidden viewBox="0 0 24 24" className="size-3.5" fill="currentColor">
-                <path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z" />
-              </svg>
-              {currentPlan.label}
-            </p>
-            <h1 className="mt-2 font-serif text-[2.75rem] leading-[1.05] tracking-tight sm:text-6xl">Settings</h1>
-            <p className="mt-2 text-base text-[var(--tier-muted)]">{currentPlan.subtitle}</p>
-          </div>
-        </header>
-
-        {tier === "premium+" && (
-          <div className="mb-10 grid gap-4 border-y border-[var(--tier-line)] py-8 md:grid-cols-[minmax(0,1fr)_minmax(240px,0.7fr)] md:gap-10">
-            <p className="max-w-[20ch] font-serif text-3xl leading-tight sm:text-4xl">
-              Make Luna feel like your own quiet space.
-            </p>
-            <p className="self-end text-sm leading-relaxed text-[var(--tier-muted)]">
-              Update your details, cycle context, and account at your own pace. Each change stays under your control.
-            </p>
-          </div>
-        )}
-
-        <div className={tier === "premium" ? "lg:grid lg:grid-cols-[11rem_minmax(0,1fr)] lg:gap-10" : ""}>
-          {tier === "premium" && (
-            <nav
-              aria-label="Settings sections"
-              className="-mx-5 mb-6 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] md:-mx-10 md:px-10 lg:sticky lg:top-8 lg:mx-0 lg:mb-0 lg:flex-col lg:gap-1 lg:self-start lg:overflow-visible lg:px-0"
-            >
-              {SECTION_LINKS.map(([id, label]) => (
-                <a
-                  key={id}
-                  href={`#${id}`}
-                  className="flex min-h-11 shrink-0 items-center rounded-full border border-[var(--tier-line)] px-4 text-sm text-[var(--tier-muted)] transition-colors hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)] lg:border-transparent"
-                >
-                  {label}
-                </a>
-              ))}
-            </nav>
-          )}
-          <div className="min-w-0">
-            <div className="space-y-5 sm:space-y-6">{sections}</div>
-            <div className="mt-10 sm:mt-14">{accountSection}</div>
-          </div>
-        </div>
-      </main>
       <AppTabBar />
     </div>
   );

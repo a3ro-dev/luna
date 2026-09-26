@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.19.6",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Settings, like iOS Settings",
+    description:
+      "Settings is now a set of grouped lists like the iPhone's Settings app. Switches, your time zone and the week start save the moment you change them, and only typed fields need a Save button. A new Appearance section lets you choose System, Light or Dark. After you change your password, Luna signs you out everywhere and asks you to sign in again with the new one.",
+  },
+  {
     version: "0.19.5",
     date: "2026-09-26",
     type: "feat",
