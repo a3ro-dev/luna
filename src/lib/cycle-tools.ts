@@ -13,13 +13,12 @@ import {
 } from "@/lib/prediction/forecast";
 import { and, asc, eq } from "drizzle-orm";
 import { ageOn, cycleCheck } from "@/lib/prediction/cycle-check";
+import { findCloseStart, missedLogSuggestion, type MissedLogSuggestion } from "@/lib/prediction/log-nudges";
 
 const DAY_MS = 86_400_000;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /** Longest bleed we accept as one logged period. */
 export const MAX_PERIOD_DAYS = 15;
-/** A new start this close to an existing one is probably the same period. */
-const CLOSE_START_DAYS = 15;
 const MONTHS: Record<string, number> = {
   january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2, april: 3, apr: 3,
   may: 4, june: 5, jun: 5, july: 6, jul: 6, august: 7, aug: 7,
@@ -456,14 +455,19 @@ export function validateCycleDraft(draft: CycleDraft, others: CycleDraft[], toda
 }
 
 type WriteResult =
-  | { ok: true; cycle: CycleSummary; forecast: Forecast }
+  | { ok: true; cycle: CycleSummary; forecast: Forecast; missedLog: MissedLogSuggestion | null }
   | { ok: false; error: string };
 
 async function afterWrite(userId: string, id: string): Promise<WriteResult> {
   const { cycles: rows } = await refreshCycleAnalytics(userId);
   const { forecast: f } = await getUserForecast(userId);
-  const row = rows.find((r) => r.id === id);
-  return row ? { ok: true, cycle: summarizeCycle(row), forecast: f } : { ok: false, error: "the log could not be found after saving." };
+  const index = rows.findIndex((r) => r.id === id);
+  if (index < 0) return { ok: false, error: "the log could not be found after saving." };
+  const row = rows[index];
+  // A long gap the forecast set aside before this start: maybe a period went unlogged.
+  const missedLog =
+    index > 0 && f.cycleLength ? missedLogSuggestion(rows[index - 1].mStart, row.mStart, f.cycleLength.mean, row.isAnomaly) : null;
+  return { ok: true, cycle: summarizeCycle(row), forecast: f, missedLog };
 }
 
 export async function createCycle(userId: string, draft: CycleDraft, notes: CycleNotes = {}): Promise<WriteResult> {
@@ -559,7 +563,7 @@ export async function logPeriodStartEntry(args: {
     };
   }
 
-  const close = rows.find((r) => Math.abs(diffInDays(r.mStart, iso)) < CLOSE_START_DAYS);
+  const close = findCloseStart(rows, iso);
   if (close && !args.confirmedSeparatePeriod) {
     return clarify(
       `you already have a period logged starting ${close.mStart} (${Math.abs(diffInDays(close.mStart, iso))} days apart). is this the same period with a corrected date, or a separate new period?`,
@@ -568,10 +572,18 @@ export async function logPeriodStartEntry(args: {
   }
 
   const notes = noteText ? mergeNoteEntries({}, iso, [noteText]) : {};
-  return confirmation(
-    noteText ? `logged your period start for ${iso} and saved the note.` : `logged your period start for ${iso}.`,
-    await createCycle(args.userId, { mStart: iso, mEnd: null }, notes),
-  );
+  const result = await createCycle(args.userId, { mStart: iso, mEnd: null }, notes);
+  const logged = noteText ? `logged your period start for ${iso} and saved the note.` : `logged your period start for ${iso}.`;
+  const missed = "missedLog" in result ? result.missedLog : null;
+  if (!missed) return confirmation(logged, result);
+  return {
+    ...confirmation(
+      `${logged} it's been ${missed.gapDays} days since the period before it, longer than usual for you. ` +
+        `if you had a period in between that didn't get logged, tell me roughly when (maybe around ${missed.suggestedStart}) and i'll add it, so your forecast stays accurate.`,
+      result,
+    ),
+    missedLog: missed,
+  };
 }
 
 export async function logPeriodEndEntry(args: {

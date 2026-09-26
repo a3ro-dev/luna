@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.18.0",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Luna asks about a period that may not have been logged",
+    description:
+      "When a new period comes much later than your usual rhythm, Luna now asks once, gently, whether you had one in between that didn't get logged, and suggests a likely date. A single missed log can make your forecast look far less certain than it is. In our simulation, answering this for half of missed periods made forecast windows about 17% tighter and point estimates about two-thirds of a day closer. It is always optional and nothing is added without your answer.",
+  },
+  {
     version: "0.17.5",
     date: "2026-09-26",
     type: "fix",

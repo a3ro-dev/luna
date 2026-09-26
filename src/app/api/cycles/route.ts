@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   try {
     const result = await createCycle(userId, { mStart: parsed.data.mStart, mEnd: parsed.data.mEnd ?? null });
     if ("error" in result) return NextResponse.json({ error: result.error }, { status: 400 });
-    return NextResponse.json({ cycle: result.cycle }, { status: 201 });
+    return NextResponse.json({ cycle: result.cycle, missedLog: result.missedLog }, { status: 201 });
   } catch (err) {
     logError("cycles:create", err);
     return NextResponse.json({ error: "Something went wrong." }, { status: 500 });
