@@ -1,102 +1,100 @@
 "use client";
 
 import React from "react";
-import { motion } from "motion/react";
 import QuickLog from "./QuickLog";
+import { RingSwatch } from "./CycleRing";
 import {
   AskLunaCard,
   Calendar,
+  EstimateNote,
   Hero,
   Nav,
-  OvulationCard,
   PatternCheck,
   RecentCycles,
   RhythmSection,
   TodayCard,
-  useEnter,
   type DashboardProps,
 } from "./parts";
+import { GroupedRow, GroupedSection } from "@/components/apple/Grouped";
+import { CirclingBack } from "./premium/CirclingBack";
+import { CycleLengthCard } from "./premium/CycleLengthCard";
 
-/** Premium: guided, with a navigation rail. */
+/**
+ * Premium: warm, remembers, circles back. A Health-style Summary beside a
+ * navigation rail. DOM order is the phone order (today, logging, what you
+ * noted before, what's ahead, your rhythm, pattern check, then the month and
+ * history); from xl the Summary is the left column and the month, history and
+ * pattern check the right.
+ */
 export default function PremiumDashboard(props: DashboardProps) {
-  const {
-    plan,
-    userName,
-    nextPeriodDate,
-    nextPeriodWindow,
-    forecastStatus,
-    forecastBasis,
-    forecastCaveats,
-    nextOvulationWindow,
-    ovulationNote,
-    avgCycleLength,
-    avgPeriodLength,
-    cyclesTracked,
-    consistency,
-    calendarMonths,
-    ring,
-    cycles,
-    today,
-    openPeriod,
-    patternCheck,
-  } = props;
-  const enterQuickLog = useEnter(0.13);
-
-  const hero = <Hero userName={userName} plan={plan} today={today} />;
-  const todayCard = <TodayCard ring={ring} headline={nextPeriodDate} window={nextPeriodWindow} status={forecastStatus} />;
-  const quickLog = (
-    <motion.div {...enterQuickLog}>
-      <QuickLog today={today} openPeriod={openPeriod} />
-    </motion.div>
-  );
-  const ovulation = <OvulationCard window={nextOvulationWindow} note={ovulationNote} />;
-  const ask = <AskLunaCard />;
-  const calendar = <Calendar months={calendarMonths} today={today} />;
-  const rhythm = (
-    <RhythmSection avgCycleLength={avgCycleLength} avgPeriodLength={avgPeriodLength} cyclesTracked={cyclesTracked} consistency={consistency} />
-  );
-  const history = <RecentCycles cycles={cycles} />;
-  const pattern = <PatternCheck check={patternCheck} />;
-  const explanation = (
-    <section className="max-w-3xl px-1" aria-labelledby="basis-heading">
-      <h2 id="basis-heading" className="font-serif text-xl italic text-[var(--tier-ink)]">
-        How this estimate works
-      </h2>
-      <p className="mt-2 text-sm leading-relaxed text-[var(--tier-ink)]">{forecastBasis}</p>
-      {forecastCaveats.slice(0, 2).map((caveat) => (
-        <p key={caveat} className="mt-2 text-[13px] leading-relaxed text-[var(--tier-muted)]">
-          {caveat}
-        </p>
-      ))}
-    </section>
-  );
-  const stack = "min-w-0 space-y-5 md:space-y-6";
-  const stackWide = "min-w-0 space-y-6 md:space-y-7";
-  void stackWide;
+  const { plan, userName, today, ring, insights } = props;
+  // The ovulation estimate is dated from this cycle's start, so once luteal or late it is behind us, not ahead.
+  const ovulationPast = props.nextOvulationWindow != null && (insights.phase?.key === "luteal" || insights.phase?.key === "late");
   return (
-
-          <div className="mx-auto grid max-w-[1440px] gap-6 px-5 pb-8 pt-4 md:gap-8 md:px-10 md:py-10 lg:grid-cols-[210px_minmax(0,1fr)] lg:gap-10">
-            <Nav plan={plan} vertical />
-            <main className="min-w-0">
-              {hero}
-              <div className="grid min-w-0 gap-5 md:gap-6 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1fr)] xl:grid-rows-[auto_1fr]">
-                <div className={`${stack} xl:col-start-1 xl:row-start-1`}>
-                  {todayCard}
-                  {quickLog}
-                </div>
-                <div className="min-w-0 xl:col-start-2 xl:row-span-2 xl:row-start-1">{calendar}</div>
-                <div className={`${stack} xl:col-start-1 xl:row-start-2`}>
-                  {ovulation}
-                  {history}
-                  {ask}
-                </div>
-              </div>
-              <div className="mt-8 space-y-6">
-                {explanation}
-                {rhythm}
-                {pattern}
-              </div>
-            </main>
+    <div className="mx-auto max-w-[1280px] lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:pl-6">
+      <div className="px-6 lg:px-0">
+        <Nav plan={plan} vertical />
+      </div>
+      {/* Hero's compact bar bleeds by exactly this padding. */}
+      <main className="min-w-0 px-4 pb-10 md:px-6 md:pb-14">
+        <Hero userName={userName} plan={plan} today={today} />
+        <div className="mt-4 grid min-w-0 gap-9 xl:grid-cols-2 xl:items-start xl:gap-6">
+          <div className="min-w-0 space-y-9">
+            <div className="space-y-4">
+              <TodayCard
+                ring={ring}
+                headline={props.nextPeriodDate}
+                window={props.nextPeriodWindow}
+                status={props.forecastStatus}
+                phase={insights.phase}
+                dayOfCycle={insights.dayOfCycle}
+              />
+              <QuickLog today={today} openPeriod={props.openPeriod} />
+            </div>
+            <CirclingBack notes={insights.circleBack} dayOfCycle={insights.dayOfCycle} today={today} />
+            <GroupedSection header="What's ahead">
+              <GroupedRow
+                icon={<RingSwatch kind="estimated" />}
+                label="Next period, estimated"
+                detail={props.nextPeriodWindow ?? props.nextPeriodDate}
+              />
+              {ovulationPast ? null : (
+                <GroupedRow
+                  icon={<RingSwatch kind="ovulation" />}
+                  label={props.nextOvulationWindow ? "Ovulation, estimated" : "Ovulation"}
+                  detail={
+                    props.nextOvulationWindow
+                      ? `${props.nextOvulationWindow}. A rough calendar estimate, not confirmed ovulation.`
+                      : (props.ovulationNote ?? "Not estimated. There is not enough suitable information for a useful estimate.")
+                  }
+                />
+              )}
+            </GroupedSection>
+            {/* Four tiles are too narrow in a half-width column: 2 x 2 there, like Health. ponytail: reaches into
+                RhythmSection's markup; swap for a columns prop on RhythmSection when parts.tsx grows one. */}
+            <div className="space-y-4 xl:[&>section>dl]:grid-cols-2">
+              <RhythmSection
+                avgCycleLength={props.avgCycleLength}
+                avgPeriodLength={props.avgPeriodLength}
+                cyclesTracked={props.cyclesTracked}
+                consistency={props.consistency}
+              />
+              <CycleLengthCard lengths={insights.lengths} />
+            </div>
           </div>
+          {/* Phones read pattern check, calendar, history; wide screens lift the month to the top of this column.
+              Known trade-off: on xl the reading order keeps pattern check first (it has nothing focusable). */}
+          <div className="flex min-w-0 flex-col gap-9">
+            <PatternCheck check={props.patternCheck} />
+            <div className="space-y-9 xl:order-first">
+              <Calendar months={props.calendarMonths} today={today} />
+              <RecentCycles cycles={props.cycles} />
+            </div>
+            <EstimateNote basis={props.forecastBasis} caveats={props.forecastCaveats} />
+            <AskLunaCard />
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }

@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.19.3",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Premium: a summary that remembers",
+    description:
+      "Premium's Today screen is now a Health-style summary: your ring and day, quick logging, then Circling back, which shows what you noted around this same day in earlier cycles, so a headache on day 19 last month comes back to you on day 19 this month. It never invents notes; with none yet, it explains how it works. A small sparkline shows your recent cycle lengths with a plain one-line summary, followed by what's ahead, the pattern check, the calendar and your history.",
+  },
+  {
     version: "0.19.2",
     date: "2026-09-26",
     type: "feat",
