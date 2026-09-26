@@ -4,6 +4,9 @@ question: >
   population prior) get more accurate and better calibrated on messy self-tracked
   histories without losing interval coverage?
 started: 2026-09-26
+evaluation_v2:
+  harness: autoresearch/src/eval2.mts (locked 2026-09-26 before round 2)
+  baseline: {macroMae: 5.527, is80: 34.036, inGateCalibErr: 0.084, lateMae: 12.616, lateCov80: 0.478, day40Cov80: 0.490}
 evaluation:
   harness: autoresearch/src/eval.mts
   primary: cycle macro MAE (nPast>=1), mean over 7 simulator runs (lower better)
@@ -23,6 +26,7 @@ hypotheses:
   R2-2-adaptive-conformal: {status: planned}
   R2-3-late-skip-mixture: {status: planned}
   R2-4-age-prior: {status: deferred, needs: read-only real-data backtest}
-  R2-5-literature-scenario: {status: planned}
+  R2-5-literature-scenario: {status: built into harness v2 as report-only scenario}
+  R2-6-clean-width: {status: planned}
 production_promotions: none (round 1)
 direction: BROADEN -> harness v2 locked -> round 2

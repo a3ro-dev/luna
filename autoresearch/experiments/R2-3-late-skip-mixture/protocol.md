@@ -1,0 +1,4 @@
+# R2-3 late-regime skip mixture (late track, harness v2)
+Change: once no period has started by day t0, predict from a two-component mixture conditioned on y >= t0: (1) v2's single-cycle predictive truncated at t0; (2) a skipped-log component, log y = mu + log 2 + e with the same scale (optionally c = 3 as well). Mixture weight: population skip rate w0 = 0.045 (AWHS / SkipTrack), updated by the person's own count of set-aside long intervals (beta-binomial). Condition the mixture on y >= t0 and take quantiles.
+Why: late cycles are disproportionately missed logs or genuinely long cycles; v2's truncated tail covers only 48% of them (harness v2 baseline). Li et al. 2022 found their largest gain here.
+Prediction: late MAE <= 0.9 x v2-trunc AND late cov80 within [0.72, 0.90] in every primary run; day-40 coverage rises toward 0.8; gain keeps its sign on the literature scenario.

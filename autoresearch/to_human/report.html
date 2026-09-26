@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Luna forecast autoresearch -- progress</title>
+<style>
+.viz-root{color-scheme:light;--surface-1:#fcfcfb;--text-primary:#0b0b0b;--text-secondary:#52514e;--grid:#e4e3df;--series-1:#2a78d6;--series-2:#eb6834}
+@media (prefers-color-scheme: dark){.viz-root{color-scheme:dark;--surface-1:#1a1a19;--text-primary:#fff;--text-secondary:#c3c2b7;--grid:#383835;--series-1:#3987e5;--series-2:#d95926}}
+body{margin:0;background:var(--surface-1);color:var(--text-primary);font:15px/1.6 system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 20px 64px}
+h1{font-size:1.6rem;margin:0 0 4px}h2{margin-top:2.2em;font-size:1.2rem}h3,h4{font-size:1rem}
+.sub,.note,.tick,.axis{color:var(--text-secondary);fill:var(--text-secondary)}
+.chart{width:100%;height:auto;margin:12px 0}
+.grid{stroke:var(--grid);stroke-width:1}.zero{stroke:var(--text-secondary);stroke-width:1.5}.threshold{stroke:var(--text-secondary);stroke-dasharray:4 4}
+.tick,.note{font-size:11px}.axis{font-size:12px}.label{font-size:12px;fill:var(--text-primary)}
+.hit{fill:transparent}
+.base .label{paint-order:stroke;stroke:var(--surface-1);stroke-width:4px;stroke-linejoin:round;font-weight:600}
+.dot circle:not(.hit){fill:var(--surface-1);stroke:var(--series-1);stroke-width:2}
+.dot.win circle:not(.hit){fill:var(--series-1)}
+.dot.fail circle:not(.hit){stroke-dasharray:2 2}
+.dot:hover circle:not(.hit){stroke-width:3}
+.base circle:not(.hit){fill:none;stroke:var(--series-2);stroke-width:3}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--text-secondary)}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px;border:2px solid var(--series-1)}
+.legend .l-win::before{background:var(--series-1)}.legend .l-base::before{border-color:var(--series-2)}.legend .l-fail::before{border-style:dashed}
+.table-wrap{overflow-x:auto}table{border-collapse:collapse;font-size:13px;min-width:720px}th,td{padding:6px 8px;border-bottom:1px solid var(--grid);text-align:right}th[scope=row],thead th:first-child{text-align:left}
+</style></head>
+<body class="viz-root"><main>
+<h1>Luna forecast autoresearch</h1>
+<p class="sub">Generated from autoresearch/experiments/*/results. Synthetic evaluation across 7 simulator runs; synthetic results are necessary, not sufficient.</p>
+<h2>Where each variant landed</h2>
+<div class="legend"><span class="l-win">meets the locked rule</span><span>does not</span><span class="l-fail">fails coverage</span><span class="l-base">baseline</span></div>
+<svg viewBox="0 0 760 800" role="img" aria-labelledby="dp-title dp-desc" class="chart">
+<title id="dp-title">Change in macro MAE versus baseline, per variant</title>
+<desc id="dp-desc">Negative is better. The dashed line at -0.05 days is the locked improvement threshold.</desc>
+<line x1="223.75" x2="223.75" y1="26" y2="766" class="grid"/>
+<text x="223.75" y="782" class="tick" text-anchor="middle">-0.08</text>
+<line x1="291.25" x2="291.25" y1="26" y2="766" class="grid"/>
+<text x="291.25" y="782" class="tick" text-anchor="middle">-0.06</text>
+<line x1="358.75" x2="358.75" y1="26" y2="766" class="grid"/>
+<text x="358.75" y="782" class="tick" text-anchor="middle">-0.04</text>
+<line x1="426.25" x2="426.25" y1="26" y2="766" class="grid"/>
+<text x="426.25" y="782" class="tick" text-anchor="middle">-0.02</text>
+<line x1="493.75000000000006" x2="493.75000000000006" y1="26" y2="766" class="grid"/>
+<text x="493.75000000000006" y="782" class="tick" text-anchor="middle">0.00</text>
+<line x1="561.25" x2="561.25" y1="26" y2="766" class="grid"/>
+<text x="561.25" y="782" class="tick" text-anchor="middle">+0.02</text>
+<line x1="628.75" x2="628.75" y1="26" y2="766" class="grid"/>
+<text x="628.75" y="782" class="tick" text-anchor="middle">+0.04</text>
+<line x1="696.25" x2="696.25" y1="26" y2="766" class="grid"/>
+<text x="696.25" y="782" class="tick" text-anchor="middle">+0.06</text>
+<line x1="493.75000000000006" x2="493.75000000000006" y1="22" y2="766" class="zero"/>
+<text x="497.75000000000006" y="18" class="note">baseline</text>
+<line x1="325" x2="325" y1="22" y2="766" class="threshold"/>
+<text x="321" y="18" class="note" text-anchor="end">improvement bar (−0.05 d)</text>
+<text x="180" y="49" class="label" text-anchor="end">H1-huber-mad</text>
+<g class="dot"><title>H1-huber-mad: -0.002 d macro MAE, IS80 34.25, calibration 0.049</title><rect x="190" y="34" width="540" height="22" class="hit"/><circle cx="485.97363865638926" cy="45" r="5"/></g>
+<text x="180" y="71" class="label" text-anchor="end">H1-huber-loc</text>
+<g class="dot"><title>H1-huber-loc: -0.010 d macro MAE, IS80 34.03, calibration 0.052</title><rect x="190" y="56" width="540" height="22" class="hit"/><circle cx="460.1746281774532" cy="67" r="5"/></g>
+<text x="180" y="93" class="label" text-anchor="end">H1-mad-scale</text>
+<g class="dot"><title>H1-mad-scale: +0.015 d macro MAE, IS80 34.31, calibration 0.049</title><rect x="190" y="78" width="540" height="22" class="hit"/><circle cx="545.976775358208" cy="89" r="5"/></g>
+<text x="180" y="115" class="label" text-anchor="end">H1-trim-mad</text>
+<g class="dot"><title>H1-trim-mad: +0.007 d macro MAE, IS80 34.27, calibration 0.049</title><rect x="190" y="100" width="540" height="22" class="hit"/><circle cx="517.9415437335447" cy="111" r="5"/></g>
+<text x="180" y="137" class="label" text-anchor="end">H2-hl4</text>
+<g class="dot"><title>H2-hl4: +0.005 d macro MAE, IS80 34.08, calibration 0.054</title><rect x="190" y="122" width="540" height="22" class="hit"/><circle cx="511.9976899533158" cy="133" r="5"/></g>
+<text x="180" y="159" class="label" text-anchor="end">H2-hl6</text>
+<g class="dot"><title>H2-hl6: +0.002 d macro MAE, IS80 34.06, calibration 0.054</title><rect x="190" y="144" width="540" height="22" class="hit"/><circle cx="500.41130662483704" cy="155" r="5"/></g>
+<text x="180" y="181" class="label" text-anchor="end">H2-hl8</text>
+<g class="dot"><title>H2-hl8: +0.001 d macro MAE, IS80 34.05, calibration 0.053</title><rect x="190" y="166" width="540" height="22" class="hit"/><circle cx="496.6738360550848" cy="177" r="5"/></g>
+<text x="180" y="203" class="label" text-anchor="end">H2-hl6-meanonly</text>
+<g class="dot"><title>H2-hl6-meanonly: +0.002 d macro MAE, IS80 34.04, calibration 0.053</title><rect x="190" y="188" width="540" height="22" class="hit"/><circle cx="500.89574049808476" cy="199" r="5"/></g>
+<text x="180" y="225" class="label" text-anchor="end">H2-hl16</text>
+<g class="dot"><title>H2-hl16: -0.000 d macro MAE, IS80 34.04, calibration 0.053</title><rect x="190" y="210" width="540" height="22" class="hit"/><circle cx="493.67236826413733" cy="221" r="5"/></g>
+<text x="180" y="247" class="label" text-anchor="end">H2-hl6-regonly</text>
+<g class="dot"><title>H2-hl6-regonly: +0.002 d macro MAE, IS80 34.06, calibration 0.053</title><rect x="190" y="232" width="540" height="22" class="hit"/><circle cx="501.6085086962681" cy="243" r="5"/></g>
+<text x="180" y="269" class="label" text-anchor="end">H3-t-plugin</text>
+<g class="dot fail"><title>H3-t-plugin: +0.000 d macro MAE, IS80 34.19, calibration 0.059 (fails coverage)</title><rect x="190" y="254" width="540" height="22" class="hit"/><circle cx="493.75000000000006" cy="265" r="5"/></g>
+<text x="180" y="291" class="label" text-anchor="end">H3-nig-exact</text>
+<g class="dot"><title>H3-nig-exact: +0.032 d macro MAE, IS80 34.17, calibration 0.057</title><rect x="190" y="276" width="540" height="22" class="hit"/><circle cx="602.9158382136113" cy="287" r="5"/></g>
+<text x="180" y="313" class="label" text-anchor="end">H3-t-eb</text>
+<g class="dot fail"><title>H3-t-eb: +0.047 d macro MAE, IS80 34.15, calibration 0.051 (fails coverage)</title><rect x="190" y="298" width="540" height="22" class="hit"/><circle cx="652.2851298381747" cy="309" r="5"/></g>
+<text x="180" y="335" class="label" text-anchor="end">H3-t-irreg-only</text>
+<g class="dot"><title>H3-t-irreg-only: +0.000 d macro MAE, IS80 33.99, calibration 0.052</title><rect x="190" y="320" width="540" height="22" class="hit"/><circle cx="493.75000000000006" cy="331" r="5"/></g>
+<text x="180" y="357" class="label" text-anchor="end">H4-copies</text>
+<g class="dot"><title>H4-copies: +0.015 d macro MAE, IS80 34.44, calibration 0.051</title><rect x="190" y="342" width="540" height="22" class="hit"/><circle cx="544.6816605228721" cy="353" r="5"/></g>
+<text x="180" y="379" class="label" text-anchor="end">H4-one</text>
+<g class="dot"><title>H4-one: +0.004 d macro MAE, IS80 34.23, calibration 0.051</title><rect x="190" y="364" width="540" height="22" class="hit"/><circle cx="508.6264762732802" cy="375" r="5"/></g>
+<text x="180" y="401" class="label" text-anchor="end">H4-one-reg</text>
+<g class="dot"><title>H4-one-reg: -0.036 d macro MAE, IS80 33.93, calibration 0.052</title><rect x="190" y="386" width="540" height="22" class="hit"/><circle cx="371.4199165117966" cy="397" r="5"/></g>
+<text x="180" y="423" class="label" text-anchor="end">H4-wdof-reg</text>
+<g class="dot"><title>H4-wdof-reg: -0.035 d macro MAE, IS80 33.93, calibration 0.051</title><rect x="190" y="408" width="540" height="22" class="hit"/><circle cx="375.2811419358711" cy="419" r="5"/></g>
+<text x="180" y="445" class="label" text-anchor="end">H5-n12</text>
+<g class="dot"><title>H5-n12: +0.014 d macro MAE, IS80 34.10, calibration 0.051</title><rect x="190" y="430" width="540" height="22" class="hit"/><circle cx="542.6184019956197" cy="441" r="5"/></g>
+<text x="180" y="467" class="label" text-anchor="end">H5-cap50</text>
+<g class="dot"><title>H5-cap50: +0.021 d macro MAE, IS80 34.14, calibration 0.050</title><rect x="190" y="452" width="540" height="22" class="hit"/><circle cx="566.1273801799666" cy="463" r="5"/></g>
+<text x="180" y="489" class="label" text-anchor="end">H5-gate3</text>
+<g class="dot"><title>H5-gate3: +0.011 d macro MAE, IS80 34.09, calibration 0.051</title><rect x="190" y="474" width="540" height="22" class="hit"/><circle cx="530.4618270306196" cy="485" r="5"/></g>
+<text x="180" y="511" class="label" text-anchor="end">H5-cap75</text>
+<g class="dot"><title>H5-cap75: +0.044 d macro MAE, IS80 34.25, calibration 0.050</title><rect x="190" y="496" width="540" height="22" class="hit"/><circle cx="643.464584032754" cy="507" r="5"/></g>
+<text x="180" y="533" class="label" text-anchor="end">H5x-med12-cap50</text>
+<g class="dot"><title>H5x-med12-cap50: +0.018 d macro MAE, IS80 34.11, calibration 0.050</title><rect x="190" y="518" width="540" height="22" class="hit"/><circle cx="554.6846822546146" cy="529" r="5"/></g>
+<text x="180" y="555" class="label" text-anchor="end">H5x-mean6-cap50</text>
+<g class="dot"><title>H5x-mean6-cap50: +0.055 d macro MAE, IS80 34.20, calibration 0.051</title><rect x="190" y="540" width="540" height="22" class="hit"/><circle cx="677.8235498682053" cy="551" r="5"/></g>
+<text x="180" y="577" class="label" text-anchor="end">H6-nu1</text>
+<g class="dot"><title>H6-nu1: -0.004 d macro MAE, IS80 34.15, calibration 0.037</title><rect x="190" y="562" width="540" height="22" class="hit"/><circle cx="479.66385116286426" cy="573" r="5"/></g>
+<text x="180" y="599" class="label" text-anchor="end">H6-sd0.75</text>
+<g class="dot fail"><title>H6-sd0.75: +0.027 d macro MAE, IS80 34.35, calibration 0.048 (fails coverage)</title><rect x="190" y="584" width="540" height="22" class="hit"/><circle cx="583.9998545244641" cy="595" r="5"/></g>
+<text x="180" y="621" class="label" text-anchor="end">H6-sd1.25</text>
+<g class="dot fail"><title>H6-sd1.25: -0.000 d macro MAE, IS80 34.32, calibration 0.065 (fails coverage)</title><rect x="190" y="606" width="540" height="22" class="hit"/><circle cx="492.78790781598076" cy="617" r="5"/></g>
+<text x="180" y="643" class="label" text-anchor="end">H6-win6</text>
+<g class="dot"><title>H6-win6: +0.008 d macro MAE, IS80 34.14, calibration 0.054</title><rect x="190" y="628" width="540" height="22" class="hit"/><circle cx="521.8889827368298" cy="639" r="5"/></g>
+<text x="180" y="665" class="label" text-anchor="end">H7-round</text>
+<g class="dot"><title>H7-round: +0.000 d macro MAE, IS80 34.04, calibration 0.052</title><rect x="190" y="650" width="540" height="22" class="hit"/><circle cx="493.75000000000006" cy="661" r="5"/></g>
+<text x="180" y="687" class="label" text-anchor="end">H7-discrete</text>
+<g class="dot"><title>H7-discrete: +0.000 d macro MAE, IS80 34.04, calibration 0.052</title><rect x="190" y="672" width="540" height="22" class="hit"/><circle cx="493.75000000000006" cy="683" r="5"/></g>
+<text x="180" y="709" class="label" text-anchor="end">H7x-nearest80</text>
+<g class="dot"><title>H7x-nearest80: +0.000 d macro MAE, IS80 34.04, calibration 0.052</title><rect x="190" y="694" width="540" height="22" class="hit"/><circle cx="493.75000000000006" cy="705" r="5"/></g>
+<text x="180" y="731" class="label" text-anchor="end">H7x-mathround</text>
+<g class="dot"><title>H7x-mathround: +0.000 d macro MAE, IS80 34.04, calibration 0.052</title><rect x="190" y="716" width="540" height="22" class="hit"/><circle cx="493.75000000000006" cy="727" r="5"/></g>
+<text x="180" y="753" class="label" text-anchor="end">H7x-all-discrete</text>
+<g class="dot fail"><title>H7x-all-discrete: -0.008 d macro MAE, IS80 34.00, calibration 0.062 (fails coverage)</title><rect x="190" y="738" width="540" height="22" class="hit"/><circle cx="466.9494058710673" cy="749" r="5"/></g>
+<text x="460" y="798" class="axis" text-anchor="middle">change in cycle macro MAE, days (lower is better)</text>
+</svg>
+<svg viewBox="0 0 760 360" role="img" aria-labelledby="sc-title sc-desc" class="chart">
+<title id="sc-title">Calibration error versus 80% interval score</title>
+<desc id="sc-desc">Lower-left is better on both. The orange ring is the production baseline.</desc>
+<line x1="64" x2="736" y1="312" y2="312" class="grid"/><text x="56" y="316" class="tick" text-anchor="end">33.8</text>
+<text x="64" y="330" class="tick" text-anchor="middle">0.033</text>
+<line x1="64" x2="736" y1="239.00000000000063" y2="239.00000000000063" class="grid"/><text x="56" y="243.00000000000063" class="tick" text-anchor="end">34.0</text>
+<text x="232.00000000000009" y="330" class="tick" text-anchor="middle">0.042</text>
+<line x1="64" x2="736" y1="165.9999999999988" y2="165.9999999999988" class="grid"/><text x="56" y="169.9999999999988" class="tick" text-anchor="end">34.2</text>
+<text x="400" y="330" class="tick" text-anchor="middle">0.051</text>
+<line x1="64" x2="736" y1="92.99999999999937" y2="92.99999999999937" class="grid"/><text x="56" y="96.99999999999937" class="tick" text-anchor="end">34.4</text>
+<text x="568" y="330" class="tick" text-anchor="middle">0.059</text>
+<line x1="64" x2="736" y1="20" y2="20" class="grid"/><text x="56" y="24" class="tick" text-anchor="end">34.6</text>
+<text x="736" y="330" class="tick" text-anchor="middle">0.068</text>
+<g class="dot"><title>H1-huber-mad: calibration 0.049, IS80 34.25, macro MAE 5.524</title><circle cx="369.1775388850536" cy="143.6513840763159" r="12" class="hit"/><circle cx="369.1775388850536" cy="143.6513840763159" r="5"/></g>
+<g class="dot"><title>H1-huber-loc: calibration 0.052, IS80 34.03, macro MAE 5.517</title><circle cx="422.32163022227843" cy="222.017780408186" r="12" class="hit"/><circle cx="422.32163022227843" cy="222.017780408186" r="5"/></g>
+<g class="dot"><title>H1-mad-scale: calibration 0.049, IS80 34.31, macro MAE 5.542</title><circle cx="376.23176529427235" cy="125.36421792806888" r="12" class="hit"/><circle cx="376.23176529427235" cy="125.36421792806888" r="5"/></g>
+<g class="dot"><title>H1-trim-mad: calibration 0.049, IS80 34.27, macro MAE 5.534</title><circle cx="364.88999732972064" cy="136.86942910306496" r="12" class="hit"/><circle cx="364.88999732972064" cy="136.86942910306496" r="5"/></g>
+<g class="dot"><title>H2-hl4: calibration 0.054, IS80 34.08, macro MAE 5.532</title><circle cx="476.7103033521979" cy="202.40152237349665" r="12" class="hit"/><circle cx="476.7103033521979" cy="202.40152237349665" r="5"/></g>
+<g class="dot"><title>H2-hl6: calibration 0.054, IS80 34.06, macro MAE 5.529</title><circle cx="458.52302746479984" cy="211.83161435199492" r="12" class="hit"/><circle cx="458.52302746479984" cy="211.83161435199492" r="5"/></g>
+<g class="dot"><title>H2-hl8: calibration 0.053, IS80 34.05, macro MAE 5.528</title><circle cx="445.77658115061445" cy="215.16651338111427" r="12" class="hit"/><circle cx="445.77658115061445" cy="215.16651338111427" r="5"/></g>
+<g class="dot"><title>H2-hl6-meanonly: calibration 0.053, IS80 34.04, macro MAE 5.529</title><circle cx="451.401129142302" cy="217.71002466608365" r="12" class="hit"/><circle cx="451.401129142302" cy="217.71002466608365" r="5"/></g>
+<g class="dot"><title>H2-hl16: calibration 0.053, IS80 34.04, macro MAE 5.527</title><circle cx="445.1383867917975" cy="218.1232357637581" r="12" class="hit"/><circle cx="445.1383867917975" cy="218.1232357637581" r="5"/></g>
+<g class="dot"><title>H2-hl6-regonly: calibration 0.053, IS80 34.06, macro MAE 5.529</title><circle cx="451.7915057215774" cy="210.81982667432572" r="12" class="hit"/><circle cx="451.7915057215774" cy="210.81982667432572" r="5"/></g>
+<g class="dot fail"><title>H3-t-plugin: calibration 0.059, IS80 34.19, macro MAE 5.527</title><circle cx="565.6020355689883" cy="166.52379909310275" r="12" class="hit"/><circle cx="565.6020355689883" cy="166.52379909310275" r="5"/></g>
+<g class="dot"><title>H3-nig-exact: calibration 0.057, IS80 34.17, macro MAE 5.559</title><circle cx="529.1647458262191" cy="171.04188776298915" r="12" class="hit"/><circle cx="529.1647458262191" cy="171.04188776298915" r="5"/></g>
+<g class="dot fail"><title>H3-t-eb: calibration 0.051, IS80 34.15, macro MAE 5.574</title><circle cx="417.9139741388165" cy="179.644336680679" r="12" class="hit"/><circle cx="417.9139741388165" cy="179.644336680679" r="5"/></g>
+<g class="dot"><title>H3-t-irreg-only: calibration 0.052, IS80 33.99, macro MAE 5.527</title><circle cx="421.7762142172177" cy="234.23564528024008" r="12" class="hit"/><circle cx="421.7762142172177" cy="234.23564528024008" r="5"/></g>
+<g class="dot"><title>H4-copies: calibration 0.051, IS80 34.44, macro MAE 5.542</title><circle cx="406.42716492468844" cy="78.79477896973992" r="12" class="hit"/><circle cx="406.42716492468844" cy="78.79477896973992" r="5"/></g>
+<g class="dot"><title>H4-one: calibration 0.051, IS80 34.23, macro MAE 5.531</title><circle cx="414.52434295563495" cy="153.54657217088058" r="12" class="hit"/><circle cx="414.52434295563495" cy="153.54657217088058" r="5"/></g>
+<g class="dot"><title>H4-one-reg: calibration 0.052, IS80 33.93, macro MAE 5.490</title><circle cx="426.9815777772215" cy="254.0547455471412" r="12" class="hit"/><circle cx="426.9815777772215" cy="254.0547455471412" r="5"/></g>
+<g class="dot"><title>H4-wdof-reg: calibration 0.051, IS80 33.93, macro MAE 5.492</title><circle cx="413.825209650181" cy="254.0816554124719" r="12" class="hit"/><circle cx="413.825209650181" cy="254.0816554124719" r="5"/></g>
+<g class="dot"><title>H5-n12: calibration 0.051, IS80 34.10, macro MAE 5.541</title><circle cx="403.41332245231945" cy="195.066167386229" r="12" class="hit"/><circle cx="403.41332245231945" cy="195.066167386229" r="5"/></g>
+<g class="dot"><title>H5-cap50: calibration 0.050, IS80 34.14, macro MAE 5.548</title><circle cx="394.58147634372176" cy="184.02962760627787" r="12" class="hit"/><circle cx="394.58147634372176" cy="184.02962760627787" r="5"/></g>
+<g class="dot"><title>H5-gate3: calibration 0.051, IS80 34.09, macro MAE 5.538</title><circle cx="408.900004843426" cy="198.8746133225232" r="12" class="hit"/><circle cx="408.900004843426" cy="198.8746133225232" r="5"/></g>
+<g class="dot"><title>H5-cap75: calibration 0.050, IS80 34.25, macro MAE 5.571</title><circle cx="387.9257845353658" cy="144.59450885670103" r="12" class="hit"/><circle cx="387.9257845353658" cy="144.59450885670103" r="5"/></g>
+<g class="dot"><title>H5x-med12-cap50: calibration 0.050, IS80 34.11, macro MAE 5.545</title><circle cx="396.1097368489914" cy="194.1097717809788" r="12" class="hit"/><circle cx="396.1097368489914" cy="194.1097717809788" r="5"/></g>
+<g class="dot"><title>H5x-mean6-cap50: calibration 0.051, IS80 34.20, macro MAE 5.581</title><circle cx="408.26054725689033" cy="161.96095050560507" r="12" class="hit"/><circle cx="408.26054725689033" cy="161.96095050560507" r="5"/></g>
+<g class="dot"><title>H6-nu1: calibration 0.037, IS80 34.15, macro MAE 5.523</title><circle cx="135.15456578728268" cy="178.25302526904312" r="12" class="hit"/><circle cx="135.15456578728268" cy="178.25302526904312" r="5"/></g>
+<g class="dot fail"><title>H6-sd0.75: calibration 0.048, IS80 34.35, macro MAE 5.553</title><circle cx="349.5536073335675" cy="110.1852423196649" r="12" class="hit"/><circle cx="349.5536073335675" cy="110.1852423196649" r="5"/></g>
+<g class="dot fail"><title>H6-sd1.25: calibration 0.065, IS80 34.32, macro MAE 5.526</title><circle cx="673.5051860911644" cy="121.03530715474" r="12" class="hit"/><circle cx="673.5051860911644" cy="121.03530715474" r="5"/></g>
+<g class="dot"><title>H6-win6: calibration 0.054, IS80 34.14, macro MAE 5.535</title><circle cx="474.1196151427912" cy="184.09210418911437" r="12" class="hit"/><circle cx="474.1196151427912" cy="184.09210418911437" r="5"/></g>
+<g class="dot"><title>H7-round: calibration 0.052, IS80 34.04, macro MAE 5.527</title><circle cx="426.35224625514275" cy="218.31990745778415" r="12" class="hit"/><circle cx="426.35224625514275" cy="218.31990745778415" r="5"/></g>
+<g class="dot"><title>H7-discrete: calibration 0.052, IS80 34.04, macro MAE 5.527</title><circle cx="426.35224625514275" cy="218.31990745778415" r="12" class="hit"/><circle cx="426.35224625514275" cy="218.31990745778415" r="5"/></g>
+<g class="dot"><title>H7x-nearest80: calibration 0.052, IS80 34.04, macro MAE 5.527</title><circle cx="426.35224625514275" cy="218.31990745778415" r="12" class="hit"/><circle cx="426.35224625514275" cy="218.31990745778415" r="5"/></g>
+<g class="dot"><title>H7x-mathround: calibration 0.052, IS80 34.04, macro MAE 5.527</title><circle cx="426.35224625514275" cy="218.31990745778415" r="12" class="hit"/><circle cx="426.35224625514275" cy="218.31990745778415" r="5"/></g>
+<g class="dot fail"><title>H7x-all-discrete: calibration 0.062, IS80 34.00, macro MAE 5.519</title><circle cx="629.5889473478139" cy="229.59717246052782" r="12" class="hit"/><circle cx="629.5889473478139" cy="229.59717246052782" r="5"/></g>
+<g class="base"><title>v2-bayes: calibration 0.052, IS80 34.04, macro MAE 5.527</title><circle cx="426.35224625514275" cy="218.31990745778415" r="12" class="hit"/><circle cx="426.35224625514275" cy="218.31990745778415" r="6"/><text x="436.35224625514275" y="210.31990745778415" class="label">baseline</text></g>
+<text x="400" y="352" class="axis" text-anchor="middle">calibration error, mean |coverage − 0.80| (lower is better)</text>
+<text transform="translate(16 166) rotate(-90)" class="axis" text-anchor="middle">IS80 (lower is better)</text>
+</svg>
+<h2>Results table</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">variant</th><th scope="col">macro MAE</th><th scope="col">Δ</th><th scope="col">IS80</th><th scope="col">calib</th><th scope="col">within 3 d</th><th scope="col">cold</th><th scope="col">established</th><th scope="col">period</th><th scope="col">coverage ok</th><th scope="col">meets rule</th></tr></thead><tbody><tr><th scope="row">v2-bayes (baseline)</th><td>5.527</td><td>–</td><td>34.04</td><td>0.052</td><td>0.592</td><td>5.700</td><td>5.476</td><td>0.917</td><td>yes</td><td>–</td></tr><tr><th scope="row">H1-huber-mad</th><td>5.524</td><td>-0.002</td><td>34.25</td><td>0.049</td><td>0.596</td><td>5.700</td><td>5.443</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H1-huber-loc</th><td>5.517</td><td>-0.010</td><td>34.03</td><td>0.052</td><td>0.596</td><td>5.700</td><td>5.428</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H1-mad-scale</th><td>5.542</td><td>+0.015</td><td>34.31</td><td>0.049</td><td>0.591</td><td>5.700</td><td>5.527</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H1-trim-mad</th><td>5.534</td><td>+0.007</td><td>34.27</td><td>0.049</td><td>0.593</td><td>5.700</td><td>5.485</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H2-hl4</th><td>5.532</td><td>+0.005</td><td>34.08</td><td>0.054</td><td>0.591</td><td>5.698</td><td>5.493</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H2-hl6</th><td>5.529</td><td>+0.002</td><td>34.06</td><td>0.054</td><td>0.593</td><td>5.699</td><td>5.483</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H2-hl8</th><td>5.528</td><td>+0.001</td><td>34.05</td><td>0.053</td><td>0.593</td><td>5.699</td><td>5.480</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H2-hl6-meanonly</th><td>5.529</td><td>+0.002</td><td>34.04</td><td>0.053</td><td>0.592</td><td>5.699</td><td>5.484</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H2-hl16</th><td>5.527</td><td>-0.000</td><td>34.04</td><td>0.053</td><td>0.592</td><td>5.699</td><td>5.477</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H2-hl6-regonly</th><td>5.529</td><td>+0.002</td><td>34.06</td><td>0.053</td><td>0.592</td><td>5.700</td><td>5.483</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H3-t-plugin</th><td>5.527</td><td>+0.000</td><td>34.19</td><td>0.059</td><td>0.592</td><td>5.700</td><td>5.476</td><td>0.917</td><td>no</td><td>no</td></tr><tr><th scope="row">H3-nig-exact</th><td>5.559</td><td>+0.032</td><td>34.17</td><td>0.057</td><td>0.589</td><td>5.703</td><td>5.545</td><td>0.916</td><td>yes</td><td>no</td></tr><tr><th scope="row">H3-t-eb</th><td>5.574</td><td>+0.047</td><td>34.15</td><td>0.051</td><td>0.590</td><td>5.794</td><td>5.483</td><td>0.917</td><td>no</td><td>no</td></tr><tr><th scope="row">H3-t-irreg-only</th><td>5.527</td><td>+0.000</td><td>33.99</td><td>0.052</td><td>0.592</td><td>5.700</td><td>5.476</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H4-copies</th><td>5.542</td><td>+0.015</td><td>34.44</td><td>0.051</td><td>0.598</td><td>5.792</td><td>5.388</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H4-one</th><td>5.531</td><td>+0.004</td><td>34.23</td><td>0.051</td><td>0.599</td><td>5.768</td><td>5.386</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H4-one-reg</th><td>5.490</td><td>-0.036</td><td>33.93</td><td>0.052</td><td>0.598</td><td>5.676</td><td>5.408</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H4-wdof-reg</th><td>5.492</td><td>-0.035</td><td>33.93</td><td>0.051</td><td>0.598</td><td>5.677</td><td>5.408</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H5-n12</th><td>5.541</td><td>+0.014</td><td>34.10</td><td>0.051</td><td>0.592</td><td>5.714</td><td>5.479</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H5-cap50</th><td>5.548</td><td>+0.021</td><td>34.14</td><td>0.050</td><td>0.592</td><td>5.716</td><td>5.487</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H5-gate3</th><td>5.538</td><td>+0.011</td><td>34.09</td><td>0.051</td><td>0.592</td><td>5.700</td><td>5.487</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H5-cap75</th><td>5.571</td><td>+0.044</td><td>34.25</td><td>0.050</td><td>0.591</td><td>5.726</td><td>5.517</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H5x-med12-cap50</th><td>5.545</td><td>+0.018</td><td>34.11</td><td>0.050</td><td>0.592</td><td>5.716</td><td>5.475</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H5x-mean6-cap50</th><td>5.581</td><td>+0.055</td><td>34.20</td><td>0.051</td><td>0.589</td><td>5.716</td><td>5.615</td><td>0.917</td><td>yes</td><td>no</td></tr><tr><th scope="row">H6-nu1</th><td>5.523</td><td>-0.004</td><td>34.15</td><td>0.037</td><td>0.592</td><td>5.703</td><td>5.462</td><td>0.918</td><td>yes</td><td>no</td></tr><tr><th scope="row">H6-sd0.75</th><td>5.553</td><td>+0.027</td><td>34.35</td><td>0.048</td><td>0.591</td><td>5.755</td><td>5.482</td><td>0.917</td><td>no</td><td>no</td></tr><tr><th scope="row">H6-sd1.25</th><td>5.526</td><td>-0.000</td><td>34.32</td><td>0.065</td><td>0.591</td><td>5.699</td><td>5.472</td><td>0.917</td><td>no</td><td>no</td></tr><tr><th scope="row">H6-win6</th><td>5.535</td><td>+0.008</td><td>34.14</td><td>0.054</td><td>0.591</td><td>5.700</td><td>5.505</td><td>0.918</td><td>yes</td><td>no</td></tr><tr><th scope="row">H7-round</th><td>5.527</td><td>+0.000</td><td>34.04</td><td>0.052</td><td>0.592</td><td>5.700</td><td>5.476</td><td>0.878</td><td>yes</td><td>no</td></tr><tr><th scope="row">H7-discrete</th><td>5.527</td><td>+0.000</td><td>34.04</td><td>0.052</td><td>0.592</td><td>5.700</td><td>5.476</td><td>0.878</td><td>yes</td><td>no</td></tr><tr><th scope="row">H7x-nearest80</th><td>5.527</td><td>+0.000</td><td>34.04</td><td>0.052</td><td>0.592</td><td>5.700</td><td>5.476</td><td>0.878</td><td>yes</td><td>no</td></tr><tr><th scope="row">H7x-mathround</th><td>5.527</td><td>+0.000</td><td>34.04</td><td>0.052</td><td>0.592</td><td>5.700</td><td>5.476</td><td>0.883</td><td>yes</td><td>no</td></tr><tr><th scope="row">H7x-all-discrete</th><td>5.519</td><td>-0.008</td><td>34.00</td><td>0.062</td><td>0.643</td><td>5.688</td><td>5.464</td><td>0.878</td><td>no</td><td>no</td></tr></tbody></table></div>
+<h2>Findings</h2>
+<h2>Findings</h2>
+<h3>Current understanding
+- Baseline forecast-v2 beats simple point baselines on synthetic data but is miscalibrated in opposite directions for regular and noisy histories.
+- expanding-median has a lower median error than v2 on the original backtest, hinting that a robust location estimate could help.</h3>
+<h3>Patterns and insights
+(pending round 1)</h3>
+<h3>Lessons and constraints
+- Do not tune against a single seed or scenario; the harness averages seven runs.
+- Synthetic wins are necessary, not sufficient: the generator is ours.</h3>
+<h3>Open questions
+- Is the noisy-scenario under-coverage driven by missed logs that pass the gate (two-cycle gaps under 45 days) or by heavy tails?
+</h3>
+<h2>Research log</h2>
+<h2>Research log</h2>
+<h3>2026-09-26 -- bootstrap
+- Built a locked evaluation harness over three simulator scenarios (base, noisy, regular; 7 seeded runs) so a change cannot win by fitting one generator setting.
+- Baseline v2-bayes: macro MAE 5.527 d, IS80 34.04, coverage 0.746--0.886 (calibration error 0.052). It under-covers on noisy histories and over-covers on regular ones: one global variance prior is too wide for regular users and too narrow for messy ones.
+- Coverage constraint set relative to the baseline after seeing it (the original absolute [0.75, 0.88] rule fails the baseline itself); recorded here for transparency.
+- Seven hypotheses written as protocols before any candidate ran.
+</h3>
+</main></body></html>

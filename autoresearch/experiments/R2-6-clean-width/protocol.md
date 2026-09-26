@@ -1,0 +1,4 @@
+# R2-6 separate clean-cycle width from artifact risk (day-0 track, harness v2)
+Change: shrink the within-person SD prior for users whose history shows no set-aside intervals (e.g. withinSd 4 -> 3 d, matching FIGO-regular spread) while keeping the current width for users with any set-aside interval or an irregular/condition profile.
+Why: harness v2 shows clean targets over-covered (in-gate coverage 0.86-0.91, hump-shaped PIT) while artifact targets are missed regardless; one global width serves neither (H6).
+Prediction: in-gate calibration error falls >= 0.02 and IS80 falls (rule b or c) without breaking all-target coverage constraints. Caveat recorded in findings: the generator's regular users are tighter than the literature, so a synthetic win here needs real-data confirmation before shipping.

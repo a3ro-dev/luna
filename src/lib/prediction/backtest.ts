@@ -236,6 +236,8 @@ export interface SyntheticOptions {
   doubleLog?: number;
   /** Fraction of users with highly variable, right-skewed cycles. */
   irregularShare?: number;
+  /** Width of the uniform per-user drift range in days per cycle (default 0.3, i.e. +-0.15). */
+  driftRange?: number;
 }
 
 export function syntheticCohort(o: SyntheticOptions): History[] {
@@ -246,7 +248,7 @@ export function syntheticCohort(o: SyntheticOptions): History[] {
     const irregular = rand() < (o.irregularShare ?? 0.15);
     const personalMean = irregular ? 34 + 6 * gauss() : 28.5 + 2.6 * gauss();
     const sd = irregular ? 6 + 6 * rand() : Math.exp(Math.log(2.2) + 0.45 * gauss());
-    const drift = (rand() - 0.5) * 0.3; // days per cycle
+    const drift = (rand() - 0.5) * (o.driftRange ?? 0.3); // days per cycle
     const bleedMean = 4 + 2 * rand();
     const nCycles = 2 + Math.floor(rand() * 14);
     const cycles: CycleInput[] = [];
