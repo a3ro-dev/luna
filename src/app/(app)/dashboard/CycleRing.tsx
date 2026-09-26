@@ -10,7 +10,11 @@ export interface CycleRingData {
   ovulation: { start: number; end: number } | null;
 }
 
-export const HONEY_LINE = "#D2AE52";
+/** Estimated ovulation. `--honey` is a .tier-app token (globals.css) and follows plan and light/dark. */
+export const HONEY_LINE = "var(--honey)";
+
+/** SF Pro Rounded on Apple platforms (Health / Fitness numerals); the system face elsewhere. */
+export const rounded = { fontFamily: "ui-rounded, -apple-system, BlinkMacSystemFont, system-ui, sans-serif" } as const;
 
 const C = 60;
 const R = 50;
@@ -36,29 +40,17 @@ const days = (a: number, b: number) => (a === b ? `day ${a}` : `days ${a} to ${b
 export default function CycleRing({ data, className = "" }: { data: CycleRingData; className?: string }) {
   const { day, length, periodDays, window, ovulation } = data;
   const at = (d: number) => d / length;
-  const step = length <= 45 ? 1 : 7;
   const [tx, ty] = point(at(day - 0.5));
 
   return (
     <figure className={`relative ${className}`}>
       <svg viewBox="0 0 120 120" aria-hidden className="size-full overflow-visible">
-        <circle cx={C} cy={C} r={R} fill="none" stroke="var(--tier-line)" strokeWidth={7} />
-        {Array.from({ length: Math.ceil(length / step) }, (_, i) => {
-          const week = (i * step) % 7 === 0;
-          const [x1, y1] = point(at(i * step), week ? 38.5 : 41);
-          const [x2, y2] = point(at(i * step), 43.5);
-          return (
-            <line
-              key={i}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-              stroke={week ? "var(--tier-muted)" : "var(--tier-line)"}
-              strokeOpacity={week ? 0.45 : 1}
-              strokeWidth={1}
-            />
-          );
+        {/* Soft track, like an Activity ring at rest, with a quiet tick each week. */}
+        <circle cx={C} cy={C} r={R} fill="none" stroke="var(--tier-accent)" strokeOpacity={0.16} strokeWidth={7} />
+        {Array.from({ length: Math.ceil(length / 7) }, (_, i) => {
+          const [x1, y1] = point(at(i * 7), 39);
+          const [x2, y2] = point(at(i * 7), 43.5);
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--label-tertiary)" strokeOpacity={0.35} strokeWidth={1} />;
         })}
         {ovulation ? (
           <path d={arc(at(ovulation.start), at(ovulation.end + 1))} stroke={HONEY_LINE} {...dotted} />
@@ -71,13 +63,17 @@ export default function CycleRing({ data, className = "" }: { data: CycleRingDat
           strokeWidth={7}
           strokeLinecap="round"
         />
-        <circle cx={tx} cy={ty} r={5.5} fill="var(--tier-ink)" stroke="var(--tier-surface)" strokeWidth={2.5} />
+        <circle cx={tx} cy={ty} r={5.5} fill="var(--tint)" stroke="var(--tier-surface)" strokeWidth={2.5} />
       </svg>
       <figcaption className="absolute inset-0 flex flex-col items-center justify-center">
-        <span aria-hidden className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--tier-muted)]">
+        <span aria-hidden className="text-[13px] font-medium leading-none text-[var(--label-secondary)]">
           Day
         </span>
-        <span aria-hidden className="font-serif text-[2.4rem] leading-none tabular-nums text-[var(--tier-ink)]">
+        <span
+          aria-hidden
+          style={rounded}
+          className="mt-1 text-[2.25rem] font-bold leading-none tracking-[-0.02em] tabular-nums text-[var(--tier-ink)]"
+        >
           {day}
         </span>
         <span className="sr-only">

@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.19.2",
+    date: "2026-09-26",
+    type: "feat",
+    title: "A calmer Today screen",
+    description:
+      "The dashboard now reads like an Apple app: a large Today title, a cycle ring with the day and an estimated phase, a calendar with round day cells (today is ringed, logged days filled, estimated days dashed), Health-style tiles for your rhythm, and grouped lists for recent cycles and the pattern check. When a period is later than usual the headline says so plainly and shows where it most likely starts. On phones the calendar now comes right after the Today card.",
+  },
+  {
     version: "0.19.1",
     date: "2026-09-26",
     type: "feat",

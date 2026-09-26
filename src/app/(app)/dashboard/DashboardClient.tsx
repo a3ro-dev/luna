@@ -3,7 +3,7 @@
 import React from "react";
 import { MotionConfig } from "motion/react";
 import AppTabBar from "@/components/AppTabBar";
-import { keyframes, type DashboardProps } from "./parts";
+import type { DashboardProps } from "./parts";
 import FreeDashboard from "./FreeDashboard";
 import PremiumDashboard from "./PremiumDashboard";
 import PremiumPlusDashboard from "./PremiumPlusDashboard";
@@ -16,8 +16,7 @@ export default function DashboardClient(props: DashboardProps) {
   const Layout =
     props.plan === "premium+" ? PremiumPlusDashboard : props.plan === "premium" ? PremiumDashboard : FreeDashboard;
   return (
-    <div className="tier-app font-sans pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0" data-plan={props.plan}>
-      <style dangerouslySetInnerHTML={{ __html: keyframes }} />
+    <div className={`tier-app font-sans pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0`} data-plan={props.plan}>
       <MotionConfig reducedMotion="user">
         <Layout {...props} />
       </MotionConfig>

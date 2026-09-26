@@ -2,13 +2,15 @@
 
 /* Shared dashboard pieces. Each plan composes them in its own layout file. */
 
-import React, { useState } from "react";
+import React, { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "motion/react";
-import SignOutButton from "@/components/SignOutButton";
+import { motion } from "motion/react";
+import { LargeTitle } from "@/components/apple/LargeTitle";
+import { GroupedRow, GroupedSection, RowIcon } from "@/components/apple/Grouped";
+import { spring } from "@/lib/motion";
 import type { UserPlan } from "@/lib/theme/accent";
 import type { OpenPeriod } from "./QuickLog";
-import CycleRing, { HONEY_LINE, RingSwatch, type CycleRingData } from "./CycleRing";
+import CycleRing, { RingSwatch, rounded, type CycleRingData } from "./CycleRing";
 import type { CycleCheck } from "@/lib/prediction/cycle-check";
 import type { CyclePoint, NoteEntry, PhaseInfo } from "@/lib/dashboard/insights";
 
@@ -77,114 +79,123 @@ export interface DashboardProps {
 }
 
 /* ─── Shared styles ─── */
-export const card =
-  "rounded-3xl border border-[var(--tier-line)] bg-[var(--tier-surface)] shadow-[0_20px_40px_rgba(255,181,192,0.06)]";
-export const eyebrow = "text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--tier-muted)]";
-export const sectionTitle = "font-serif text-2xl leading-tight text-[var(--tier-ink)] sm:text-[1.75rem]";
+export { rounded };
+/** Card surface: the same `.grouped` surface as grouped lists (radius, fill, --shadow-card), so stacked edges match. */
+export const card = "grouped";
+/** iOS small section header (13px caps), matching GroupedSection. Add `px-4 pb-1.5` above a card. */
+export const eyebrow = "text-[13px] font-medium uppercase tracking-[0.04em] text-[var(--label-tertiary)]";
+/** iOS title 2. */
+export const sectionTitle =
+  "font-display text-[22px] font-semibold leading-tight tracking-[-0.02em] text-[var(--tier-ink)]";
 export const pill =
-  "inline-flex min-h-11 items-center rounded-full px-5 text-xs font-semibold uppercase tracking-wide transition-colors duration-150";
-export const pillIdle = `${pill} border border-[var(--tier-line)] text-[var(--tier-ink)] hover:bg-[var(--tier-tint)]`;
-export const periodFill = "bg-[color-mix(in_oklch,var(--tier-accent)_65%,var(--tier-surface))]";
+  "inline-flex min-h-11 items-center rounded-full px-4 text-[15px] font-medium transition-colors duration-150";
+export const pillIdle = `${pill} cursor-pointer text-[var(--label-secondary)] hover:bg-[var(--fill-tertiary)] hover:text-[var(--tier-ink)]`;
+/* Solid tint: tint text on a light tint wash drops below 4.5:1, surface text on tint stays above. */
+const pillActive = `${pill} bg-[var(--tint)] font-semibold text-[var(--tier-surface)]`;
+/** iOS prominent button, filled with the plan tint. */
+export const primaryButton =
+  "inline-flex min-h-[50px] cursor-pointer items-center justify-center rounded-full bg-[var(--tint)] px-6 text-[17px] font-semibold tracking-[-0.01em] text-[var(--tier-surface)] transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--tint)_85%,var(--tier-ink))] active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50";
+/** iOS plain button: tint text, no chrome until hovered. */
+export const plainButton =
+  "inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full px-4 text-[17px] text-[var(--tint)] transition-colors duration-150 hover:bg-[var(--fill-tertiary)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
+export const periodFill = "bg-[color-mix(in_oklch,var(--tier-accent)_55%,var(--tier-surface))]";
+/* Dashed means estimated, everywhere. Pulled toward ink so the outline reads at >= 3:1. */
+const estimateLine =
+  "border-[1.5px] border-dashed border-[color-mix(in_oklch,var(--tier-accent)_55%,var(--tier-ink))]";
+/* --honey, --positive and --caution are .tier-app tokens in globals.css. */
+const honeyLine = "border-[1.5px] border-dashed border-[var(--honey)]";
 
 const PLAN_LABEL: Record<UserPlan, string> = { free: "Free", premium: "Premium", "premium+": "Premium+" };
 
 export const longDate = (iso: string, opts: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" }) =>
   new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { ...opts, timeZone: "UTC" });
 
-/*
- * Enter: opacity + rise. No blur: filter on a stack of full-width cards is
- * paint-heavy on phones and this page opens daily. `initial` must match on
- * server and client, so reduced motion is handled by <MotionConfig
- * reducedMotion="user"> at the root, which drops the rise at animation time
- * without touching SSR markup.
+/**
+ * Product screens don't choreograph page loads, so this is a no-op kept for
+ * layouts that still spread it onto motion elements.
  */
 export function useEnter(delay = 0) {
-  return {
-    initial: { opacity: 0, y: 12 },
-    animate: { opacity: 1, y: 0 },
-    transition: { type: "spring" as const, duration: 0.45, bounce: 0, delay },
-  };
+  void delay;
+  return { initial: false as const };
 }
-
-/* Today's cell breathes and the Ask Luna button shimmers once; nothing else loops. */
-export const keyframes = `
-@keyframes shimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-@keyframes breathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.03); }
-}
-`;
 
 /* ─── Sub-components ─── */
 
-/* Navigation is chrome: it stays put on every visit instead of entering. */
+const LINKS = [
+  { href: "/dashboard", label: "Today" },
+  { href: "/chat", label: "Chat" },
+  { href: "/settings", label: "Settings" },
+] as const;
+
+/**
+ * Desktop chrome: a top bar, or a source list with `vertical`. Phones use
+ * AppTabBar instead, so the whole nav is hidden below md. Sign out lives in
+ * Settings, as in Apple apps.
+ */
 export function Nav({ plan, vertical = false }: { plan: UserPlan; vertical?: boolean }) {
   return (
     <nav
       aria-label="Main navigation"
       className={
         vertical
-          ? "flex min-w-0 flex-col gap-4 lg:sticky lg:top-10 lg:self-start"
-          : "flex min-w-0 flex-wrap items-center justify-between gap-3"
+          ? "hidden min-w-0 flex-col gap-4 pt-4 md:flex lg:sticky lg:top-4 lg:self-start"
+          : "hidden min-h-16 min-w-0 items-center justify-between gap-4 md:flex"
       }
     >
       <Link
         href="/dashboard"
-        className="inline-flex min-h-11 items-center gap-2.5 self-start font-serif text-2xl text-[var(--tier-ink)] transition-opacity duration-150 hover:opacity-70"
+        className={`inline-flex min-h-11 items-center gap-2 font-serif text-[1.625rem] leading-none text-[var(--tier-ink)] transition-opacity duration-150 hover:opacity-70 ${vertical ? "self-start" : ""}`}
       >
         Luna
-        <span className="rounded-full bg-[var(--tier-tint)] px-2.5 py-1 font-sans text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--tier-ink)]">
+        <span className="rounded-full bg-[var(--fill-tertiary)] px-2 py-0.5 font-sans text-[12px] font-semibold text-[var(--label-secondary)]">
           {PLAN_LABEL[plan]}
         </span>
       </Link>
-      {/* Phones use the bottom tab bar instead. */}
-      <div
-        className={
-          vertical
-            ? "hidden flex-wrap gap-2 md:flex lg:flex-col lg:items-start"
-            : "hidden min-w-0 flex-wrap items-center justify-end gap-2 md:flex"
-        }
-      >
-        <Link href="/dashboard" aria-current="page" className={`${pill} bg-[var(--tier-ink)] text-[var(--tier-surface)]`}>
-          Dashboard
-        </Link>
-        <Link href="/chat" className={pillIdle}>
-          Chat
-        </Link>
-        <Link href="/settings" className={pillIdle}>
-          Settings
-        </Link>
-        <SignOutButton className={`${pillIdle} cursor-pointer`} />
+      <div className={vertical ? "flex flex-wrap gap-1 lg:flex-col lg:items-stretch" : "flex items-center gap-1"}>
+        {LINKS.map((l) =>
+          l.href === "/dashboard" ? (
+            <Link key={l.href} href={l.href} aria-current="page" className={pillActive}>
+              {l.label}
+            </Link>
+          ) : (
+            <Link key={l.href} href={l.href} className={pillIdle}>
+              {l.label}
+            </Link>
+          ),
+        )}
       </div>
     </nav>
   );
 }
 
+const PLAN_LINE: Record<UserPlan, string> = {
+  free: "Your calendar and what's next.",
+  premium: "A gentle look at your rhythm today.",
+  "premium+": "A little space to see your rhythm, one cycle at a time.",
+};
+
+/** iOS large title. Its parent must be padded `px-4 md:px-6`: the compact bar bleeds by exactly that. */
 export function Hero({ userName, plan, today }: { userName: string; plan: UserPlan; today: string }) {
-  const enter = useEnter();
-  const later = useEnter(0.08);
   return (
-    <header className="mb-6 md:mb-10">
-      <motion.p className="font-serif text-lg italic text-[var(--tier-muted)]" {...enter}>
-        {longDate(today, { weekday: "long", month: "long", day: "numeric" })}
-      </motion.p>
-      <motion.h1
-        className="mt-1 font-serif text-[clamp(2.4rem,9vw,3.5rem)] font-light leading-[1.05] tracking-tight text-[var(--tier-ink)] [overflow-wrap:anywhere]"
-        {...enter}
-      >
-        Hey {userName}
-      </motion.h1>
-      <motion.p className="mt-3 max-w-[46ch] text-base font-light leading-relaxed text-[var(--tier-muted)]" {...later}>
-        {plan === "free"
-          ? "Your calendar and the next things to know."
-          : plan === "premium"
-            ? "A gentle look at your rhythm today."
-            : "A little space to see your rhythm, one cycle at a time."}
-      </motion.p>
-    </header>
+    <LargeTitle
+      title="Today"
+      eyebrow={longDate(today, { weekday: "long", month: "long", day: "numeric" })}
+      subtitle={<span className="[overflow-wrap:anywhere]">{`Hey ${userName}. ${PLAN_LINE[plan]}`}</span>}
+    />
+  );
+}
+
+/** Estimated phases wear a dashed outline, like estimated days (so "estimated" is only spoken); a logged period is a soft fill. */
+export function PhaseChip({ phase }: { phase: PhaseInfo }) {
+  return (
+    <span
+      className={`inline-flex min-h-7 items-center whitespace-nowrap rounded-full px-2.5 text-[13px] font-medium text-[var(--tier-ink)] ${
+        phase.estimated ? estimateLine : periodFill
+      }`}
+    >
+      {phase.label}
+      {phase.estimated ? <span className="ml-1 font-normal text-[var(--label-secondary)]">estimated</span> : null}
+    </span>
   );
 }
 
@@ -194,30 +205,41 @@ export function TodayCard({
   headline,
   window,
   status,
+  phase = null,
+  dayOfCycle = null,
 }: {
   ring: CycleRingData | null;
   headline: string;
   window: string | null;
   status: string;
+  phase?: PhaseInfo | null;
+  dayOfCycle?: number | null;
 }) {
-  const enter = useEnter(0.1);
   return (
-    <motion.section aria-labelledby="today-heading" className={`${card} p-5 sm:p-7`} {...enter}>
-      <div className="flex items-center gap-5 sm:gap-7">
-        {ring ? <CycleRing data={ring} className="size-24 shrink-0 min-[360px]:size-[7.5rem] sm:size-36" /> : null}
+    <section aria-labelledby="today-heading" className={`${card} p-5 sm:p-6`}>
+      <div className="flex items-center gap-5">
+        {ring ? <CycleRing data={ring} className="size-28 shrink-0 sm:size-32" /> : null}
         <div className="min-w-0 flex-1">
-          <h2 id="today-heading" className={eyebrow}>
-            Today
+          {!ring && dayOfCycle != null ? (
+            <p className="text-[13px] font-medium text-[var(--label-secondary)]">Cycle day {dayOfCycle}</p>
+          ) : null}
+          <h2 id="today-heading" className="text-[15px] font-semibold text-[var(--tint)]">
+            Next period
           </h2>
-          <p className="mt-3 text-sm text-[var(--tier-muted)]">Next period</p>
-          <p className="mt-0.5 font-serif text-[1.65rem] leading-tight text-[var(--tier-ink)] sm:text-3xl">{headline}</p>
-          {window ? <p className="mt-1.5 text-sm leading-snug text-[var(--tier-muted)]">{window}</p> : null}
+          <p className="mt-1 text-balance font-serif text-[1.625rem] leading-[1.1] tracking-[-0.01em] text-[var(--tier-ink)] sm:text-[1.75rem]">{headline}</p>
+          {window ? <p className="mt-1 text-[15px] leading-snug text-[var(--label-secondary)]">{window}</p> : null}
+          {/* When late, the headline already says so. */}
+          {phase && phase.key !== "late" ? (
+            <p className="mt-3">
+              <PhaseChip phase={phase} />
+            </p>
+          ) : null}
         </div>
       </div>
-      <div className="mt-5 border-t border-[var(--tier-line)] pt-4">
-        <p className="text-sm leading-relaxed text-[var(--tier-ink)]">{status}</p>
+      <div className="hairline-t mt-5 pt-4">
+        <p className="text-[15px] leading-relaxed text-[var(--tier-ink)]">{status}</p>
         {ring ? (
-          <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-[var(--tier-muted)]">
+          <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[12px] text-[var(--label-secondary)]">
             <li className="flex items-center gap-1.5">
               <RingSwatch kind="logged" /> Logged period
             </li>
@@ -232,111 +254,145 @@ export function TodayCard({
           </ul>
         ) : null}
       </div>
-    </motion.section>
+    </section>
   );
 }
 
 export function OvulationCard({ window, note }: { window: string | null; note: string | null }) {
-  const enter = useEnter(0.16);
   return (
-    <motion.section aria-labelledby="ovulation-heading" className={`${card} p-5 sm:p-7`} {...enter}>
-      <h2 id="ovulation-heading" className={`${eyebrow} flex items-center gap-2`}>
-        <span aria-hidden className="size-2.5 rounded-full border border-dashed" style={{ borderColor: HONEY_LINE }} />
+    <section aria-labelledby="ovulation-heading" className={`${card} p-5`}>
+      <h2 id="ovulation-heading" className="flex items-center gap-2 text-[15px] font-semibold text-[var(--tier-ink)]">
+        <span aria-hidden className={`size-2.5 rounded-full ${honeyLine}`} />
         {window ? "Estimated ovulation" : "Ovulation"}
       </h2>
-      <p className="mt-2 font-serif text-2xl leading-tight text-[var(--tier-ink)]">{window ?? "Not estimated"}</p>
-      <p className="mt-1.5 text-sm leading-relaxed text-[var(--tier-muted)]">
+      <p className="mt-1.5 text-[22px] font-semibold leading-tight tracking-[-0.02em] text-[var(--tier-ink)]">
+        {window ?? "Not estimated"}
+      </p>
+      <p className="mt-1 text-[13px] leading-snug text-[var(--label-secondary)]">
         {window
           ? "Rough calendar estimate, not confirmed ovulation"
           : (note ?? "There is not enough suitable information for a useful estimate.")}
       </p>
-    </motion.section>
+    </section>
   );
 }
 
+/** A quiet grouped row into chat. */
 export function AskLunaCard() {
-  const enter = useEnter(0.22);
   return (
-    <motion.section
-      className={`${card} flex items-center justify-between gap-4 p-5 sm:flex-col sm:justify-center sm:p-8 sm:text-center`}
-      {...enter}
-    >
-      <p className="font-serif text-xl text-[var(--tier-ink)]">Have a question?</p>
-      <Link
+    <GroupedSection>
+      <GroupedRow
         href="/chat"
-        className="relative inline-flex min-h-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--tier-ink)] px-7 text-[11px] font-semibold uppercase tracking-widest text-[var(--tier-surface)] shadow-[0_12px_24px_rgba(109,90,96,0.2)] transition-[background-color,box-shadow] duration-200 hover:bg-[var(--tier-muted)] hover:shadow-[0_14px_28px_rgba(109,90,96,0.25)] active:shadow-[0_8px_16px_rgba(109,90,96,0.15)]"
-      >
-        {/* Shimmer plays once, then rests off-button */}
-        <span
-          aria-hidden
-          className="absolute inset-0 animate-[shimmer_2s_ease-in-out_0.5s_1_both] motion-reduce:hidden"
-          style={{
-            background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%)",
-            backgroundSize: "200% 100%",
-            backgroundRepeat: "no-repeat",
-          }}
-        />
-        <span className="relative">Ask Luna</span>
-      </Link>
-    </motion.section>
+        icon={
+          <RowIcon color="var(--tint)">
+            {/* Surface-coloured glyph so it flips with the tint in dark mode (RowIcon defaults to white). */}
+            <svg aria-hidden viewBox="0 0 24 24" className="size-4 text-[var(--tier-surface)]" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinejoin="round">
+              <path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L4 20l1-4.3A8.5 8.5 0 1 1 21 11.5Z" />
+            </svg>
+          </RowIcon>
+        }
+        label="Ask Luna"
+        detail="Questions about your cycle, any time"
+      />
+    </GroupedSection>
   );
 }
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+const Chevron = ({ d }: { d: string }) => (
+  <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+    <path d={d} />
+  </svg>
+);
+
+/**
+ * Day states in priority order. One list drives each cell's tone, its spoken
+ * state and the legend, which shows only states in the visible month.
+ */
+const DAY_STATES = [
+  { key: "isPeriod", label: "Period", spoken: "logged period", tone: `${periodFill} font-medium` },
+  { key: "isPredicted", label: "Likely start window", spoken: "likely start window, estimated", tone: estimateLine },
+  {
+    key: "isOvulation",
+    label: "Logged ovulation",
+    spoken: "logged ovulation",
+    tone: "bg-[color-mix(in_oklab,var(--honey)_40%,var(--tier-surface))]",
+  },
+  // The calendar marks the single most likely day; the card and ring show the wider window.
+  { key: "isPredictedOvulation", label: "Likely ovulation day", spoken: "likely ovulation day, estimated", tone: honeyLine },
+  {
+    key: "isFollicular",
+    label: "Follicular",
+    spoken: "follicular phase",
+    tone: "bg-[color-mix(in_oklch,var(--tint)_12%,var(--tier-surface))]",
+  },
+  {
+    key: "isLuteal",
+    label: "Luteal",
+    spoken: "luteal phase",
+    tone: "bg-[color-mix(in_oklab,var(--honey)_16%,var(--tier-surface))]",
+  },
+] as const satisfies readonly { key: keyof CalendarDay; label: string; spoken: string; tone: string }[];
+
+/**
+ * iOS Calendar month view. Logged days are soft fills, estimates dashed. Today
+ * is a filled tint circle on a plain day; on a day with a state it keeps that
+ * state and gains a tint ring, so today never hides a period.
+ */
 export function Calendar({ months, today }: { months: CalendarMonth[]; today: string }) {
-  const reduce = useReducedMotion();
-  const enter = useEnter(0.2);
   const current = Math.max(0, months.findIndex((m) => m.key === today.slice(0, 7)));
   const [index, setIndex] = useState(current);
+  // Fade only after the user pages, so the server-rendered month is never hidden.
+  const [paged, setPaged] = useState(false);
   const month = months[index];
   if (!month) return null;
-
-  const arrow =
-    "inline-flex size-11 items-center justify-center rounded-full border border-[var(--tier-line)] text-[var(--tier-ink)] transition-colors duration-150 hover:bg-[var(--tier-tint)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent cursor-pointer";
+  const go = (i: number) => {
+    setIndex(i);
+    setPaged(true);
+  };
+  const [, monthName = month.name, year] = /^(.*) (\d{4})$/.exec(month.name) ?? [];
+  const legend = DAY_STATES.filter((st) => month.days.some((d) => d[st.key]));
+  const chevron =
+    "inline-flex size-11 cursor-pointer items-center justify-center rounded-full text-[var(--tint)] transition-colors duration-150 hover:bg-[var(--fill-tertiary)] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent";
 
   return (
-    <motion.section aria-labelledby="calendar-heading" className={`${card} p-4 sm:p-7`} {...enter}>
-      <div className="mb-4 flex items-center justify-between gap-2 sm:mb-6">
-        <h2 id="calendar-heading" aria-live="polite" className={`${sectionTitle} min-w-0 pl-1`}>
-          {month.name}
+    <section aria-labelledby="calendar-heading" className={`${card} px-3 pb-4 pt-3 sm:px-5 sm:pb-5`}>
+      <div className="flex items-center justify-between gap-2 pl-2">
+        <h2
+          id="calendar-heading"
+          aria-live="polite"
+          className="min-w-0 truncate font-display text-[22px] font-bold tracking-[-0.022em] text-[var(--tier-ink)]"
+        >
+          {monthName}
+          {year ? <span className="font-semibold text-[var(--label-secondary)]"> {year}</span> : null}
         </h2>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {index !== current ? (
-            <button
-              type="button"
-              onClick={() => setIndex(current)}
-              className="inline-flex min-h-11 items-center rounded-full px-3 text-xs font-semibold uppercase tracking-wide text-[var(--tier-muted)] transition-colors duration-150 hover:text-[var(--tier-ink)] cursor-pointer"
-            >
-              Today
-            </button>
-          ) : null}
+        <div className="flex shrink-0 items-center">
+          {/* Compact on phones so "September 2026" keeps its full width. */}
           <button
             type="button"
-            aria-label="Previous month"
-            disabled={index === 0}
-            onClick={() => setIndex(index - 1)}
-            className={arrow}
+            disabled={index === current}
+            onClick={() => go(current)}
+            className={`${plainButton} max-sm:px-2.5 max-sm:text-[15px]`}
           >
-            <svg aria-hidden viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-              <path d="m15 6-6 6 6 6" />
-            </svg>
+            Today
+          </button>
+          <button type="button" aria-label="Previous month" disabled={index === 0} onClick={() => go(index - 1)} className={chevron}>
+            <Chevron d="m15 6-6 6 6 6" />
           </button>
           <button
             type="button"
             aria-label="Next month"
             disabled={index === months.length - 1}
-            onClick={() => setIndex(index + 1)}
-            className={arrow}
+            onClick={() => go(index + 1)}
+            className={chevron}
           >
-            <svg aria-hidden viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-              <path d="m9 6 6 6-6 6" />
-            </svg>
+            <Chevron d="m9 6 6 6-6 6" />
           </button>
         </div>
       </div>
 
-      <div aria-hidden className="grid grid-cols-7 gap-1 pb-2 text-center text-[11px] font-semibold uppercase tracking-wide text-[var(--tier-muted)] sm:gap-2">
+      <div aria-hidden className="hairline-b mt-2 grid grid-cols-7 pb-2 text-center text-[13px] font-medium text-[var(--label-tertiary)]">
         {WEEKDAYS.map((d) => (
           <span key={d}>
             <span className="sm:hidden">{d[0]}</span>
@@ -347,87 +403,73 @@ export function Calendar({ months, today }: { months: CalendarMonth[]; today: st
 
       <motion.div
         key={month.key}
-        className="grid grid-cols-7 gap-1 text-center sm:gap-2"
-        initial={{ opacity: 0 }}
+        className="mt-2 grid grid-cols-7 gap-y-1 text-center"
+        initial={paged ? { opacity: 0 } : false}
         animate={{ opacity: 1 }}
-        transition={{ duration: reduce ? 0 : 0.2 }}
+        transition={spring.snappy}
       >
         {Array.from({ length: month.firstDayOffset }, (_, i) => (
           <span key={`pad-${i}`} aria-hidden />
         ))}
-        {month.days.map(
-          ({ iso, day, isToday, isPeriod, isPredicted, isOvulation, isPredictedOvulation, isFollicular, isLuteal }) => {
-            let tone = "text-[var(--tier-muted)]";
-            let style: React.CSSProperties | undefined;
-            if (isPeriod) tone = `${periodFill} font-medium text-[var(--tier-ink)]`;
-            else if (isPredicted) tone = "border-[1.5px] border-dashed border-[var(--tier-accent)] text-[var(--tier-ink)]";
-            else if (isOvulation) tone = "bg-[#FBE6B6] text-[var(--tier-ink)]";
-            else if (isPredictedOvulation) {
-              tone = "border-[1.5px] border-dashed text-[var(--tier-ink)]";
-              style = { borderColor: HONEY_LINE };
-            } else if (isFollicular) tone = "bg-[#D6CBE3]/25 text-[var(--tier-muted)]";
-            else if (isLuteal) tone = "bg-[#FFDDE0]/35 text-[var(--tier-muted)]";
-
-            const state = isPeriod
-              ? ", logged period"
-              : isPredicted
-                ? ", likely start window, estimated"
-                : isOvulation
-                  ? ", logged ovulation"
-                  : isPredictedOvulation
-                    ? ", estimated ovulation"
-                    : "";
-
-            return (
+        {month.days.map((d) => {
+          const state = DAY_STATES.find((st) => d[st.key]);
+          const tone = !d.isToday
+            ? `${state?.tone ?? ""} text-[var(--tier-ink)]`
+            : state
+              ? `${state.tone} font-semibold text-[var(--tier-ink)] ring-2 ring-[var(--tint)] ring-offset-2 ring-offset-[var(--tier-surface)]`
+              : "bg-[var(--tint)] font-semibold text-[var(--tier-surface)]";
+          return (
+            <span key={d.iso} className="flex h-11 items-center justify-center md:h-12">
               <time
-                key={iso}
-                dateTime={iso}
-                style={style}
-                className={`flex h-11 items-center justify-center rounded-xl text-sm tabular-nums sm:h-12 sm:rounded-2xl md:h-14 ${tone} ${
-                  isToday
-                    ? "font-semibold text-[var(--tier-ink)] ring-[1.5px] ring-[color:var(--tier-ink)] ring-offset-2 ring-offset-[color:var(--tier-surface)] motion-safe:animate-[breathe_3s_ease-in-out_infinite]"
-                    : ""
-                }`}
+                dateTime={d.iso}
+                className={`flex size-10 items-center justify-center rounded-full text-[17px] tabular-nums md:size-11 ${tone}`}
               >
-                <span aria-hidden>{day}</span>
-                <span className="sr-only">{`${longDate(iso)}${isToday ? ", today" : ""}${state}`}</span>
+                <span aria-hidden>{d.day}</span>
+                <span className="sr-only">{`${longDate(d.iso)}${d.isToday ? ", today" : ""}${state ? `, ${state.spoken}` : ""}`}</span>
               </time>
-            );
-          },
-        )}
+            </span>
+          );
+        })}
       </motion.div>
 
-      <ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs text-[var(--tier-muted)] sm:flex sm:flex-wrap sm:gap-x-5">
-        <li className="flex items-center gap-2">
-          <span aria-hidden className={`size-3 shrink-0 rounded-full ${periodFill}`} /> Period
-        </li>
-        <li className="flex items-center gap-2">
-          <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px] border-dashed border-[var(--tier-accent)]" /> Likely start window
-        </li>
-        <li className="flex items-center gap-2">
-          <span aria-hidden className="size-3 shrink-0 rounded-full bg-[#FBE6B6]" /> Logged ovulation
-        </li>
-        <li className="flex items-center gap-2">
-          <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px] border-dashed" style={{ borderColor: HONEY_LINE }} /> Estimated ovulation
-        </li>
-        <li className="flex items-center gap-2">
-          <span aria-hidden className="size-3 shrink-0 rounded-full bg-[#D6CBE3]/40" /> Follicular
-        </li>
-        <li className="flex items-center gap-2">
-          <span aria-hidden className="size-3 shrink-0 rounded-full bg-[#FFDDE0]/60" /> Luteal
-        </li>
-      </ul>
-    </motion.section>
+      {legend.length > 0 ? (
+        <ul className="hairline-t mt-3 grid grid-cols-2 gap-x-4 gap-y-2 px-2 pt-3 text-[12px] text-[var(--label-secondary)] sm:flex sm:flex-wrap sm:gap-x-5">
+          {legend.map((st) => (
+            <li key={st.key} className="flex items-center gap-2">
+              <span aria-hidden className={`size-3 shrink-0 rounded-full ${st.tone}`} /> {st.label}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
   );
 }
 
-const CONSISTENCY_COLOR: Record<Consistency, string> = {
-  Learning: "bg-[#D6CBE3]",
-  High: "bg-emerald-400",
-  Moderate: "bg-amber-300",
-  Varied: "bg-[#FFB5C0]",
+/**
+ * Health-style tile: tinted title, big rounded numeral, unit beside it.
+ * Renders a dt/dd pair, so place tiles inside a <dl>.
+ */
+export function StatTile({ label, value, unit }: { label: string; value: ReactNode; unit?: string }) {
+  return (
+    <div className={`${card} flex min-w-0 flex-col justify-between gap-3 p-4`}>
+      <dt className="text-[15px] font-semibold text-[var(--tint)]">{label}</dt>
+      <dd className="flex min-w-0 flex-wrap items-baseline gap-x-1 text-[var(--tier-ink)]">
+        <span style={rounded} className="text-[28px] font-bold leading-none tracking-[-0.02em] tabular-nums">
+          {value}
+        </span>
+        {unit ? <span className="text-[15px] font-medium text-[var(--label-secondary)]">{unit}</span> : null}
+      </dd>
+    </div>
+  );
+}
+
+/* --positive / --caution are defined on the dashboard root (DashboardClient). Hollow means still learning. */
+const CONSISTENCY_DOT: Record<Consistency, string> = {
+  Learning: "border-[1.5px] border-[var(--label-tertiary)]",
+  High: "bg-[var(--positive)]",
+  Moderate: "bg-[var(--caution)]",
+  Varied: "bg-[var(--tier-accent)]",
 };
-const CONSISTENCY_WIDTH: Record<Consistency, string> = { Learning: "w-2", High: "w-4", Moderate: "w-3", Varied: "w-2" };
 
 export function RhythmSection({
   avgCycleLength,
@@ -440,138 +482,119 @@ export function RhythmSection({
   cyclesTracked: number;
   consistency: Consistency;
 }) {
-  const enter = useEnter(0.26);
-  const stats = [
-    { label: "Typical cycle", value: avgCycleLength, unit: "days" },
-    { label: "Typical period", value: avgPeriodLength, unit: "days" },
-    { label: "Cycles tracked", value: cyclesTracked, unit: "" },
-  ];
-
   return (
-    <motion.section aria-labelledby="rhythm-heading" className={`${card} p-5 sm:p-8`} {...enter}>
-      <h2 id="rhythm-heading" className={sectionTitle}>
+    <section aria-labelledby="rhythm-heading">
+      <h2 id="rhythm-heading" className={`${eyebrow} px-4 pb-1.5`}>
         Your rhythm
       </h2>
-      <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-4">
-        {stats.map((stat) => (
-          <div key={stat.label} className="min-w-0">
-            <dt className={eyebrow}>{stat.label}</dt>
-            <dd className="mt-1 font-serif text-3xl tabular-nums text-[var(--tier-ink)]">
-              {stat.value ?? "Learning"}
-              {stat.value != null && stat.unit ? (
-                <span className="font-sans text-sm text-[var(--tier-muted)]"> {stat.unit}</span>
-              ) : null}
-            </dd>
-          </div>
-        ))}
-        <div className="min-w-0">
-          <dt className={eyebrow}>Consistency</dt>
-          <dd className="mt-1 flex items-center gap-2 font-serif text-3xl text-[var(--tier-ink)]">
-            {consistency}
-            <span aria-hidden className="inline-flex items-center gap-1">
-              <span className={`h-2 rounded-full ${CONSISTENCY_WIDTH[consistency]} ${CONSISTENCY_COLOR[consistency]}`} />
-              <span className={`h-2 w-1 rounded-full opacity-50 ${CONSISTENCY_COLOR[consistency]}`} />
+      <dl className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <StatTile label="Typical cycle" value={avgCycleLength ?? "Learning"} unit={avgCycleLength != null ? "days" : undefined} />
+        <StatTile label="Typical period" value={avgPeriodLength} unit="days" />
+        <StatTile label="Cycles tracked" value={cyclesTracked} />
+        <StatTile
+          label="Consistency"
+          value={
+            <span className="inline-flex items-center gap-2">
+              <span aria-hidden className={`size-2.5 shrink-0 rounded-full ${CONSISTENCY_DOT[consistency]}`} />
+              {consistency}
             </span>
-          </dd>
-        </div>
+          }
+        />
       </dl>
-    </motion.section>
-  );
-}
-
-export function RecentCycles({ cycles }: { cycles: CycleRow[] }) {
-  const enter = useEnter(0.3);
-
-  if (cycles.length === 0) {
-    return (
-      <motion.section className={`${card} px-6 py-10 text-center sm:p-10`} {...enter}>
-        <p className="font-serif text-2xl text-[var(--tier-ink)]">No cycles yet</p>
-        <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-[var(--tier-muted)]">
-          Start tracking by telling Luna about your period. She&apos;ll take it from here.
-        </p>
-        <Link href="/chat" className="tier-primary-action mt-6">
-          Chat with Luna
-        </Link>
-      </motion.section>
-    );
-  }
-
-  return (
-    <motion.section aria-labelledby="recent-heading" className={`${card} p-5 sm:p-8`} {...enter}>
-      <h2 id="recent-heading" className={sectionTitle}>
-        Recent cycles
-      </h2>
-      <ul className="mt-3 divide-y divide-[var(--tier-line)]">
-        {cycles.slice(0, 5).map((c) => (
-          <li key={c.id} className="flex items-center justify-between gap-3 py-3">
-            <div className="min-w-0">
-              <p className="font-serif text-lg text-[var(--tier-ink)]">
-                {longDate(c.mStart, { month: "short", day: "numeric", year: "numeric" })}
-              </p>
-              <p className="text-xs text-[var(--tier-muted)]">
-                {[c.periodLength && `${c.periodLength}d period`, c.cycleLength && `${c.cycleLength}d cycle`]
-                  .filter(Boolean)
-                  .join(" · ") || "Start logged"}
-              </p>
-            </div>
-            {c.isAnomaly ? (
-              <span className="shrink-0 rounded-full bg-[var(--tier-tint)] px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--tier-ink)]">
-                Set aside
-              </span>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-    </motion.section>
-  );
-}
-
-const CHECK_DOT = {
-  typical: "bg-emerald-400",
-  outside: "bg-amber-400",
-  unknown: "bg-[var(--tier-line)]",
-} as const;
-
-export function PatternCheck({ check }: { check: CycleCheck }) {
-  return (
-    <section aria-labelledby="pattern-check-heading" className={`${card} p-5 sm:p-8`}>
-      <h2 id="pattern-check-heading" className={sectionTitle}>
-        Pattern check
-      </h2>
-      <p className="mt-2 max-w-[60ch] text-[13px] leading-relaxed text-[var(--tier-muted)]">
-        Your last 6 months compared with FIGO&apos;s reference ranges for typical menstrual bleeding. A pattern
-        summary, not a diagnosis.
-      </p>
-      {check.applicable ? (
-        <ul className="mt-5 space-y-4">
-          {check.items.map((item) => (
-            <li key={item.id} className="flex gap-3">
-              <span aria-hidden className={`mt-1.5 size-2.5 shrink-0 rounded-full ${CHECK_DOT[item.status]}`} />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-[var(--tier-ink)]">
-                  {item.label}
-                  <span className="sr-only">
-                    {item.status === "outside"
-                      ? " (outside typical range)"
-                      : item.status === "typical"
-                        ? " (typical)"
-                        : " (not enough data)"}
-                  </span>
-                </p>
-                <p className="mt-0.5 text-sm leading-relaxed text-[var(--tier-muted)]">{item.detail}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-5 text-sm leading-relaxed text-[var(--tier-muted)]">{check.reason}</p>
-      )}
-      {check.worthMentioning ? (
-        <p className="mt-5 text-[13px] leading-relaxed text-[var(--tier-muted)]">
-          One unusual cycle is common. If a pattern keeps showing up, it&apos;s worth mentioning to a clinician.
-        </p>
-      ) : null}
     </section>
   );
 }
 
+const STATUS_DOT = {
+  typical: "bg-[var(--positive)]",
+  outside: "bg-[var(--caution)]",
+  unknown: "border-[1.5px] border-[var(--label-tertiary)]",
+} as const;
+
+/** A coloured dot that always travels with its words. Hollow means unknown. */
+export function Status({ tone, children }: { tone: keyof typeof STATUS_DOT; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[15px] text-[var(--label-secondary)]">
+      <span aria-hidden className={`size-2 shrink-0 rounded-full ${STATUS_DOT[tone]}`} />
+      {children}
+    </span>
+  );
+}
+
+export function RecentCycles({ cycles }: { cycles: CycleRow[] }) {
+  if (cycles.length === 0) {
+    return (
+      <GroupedSection header="Recent cycles">
+        <div className="px-6 py-8 text-center">
+          <p className="text-[17px] font-semibold text-[var(--tier-ink)]">No cycles yet</p>
+          <p className="mx-auto mt-1 max-w-xs text-[15px] leading-snug text-[var(--label-secondary)]">
+            Tell Luna about your period and she&apos;ll take it from here.
+          </p>
+          <Link href="/chat" className={`${primaryButton} mt-5`}>
+            Chat with Luna
+          </Link>
+        </div>
+      </GroupedSection>
+    );
+  }
+
+  // A real list for screen readers. GroupedRow only draws its hairline when it
+  // is not a first child, so each <li> draws it instead.
+  return (
+    <GroupedSection header="Recent cycles">
+      <ul role="list">
+        {cycles.slice(0, 5).map((c) => (
+          <li
+            key={c.id}
+            className="relative not-first:before:absolute not-first:before:left-4 not-first:before:right-0 not-first:before:top-0 not-first:before:border-t not-first:before:border-[var(--separator)] not-first:before:content-['']"
+          >
+            <GroupedRow
+              label={longDate(c.mStart, { month: "short", day: "numeric", year: "numeric" })}
+              detail={
+                [c.periodLength && `${c.periodLength}-day period`, c.cycleLength && `${c.cycleLength}-day cycle`]
+                  .filter(Boolean)
+                  .join(" · ") || "Start logged"
+              }
+              value={c.isAnomaly ? <Status tone="outside">Set aside</Status> : undefined}
+            />
+          </li>
+        ))}
+      </ul>
+    </GroupedSection>
+  );
+}
+
+const CHECK_TEXT = { typical: "Typical", outside: "Outside range", unknown: "Not enough data" } as const;
+
+export function PatternCheck({ check }: { check: CycleCheck }) {
+  const footer =
+    "Your last 6 months, compared with the ranges doctors use for typical periods. A gentle summary, not a diagnosis." +
+    (check.worthMentioning
+      ? " One unusual cycle is common. If a pattern keeps showing up, it's worth mentioning to a clinician."
+      : "");
+  return (
+    <GroupedSection header="Pattern check" footer={footer}>
+      {check.applicable ? (
+        check.items.map((item) => (
+          <GroupedRow
+            key={item.id}
+            label={item.label}
+            detail={item.detail}
+            value={<Status tone={item.status}>{CHECK_TEXT[item.status]}</Status>}
+          />
+        ))
+      ) : (
+        <p className="px-4 py-3 text-[15px] leading-snug text-[var(--label-secondary)]">{check.reason}</p>
+      )}
+    </GroupedSection>
+  );
+}
+
+/** How the forecast was made, in plain words. */
+export function EstimateNote({ basis, caveats }: { basis: string; caveats: string[] }) {
+  return (
+    <GroupedSection header="How this estimate works" footer={caveats.slice(0, 2).join(" ") || undefined}>
+      <p className="px-4 py-3 text-[15px] leading-relaxed text-[var(--tier-ink)]">{basis}</p>
+    </GroupedSection>
+  );
+}

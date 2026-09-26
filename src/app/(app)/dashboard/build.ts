@@ -210,11 +210,18 @@ export function buildDashboardProps(input: {
     lengths: cycleLengthSeries(rows),
   };
 
+  // Once late, the original date is in the past: lead with that, then the
+  // conditional window for a start that hasn't happened yet.
+  const late = forecast.status === "late" || forecast.status === "long-gap";
+  const lateWindow = forecast.ifNotStartedYet;
+
   return {
     plan: plan,
     userName,
-    nextPeriodDate: text.headline ?? "No estimate yet",
-    nextPeriodWindow: text.window,
+    nextPeriodDate: late ? "Later than usual" : (text.headline ?? "No estimate yet"),
+    nextPeriodWindow: late
+      ? lateWindow && `Most likely ${formatRange(lateWindow.earliest, lateWindow.latest)}`
+      : text.window,
     forecastStatus: text.status,
     forecastBasis: text.basis,
     forecastCaveats: text.caveats,
