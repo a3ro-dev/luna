@@ -6,7 +6,9 @@ Luna lets you log periods and symptoms in chat and review them on a calendar. It
 
 ## Layouts for each plan
 
-Free opens with a calendar-led dashboard, a focused chat view, and a single-column settings page. Premium adds guided dashboard navigation, a persistent chat-session rail, and settings section navigation. Premium+ gives the dashboard a split forecast-and-calendar layout, adds cycle context beside chat on wide screens, and groups settings in two columns. Smaller screens stack these areas so the same information stays available.
+Free opens with a calendar-led dashboard: the Today card, the calendar, quick logging and the ovulation estimate. Premium's dashboard is a summary that circles back: after the Today card and quick logging, it shows notes you wrote around this same cycle day in earlier cycles, what's ahead, and a small chart of recent cycle lengths with a one-line summary. Premium+ opens like a two-page journal: a large dial with one sentence drawn from your logs, and "This cycle", your notes with the estimated next window labelled as an estimate. Chat and settings follow the same plan layouts as before (a session rail for Premium, cycle context beside chat and two-column settings for Premium+). Smaller screens stack these areas in the same reading order, so the same information stays available.
+
+Luna can be light or dark. The dark mode is soft rather than black, with a night palette for each plan, and it follows your device unless you pick Light or Dark in Settings or on the front page. The choice is stored only in your browser.
 
 The three layouts use the same account records, forecast calculation, chat tools, and settings controls. Luna reads the saved account plan to choose a layout. The subscription request form described below does not change that saved plan or activate Premium access.
 
