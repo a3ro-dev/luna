@@ -82,3 +82,6 @@ public/globe.svg
 public/window.svg
 
 .env*
+
+# gtm post drafts (local only)
+gtm/
