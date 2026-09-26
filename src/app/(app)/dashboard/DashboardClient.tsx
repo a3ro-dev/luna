@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import SignOutButton from "@/components/SignOutButton";
 import type { UserPlan } from "@/lib/theme/accent";
+import QuickLog, { type OpenPeriod } from "./QuickLog";
 
 /* ─── Types ─── */
 interface CycleRow {
@@ -47,6 +48,8 @@ interface DashboardClientProps {
   calendarDays: CalendarDay[];
   firstDayOffset: number;
   cycles: CycleRow[];
+  today: string;
+  openPeriod: OpenPeriod | null;
 }
 
 /* ─── Animation recipes ─── */
@@ -595,7 +598,11 @@ export default function DashboardClient(props: DashboardClientProps) {
     calendarDays,
     firstDayOffset,
     cycles,
+    today,
+    openPeriod,
   } = props;
+
+  const quickLog = <QuickLog today={today} openPeriod={openPeriod} />;
 
   const nextPeriod = (
     <PredictionCard
@@ -648,7 +655,7 @@ export default function DashboardClient(props: DashboardClientProps) {
             <Hero userName={userName} plan={plan} />
             <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(290px,0.85fr)]">
               {calendar}
-              <div className="space-y-6">{nextPeriod}{ovulation}{history}{ask}</div>
+              <div className="space-y-6">{quickLog}{nextPeriod}{ovulation}{history}{ask}</div>
             </div>
             <div className="mt-8 space-y-6">{explanation}{rhythm}</div>
           </main>
@@ -664,7 +671,7 @@ export default function DashboardClient(props: DashboardClientProps) {
                   <h2 className="font-serif text-2xl text-[var(--tier-ink)]">Today</h2>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--tier-muted)]">Your forecast, calendar, and recent logs are together below.</p>
                 </section>
-                {nextPeriod}{ovulation}{history}{ask}
+                {quickLog}{nextPeriod}{ovulation}{history}{ask}
               </div>
               {calendar}
             </div>
@@ -677,7 +684,7 @@ export default function DashboardClient(props: DashboardClientProps) {
           <main className="grid min-w-0 gap-8 xl:grid-cols-[minmax(300px,0.72fr)_minmax(0,1.28fr)] xl:gap-10">
             <div className="space-y-7">
               <Hero userName={userName} plan={plan} />
-              {nextPeriod}{ovulation}{ask}{history}
+              {quickLog}{nextPeriod}{ovulation}{ask}{history}
             </div>
             <div className="space-y-7">
               {calendar}{rhythm}

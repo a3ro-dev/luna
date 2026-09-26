@@ -93,6 +93,7 @@ impeccable ~\.agents\skills\impeccable
 - Summaries stored in `chat_summaries` (auto-generated after 30+ messages, delta 12+)
 - Dynamic context: recent 20 messages + summary + keyword snippets (6 keywords, 6 messages) + Supermemory recall (5 results)
 - Auto-rename: after first AI response, generates title via `~anthropic/claude-haiku-latest`
+- Cycle endpoints: `POST /api/cycles`, `PATCH/DELETE /api/cycles/:id` (dashboard quick log; same validation as chat tools)
 - API endpoints: `GET/POST /api/chat/sessions`, `DELETE /api/chat/sessions/:id`, `GET /api/chat/sessions/:id/messages`, `POST /api/chat/sessions/:id/rename`
 
 ## Database Schema (7 tables)

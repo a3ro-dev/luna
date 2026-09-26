@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.12.0",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Log your period straight from the dashboard",
+    description:
+      "A new card on the dashboard lets you log that your period started or ended today, or on another day, without opening chat. It uses the same checks as chat, so overlapping or future dates are rejected with a plain explanation. Adds /api/cycles routes for creating, editing, and removing period logs.",
+  },
+  {
     version: "0.11.3",
     date: "2026-09-26",
     type: "chore",

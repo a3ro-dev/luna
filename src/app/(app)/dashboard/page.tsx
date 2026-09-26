@@ -1,7 +1,12 @@
 import React from "react";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { addDaysToIsoDate, getUserForecast } from "@/lib/cycle-tools";
+import {
+  addDaysToIsoDate,
+  diffInDays,
+  getUserForecast,
+  MAX_PERIOD_DAYS,
+} from "@/lib/cycle-tools";
 import { formatRange, resolveForecastPrior } from "@/lib/prediction/forecast";
 import DashboardClient from "./DashboardClient";
 import { getUserPlan } from "@/lib/theme/server-plan";
@@ -106,6 +111,14 @@ export default async function DashboardPage() {
           ? "Moderate"
           : "Varied";
 
+  // A period with no logged end, recent enough that it may still be ongoing
+  const last = rows.at(-1);
+  const bleedDay = last ? diffInDays(last.mStart, today) + 1 : 0;
+  const openPeriod =
+    last && !last.mEnd && bleedDay <= MAX_PERIOD_DAYS
+      ? { id: last.id, mStart: last.mStart, day: bleedDay }
+      : null;
+
   const cyclesForClient = rows
     .slice(-6)
     .reverse()
@@ -146,6 +159,8 @@ export default async function DashboardPage() {
       calendarDays={calendarDays}
       firstDayOffset={firstDayOffset}
       cycles={cyclesForClient}
+      today={today}
+      openPeriod={openPeriod}
     />
   );
 }

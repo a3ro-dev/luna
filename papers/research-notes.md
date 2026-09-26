@@ -52,7 +52,7 @@ Two rules deserve special attention:
 1. A short or isolated long interval may be set aside. When at least two of the six most recent intervals exceed the profile gate, the code treats long intervals as a pattern. This is a logging and forecasting heuristic; it does not distinguish a missed entry from a genuine long cycle.
 2. The forecast remains anchored to the last logged start. A conditional remaining window is calculated only while the current date lies inside the original interval. Once past that interval, the UI shows a late or long-gap status instead of extrapolating a normal tail.
 
-Calendar ovulation uses a population luteal starting value and a rough spread calculation. It is withheld for profiles where calendar timing is especially unsuitable. No logged ovulation outcomes were available to score. The bleeding-duration predictive distribution is linear and is not explicitly truncated to the app's 1--14-day input range.
+Calendar ovulation uses a population luteal starting value and a rough spread calculation. It is withheld for profiles where calendar timing is especially unsuitable. No logged ovulation outcomes were available to score. The bleeding-duration predictive distribution is linear and is not explicitly truncated to the app's 1--15-day input range.
 
 ## Evaluation design and its limits
 

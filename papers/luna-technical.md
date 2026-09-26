@@ -16,7 +16,7 @@ A cycle length is the number of calendar days between consecutive period starts.
 
 The service returns the model version, data cutoff, number of usable and set-aside intervals, next-start point date and window, status, caveats, and an optional calendar ovulation estimate. With no logged start, it does not invent a personal next-start date. The dashboard distinguishes logged events from estimates. The selected plan changes the dashboard, chat, and settings composition only; it does not change this service or its inputs. [Shared service](../src/lib/cycle-tools.ts) · [Dashboard](<../src/app/(app)/dashboard/DashboardClient.tsx>) · [Plan lookup](../src/lib/theme/server-plan.ts)
 
-Cycle writes reject impossible or future dates, reversed ranges, duplicate starts, overlapping bleeding ranges, and bleeding longer than 14 days. Import checks the prospective set before inserting. These are input rules, not claims about what bleeding durations are medically possible. [Cycle writes](../src/lib/cycle-tools.ts) · [Import route](../src/app/api/data/import/route.ts)
+Cycle writes reject impossible or future dates, reversed ranges, duplicate starts, overlapping bleeding ranges, and bleeding longer than 15 days. Chat tools, the dashboard quick-log route, and import share one validated writer; import checks the prospective set before inserting. These are input rules, not claims about what bleeding durations are medically possible. [Cycle writes](../src/lib/cycle-tools.ts) · [Quick-log routes](../src/app/api/cycles/route.ts) · [Import route](../src/app/api/data/import/route.ts)
 
 ## Predictive calculation
 
