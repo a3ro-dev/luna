@@ -65,7 +65,7 @@ const plans = [
       "Pattern check against FIGO reference ranges (a summary, not a diagnosis)",
       "Chat, images, and web search",
     ],
-    card: "border-white/70 bg-white/50 shadow-[0_20px_40px_rgba(255,181,192,0.08)]",
+    card: "border-transparent bg-white shadow-[0_1px_1px_rgba(109,90,96,0.03),0_12px_40px_-8px_rgba(109,90,96,0.12)]",
   },
   {
     name: "Luna Premium",
@@ -81,7 +81,7 @@ const plans = [
       "Warmer conversation style",
       "Same predictions and tools",
     ],
-    card: "border-[#D6CBE3] bg-white/65 shadow-[0_20px_40px_rgba(214,203,227,0.2)]",
+    card: "border-[#D6CBE3] bg-white shadow-[0_1px_1px_rgba(109,90,96,0.03),0_16px_48px_-10px_rgba(150,120,190,0.28)]",
   },
   {
     name: "Luna Premium+",
@@ -96,7 +96,7 @@ const plans = [
       "Gentlest conversation style",
       "Same model and predictions",
     ],
-    card: "border-[#FBE6B6] bg-white/50 shadow-[0_20px_40px_rgba(251,230,182,0.16)]",
+    card: "border-[#F1DCA8] bg-white shadow-[0_1px_1px_rgba(109,90,96,0.03),0_16px_48px_-10px_rgba(210,170,90,0.22)]",
   },
 ];
 
@@ -247,11 +247,11 @@ export default function HomeClient() {
         <div ref={progressRef} className="h-full w-full bg-[#FFB5C0]" />
       </div>
 
-      <header className="fixed inset-x-0 top-0 z-40 bg-gradient-to-b from-[#FFF9F9] via-[#FFF9F9]/85 to-transparent pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3 md:px-12 md:py-5">
+      <header className="material hairline-b fixed inset-x-0 top-0 z-40 pt-[env(safe-area-inset-top)]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-1.5 md:px-12 md:py-2">
           <Link
             href="/"
-            className={`flex min-h-11 min-w-0 items-center gap-2 rounded-full font-serif text-3xl leading-none text-[#6D5A60] ${focusRing}`}
+            className={`flex min-h-11 min-w-0 items-center gap-2 rounded-full font-serif text-[1.65rem] leading-none text-[#6D5A60] ${focusRing}`}
           >
             <Image
               src="/luna.png"
@@ -259,7 +259,7 @@ export default function HomeClient() {
               width={36}
               height={36}
               loading="eager"
-              className="h-9 w-9 rounded-full"
+              className="h-8 w-8 rounded-full"
             />
             <span className="truncate">Luna</span>
           </Link>
@@ -268,7 +268,7 @@ export default function HomeClient() {
             {/* On phones the hero CTA carries this job; the menu keeps sign in / create account. */}
             <Link
               href={primaryHref}
-              className={cn(primaryButton, "hidden h-11 px-5 sm:inline-flex")}
+              className={cn(primaryButton, "hidden h-9 px-4 text-[14px] sm:inline-flex")}
             >
               {isAuthenticated ? "Open Luna" : "Get started"}
             </Link>
@@ -278,7 +278,7 @@ export default function HomeClient() {
                 <button
                   type="button"
                   aria-label="Menu"
-                  className={`grid h-11 w-11 place-items-center rounded-full border border-white/70 bg-white/60 text-[#6D5A60] shadow-[0_10px_30px_rgba(255,181,192,0.15)] backdrop-blur-md transition hover:bg-white/80 ${focusRing}`}
+                  className={`grid h-11 w-11 place-items-center rounded-full text-[#6D5A60] transition hover:bg-[#6D5A60]/[0.06] ${focusRing}`}
                 >
                   <MoreVertical className="h-4 w-4" aria-hidden />
                 </button>
@@ -372,10 +372,10 @@ export default function HomeClient() {
               className="mx-auto mb-6 h-9 w-9 text-[#D6CBE3] md:mx-0"
               strokeWidth={1}
             />
-            <h2 className="font-serif text-[clamp(2.5rem,6vw,4.5rem)] font-light leading-[1.05] text-[#6D5A60]">
+            <h2 className="font-display font-semibold leading-[1.06] tracking-[-0.03em] text-[#6D5A60] text-[clamp(2.25rem,5.2vw,3.75rem)]">
               Softer than a form.
             </h2>
-            <p className="mx-auto mt-5 max-w-sm text-base leading-relaxed text-[#75636A] md:mx-0 md:text-lg">
+            <p className="mx-auto mt-5 max-w-sm text-[17px] leading-[1.47] text-[#75636A] md:mx-0 md:text-[19px]">
               Type it the way you would say it. Luna keeps the note with your
               cycle, so the small things add up to a pattern.
             </p>
@@ -383,15 +383,15 @@ export default function HomeClient() {
 
           <ol
             aria-label="Example notes"
-            className="min-w-0 rounded-[2rem] border border-white/70 bg-white/55 px-5 py-1 shadow-[0_20px_40px_rgba(255,181,192,0.08)] sm:px-8"
+            className="min-w-0 rounded-[1.375rem] bg-white px-5 py-1 shadow-[0_1px_1px_rgba(109,90,96,0.03),0_12px_40px_-8px_rgba(109,90,96,0.12)] sm:px-7"
           >
             {moments.map(({ day, note }) => (
               <li
                 key={note}
-                className="flex items-center gap-4 border-b border-[#FFDDE0]/70 py-5 last:border-b-0"
+                className="flex items-center gap-4 border-b border-[#6D5A60]/10 py-4 last:border-b-0"
               >
                 <MoonGlyph day={day} />
-                <span className="w-14 shrink-0 text-[11px] font-semibold uppercase tracking-widest tabular-nums text-[#75636A]">
+                <span className="w-14 shrink-0 text-[13px] font-medium tabular-nums text-[#75636A]">
                   Day {day}
                 </span>
                 <span className="min-w-0 font-serif text-[1.45rem] leading-snug text-[#6D5A60] sm:text-[1.6rem]">
@@ -408,10 +408,10 @@ export default function HomeClient() {
           <div className="absolute left-1/2 top-1/2 h-[80vw] w-[80vw] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-b from-[#FFF9F9] to-[#FFDDE0]/40 blur-[120px]" />
         </div>
         <div className="relative z-10 max-w-4xl text-center">
-          <p className="mb-6 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#75636A]">
+          <p className="mb-5 text-[17px] font-semibold tracking-[-0.01em] text-[#A34E68]">
             Less noise, more knowing
           </p>
-          <h2 className="font-serif text-[clamp(2.75rem,8vw,6.5rem)] font-light leading-[1.05] text-[#6D5A60]">
+          <h2 className="font-serif text-[clamp(2.75rem,8vw,6.25rem)] font-light leading-[1.02] tracking-[-0.02em] text-[#6D5A60]">
             Your body can feel familiar again.
           </h2>
         </div>
@@ -424,13 +424,13 @@ export default function HomeClient() {
       >
         <div className="mx-auto max-w-5xl">
           <div className="mx-auto mb-12 max-w-xl text-center md:mb-16">
-            <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#A34E68]">
+            <p className="mb-3 text-[17px] font-semibold tracking-[-0.01em] text-[#A34E68]">
               Choose your companion
             </p>
-            <h2 className="font-serif text-[clamp(2.5rem,6vw,4.5rem)] font-light leading-[1.05] text-[#6D5A60]">
+            <h2 className="font-display font-semibold leading-[1.06] tracking-[-0.03em] text-[#6D5A60] text-[clamp(2.25rem,5.2vw,3.75rem)]">
               Luna for every rhythm
             </h2>
-            <p className="mt-5 text-base leading-relaxed text-[#75636A]">
+            <p className="mt-4 text-[17px] leading-[1.47] text-[#75636A]">
               Same model, predictions, and tools on every plan. Plans change the
               layout and how Luna talks with you.
             </p>
@@ -441,16 +441,16 @@ export default function HomeClient() {
               <article
                 key={plan.name}
                 aria-labelledby={`plan-${index}`}
-                className={`relative flex min-w-0 flex-col rounded-[2rem] border px-6 py-8 backdrop-blur-xl transition duration-300 hover:-translate-y-1 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:px-8 sm:py-10 ${plan.card}`}
+                className={`relative flex min-w-0 flex-col rounded-[1.375rem] border px-6 py-7 transition duration-300 hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:px-7 sm:py-8 ${plan.card}`}
               >
                 {plan.badge && (
-                  <span className="absolute right-5 top-5 rounded-full bg-[#D6CBE3]/40 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-[#6D5A60]">
+                  <span className="absolute right-5 top-5 rounded-full bg-[#D6CBE3]/45 px-2.5 py-0.5 text-[12px] font-semibold text-[#6D5A60]">
                     {plan.badge}
                   </span>
                 )}
                 <h3
                   id={`plan-${index}`}
-                  className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-[#6D5A60]"
+                  className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.01em] text-[#6D5A60]"
                 >
                   <span
                     aria-hidden
@@ -460,21 +460,21 @@ export default function HomeClient() {
                   {plan.name}
                 </h3>
                 <p className="mb-5 mt-3 flex items-baseline gap-1">
-                  <span className="font-serif text-5xl font-light text-[#6D5A60]">
+                  <span className="font-display text-[2.75rem] font-semibold tabular-nums tracking-[-0.03em] text-[#6D5A60]">
                     {plan.price}
                   </span>
                   {plan.period && (
                     <span className="text-sm text-[#75636A]">{plan.period}</span>
                   )}
                 </p>
-                <p className="mb-7 text-sm leading-relaxed text-[#75636A]">
+                <p className="mb-6 text-[15px] leading-[1.47] text-[#75636A]">
                   {plan.blurb}
                 </p>
                 <ul className="mb-8 space-y-3">
                   {plan.features.map((feature) => (
                     <li
                       key={feature}
-                      className="flex items-start gap-2.5 text-sm leading-relaxed text-[#6D5A60]"
+                      className="flex items-start gap-2.5 text-[15px] leading-[1.47] text-[#6D5A60]"
                     >
                       <span
                         aria-hidden
@@ -516,23 +516,23 @@ export default function HomeClient() {
             className="mx-auto mb-8 h-9 w-9 text-[#FFB5C0]"
             strokeWidth={1}
           />
-          <h2 className="font-serif text-[clamp(2.75rem,7vw,5.5rem)] font-light leading-[1.05] text-[#6D5A60]">
+          <h2 className="font-display font-semibold leading-[1.06] tracking-[-0.03em] text-[#6D5A60] text-[clamp(2.5rem,6vw,4.25rem)]">
             Meet Luna gently.
           </h2>
-          <p className="mx-auto mt-6 max-w-md text-lg leading-relaxed text-[#75636A] md:text-xl">
+          <p className="mx-auto mt-5 max-w-md text-[19px] leading-[1.42] text-[#75636A] md:text-[21px]">
             Start with one log. Luna learns the rest slowly, and with care.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row-reverse">
             <Link
               href={primaryHref}
-              className={cn(primaryButton, "h-14 w-full max-w-xs px-10 sm:w-auto")}
+              className={cn(primaryButton, "h-[3.25rem] w-full max-w-xs px-8 sm:w-auto")}
             >
               {isAuthenticated ? "Open Luna" : "Get started"}
             </Link>
             {!isAuthenticated && (
               <Link
                 href={ctaHref}
-                className={cn(quietButton, "h-14 w-full max-w-xs px-10 sm:w-auto")}
+                className={cn(quietButton, "h-[3.25rem] w-full max-w-xs px-8 sm:w-auto")}
               >
                 Sign in
               </Link>
@@ -592,7 +592,7 @@ export default function HomeClient() {
             </Link>
           ))}
         </nav>
-        <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-[#75636A]">
+        <p suppressHydrationWarning className="mt-4 text-[13px] text-[#75636A]">
           Luna, {new Date().getFullYear()}.
         </p>
         <p className="mt-2 text-xs text-[#75636A]">
@@ -614,7 +614,7 @@ export default function HomeClient() {
       >
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto border border-[#FFDDE0] bg-[#FFF9F9] text-[#6D5A60]">
           <DialogHeader>
-            <DialogTitle className="font-serif text-2xl font-light">
+            <DialogTitle className="font-display text-[22px] font-semibold tracking-[-0.022em]">
               {subStatus === "success" ? "Request received" : `Request ${subModal.plan}`}
             </DialogTitle>
             <DialogDescription className="text-[#75636A]">

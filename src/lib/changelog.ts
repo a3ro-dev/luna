@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.17.3",
+    date: "2026-09-26",
+    type: "feat",
+    title: "The rest of the front page, the Apple way",
+    description:
+      "Below the hero, the front page now uses Apple-style type and layout: a translucent navigation bar, sentence-case headings in the system font, clean white plan cards with clear prices, and calmer spacing. Luna's serif is kept for the wordmark, the handwritten-style journal notes and one quiet line.",
+  },
+  {
     version: "0.17.2",
     date: "2026-09-26",
     type: "refactor",
