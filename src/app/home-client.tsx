@@ -9,11 +9,9 @@ import { useGSAP } from "@gsap/react";
 import CycleHero from "@/components/moon/CycleHero";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { ArrowRight, Download, MoreVertical, Moon, Sparkles } from "lucide-react";
-import { MotionConfig, motion } from "motion/react";
+import { ArrowRight, Check, Download, MoreVertical, Moon } from "lucide-react";
 import { usePWAInstall } from "@/components/PWAInstallPrompt";
 import ThemeToggle from "@/components/ThemeToggle";
-import { spring } from "@/lib/motion";
 import { useThemeMode, type ThemeMode } from "@/lib/theme/mode";
 import { cn } from "@/lib/utils";
 import {
@@ -48,52 +46,19 @@ const moments = [
   { day: 24, note: "heavy sleep today" },
 ];
 
+/** What every plan includes: stated once, because it is the same everywhere. */
+const everyPlan = [
+  "Log by chat, or with one tap",
+  "Next-period window and ovulation estimate",
+  "Pattern check (a summary, never a diagnosis)",
+  "Chat with photos and web search",
+];
+
+/** Plans differ only in the room and the voice. */
 const plans = [
-  {
-    name: "Luna",
-    price: "Free",
-    period: "",
-    dot: "var(--landing-rose)",
-    blurb: "A focused, calendar-first space with a practical, direct Luna.",
-    features: [
-      "Log by chat, or with one tap on the dashboard",
-      "Next-period window and ovulation estimates",
-      "Pattern check against FIGO reference ranges (a summary, not a diagnosis)",
-      "Chat, images, and web search",
-    ],
-    card: "border-transparent bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)]",
-  },
-  {
-    name: "Luna Premium",
-    price: "$5",
-    period: "/mo",
-    dot: "var(--landing-lavender)",
-    badge: "Popular",
-    blurb: "A guided layout and a warmer companion who takes more time with you.",
-    features: [
-      "Same features as Free",
-      "Guided dashboard layout",
-      "Lavender chat space",
-      "Warmer conversation style",
-      "Same predictions and tools",
-    ],
-    card: "border-[var(--landing-lavender)] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-premium)]",
-  },
-  {
-    name: "Luna Premium+",
-    price: "$12",
-    period: "/mo",
-    dot: "var(--landing-honey)",
-    blurb: "A spacious, reflective layout with Luna’s gentlest voice.",
-    features: [
-      "Same features as every plan",
-      "Spacious dashboard and timeline",
-      "Cycle context beside chat",
-      "Gentlest conversation style",
-      "Same model and predictions",
-    ],
-    card: "border-[var(--landing-honey-line)] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-premium-plus)]",
-  },
+  { name: "Luna", price: "Free", period: "", dot: "var(--landing-rose)", room: "Calendar first", voice: "Practical and direct" },
+  { name: "Luna Premium", price: "$5", period: "/mo", dot: "var(--landing-lavender)", room: "A summary that circles back to your notes", voice: "Warmer, takes more time" },
+  { name: "Luna Premium+", price: "$12", period: "/mo", dot: "var(--landing-honey)", room: "A journal for each cycle", voice: "Luna's gentlest voice" },
 ];
 
 const primaryButton = `inline-flex items-center justify-center gap-2 rounded-full bg-[var(--landing-ink)] text-[15px] font-medium tracking-[-0.01em] text-[var(--landing-surface)] shadow-[var(--landing-shadow-button)] transition hover:bg-[var(--landing-ink-hover)] active:scale-[0.98] motion-reduce:transition-none ${focusRing}`;
@@ -418,110 +383,81 @@ export default function HomeClient() {
         </div>
       </section>
 
-      <section className="relative flex items-center justify-center overflow-hidden bg-[var(--landing-bg)] px-5 py-24 md:min-h-[70dvh] md:px-12 md:py-32">
-        <div aria-hidden className="absolute inset-0 z-0">
-          <div className="absolute left-1/2 top-1/2 h-[80vw] w-[80vw] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-b from-[var(--landing-bg)] to-[var(--landing-blush)]/40 blur-[120px]" />
-        </div>
-        <div className="relative z-10 max-w-4xl text-center">
-          <p className="mb-5 text-[17px] font-semibold tracking-[-0.01em] text-[var(--landing-accent)]">
-            Less noise, more knowing
-          </p>
-          <h2 className="font-serif text-[clamp(2.75rem,8vw,6.25rem)] font-light leading-[1.02] tracking-[-0.02em] text-[var(--landing-ink)]">
-            Your body can feel familiar again.
-          </h2>
-        </div>
-      </section>
-
       {/* ── Pricing ── */}
       <section
         id="pricing"
         className="relative z-10 bg-[var(--landing-bg)] px-5 py-20 md:px-12 md:py-32"
       >
         <div className="mx-auto max-w-5xl">
-          <div className="mx-auto mb-12 max-w-xl text-center md:mb-16">
-            <p className="mb-3 text-[17px] font-semibold tracking-[-0.01em] text-[var(--landing-accent)]">
-              Choose your companion
-            </p>
+          <div className="mx-auto mb-10 max-w-xl text-center md:mb-14">
             <h2 className="font-display font-semibold leading-[1.06] tracking-[-0.03em] text-[var(--landing-ink)] text-[clamp(2.25rem,5.2vw,3.75rem)]">
-              Luna for every rhythm
+              One Luna, three rooms
             </h2>
             <p className="mt-4 text-[17px] leading-[1.47] text-[var(--landing-secondary)]">
-              Same model, predictions, and tools on every plan. Plans change the
-              layout and how Luna talks with you.
+              Every plan gets the same forecasts, tools and privacy. You choose the layout and the voice.
             </p>
           </div>
 
-          <MotionConfig reducedMotion="user">
-            <div className="grid gap-5 md:grid-cols-3 md:gap-6">
-              {plans.map((plan, index) => (
-                <motion.article
-                  key={plan.name}
-                  aria-labelledby={`plan-${index}`}
-                  whileHover={{ y: -2 }}
-                  transition={spring.snappy}
-                  className={`relative flex min-w-0 flex-col rounded-[1.375rem] border px-6 py-7 sm:px-7 sm:py-8 ${plan.card}`}
+          <ul
+            aria-label="Every plan includes"
+            className="mx-auto mb-12 flex max-w-3xl flex-wrap justify-center gap-x-6 gap-y-2 text-[15px] text-[var(--landing-ink)] md:mb-16"
+          >
+            {everyPlan.map((item) => (
+              <li key={item} className="flex items-center gap-2">
+                <Check aria-hidden className="size-4 shrink-0 text-[var(--landing-accent)]" strokeWidth={2.25} />
+                {item}
+              </li>
+            ))}
+          </ul>
+
+          <div className="grid md:grid-cols-3 md:gap-8">
+            {plans.map((plan, index) => (
+              <article
+                key={plan.name}
+                aria-labelledby={`plan-${index}`}
+                className="flex min-w-0 flex-col border-t border-[var(--landing-line)] py-7 md:py-8"
+              >
+                <h3
+                  id={`plan-${index}`}
+                  className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.01em] text-[var(--landing-ink)]"
                 >
-                  {plan.badge && (
-                    <span className="absolute right-5 top-5 rounded-full bg-[var(--landing-lavender)]/45 px-2.5 py-0.5 text-[12px] font-semibold text-[var(--landing-ink)]">
-                      {plan.badge}
-                    </span>
-                  )}
-                  <h3
-                    id={`plan-${index}`}
-                    className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.01em] text-[var(--landing-ink)]"
-                  >
-                    <span
-                      aria-hidden
-                      className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: plan.dot }}
-                    />
-                    {plan.name}
-                  </h3>
-                  <p className="mb-5 mt-3 flex items-baseline gap-1">
-                    <span className="font-display text-[2.75rem] font-semibold tabular-nums tracking-[-0.03em] text-[var(--landing-ink)]">
-                      {plan.price}
-                    </span>
-                    {plan.period && (
-                      <span className="text-sm text-[var(--landing-secondary)]">{plan.period}</span>
-                    )}
-                  </p>
-                  <p className="mb-6 text-[15px] leading-[1.47] text-[var(--landing-secondary)]">
-                    {plan.blurb}
-                  </p>
-                  <ul className="mb-8 space-y-3">
-                    {plan.features.map((feature) => (
-                      <li
-                        key={feature}
-                        className="flex items-start gap-2.5 text-[15px] leading-[1.47] text-[var(--landing-ink)]"
-                      >
-                        <span
-                          aria-hidden
-                          className="mt-[0.55rem] h-1.5 w-1.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: plan.dot }}
-                        />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-auto">
-                    {plan.price === "Free" ? (
-                      <Link href={ctaHref} className={cn(quietButton, "h-12 w-full")}>
-                        {isAuthenticated ? "Go to app" : "Get started"}
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => openSubscribeModal(plan.name)}
-                        className={cn(plan.badge ? primaryButton : quietButton, "h-12 w-full cursor-pointer")}
-                      >
-                        Request {plan.name.replace("Luna ", "")}
-                      </button>
-                    )}
+                  <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: plan.dot }} />
+                  {plan.name}
+                </h3>
+                <p className="mt-2 flex items-baseline gap-1">
+                  <span className="font-display text-[2.5rem] font-semibold tabular-nums tracking-[-0.03em] text-[var(--landing-ink)]">
+                    {plan.price}
+                  </span>
+                  {plan.period && <span className="text-[15px] text-[var(--landing-secondary)]">{plan.period}</span>}
+                </p>
+                <dl className="mb-7 mt-4 space-y-2 text-[15px] leading-[1.47]">
+                  <div className="flex gap-2">
+                    <dt className="w-14 shrink-0 text-[var(--landing-secondary)]">Room</dt>
+                    <dd className="text-[var(--landing-ink)]">{plan.room}</dd>
                   </div>
-                </motion.article>
-              ))}
-            </div>
-          </MotionConfig>
+                  <div className="flex gap-2">
+                    <dt className="w-14 shrink-0 text-[var(--landing-secondary)]">Voice</dt>
+                    <dd className="text-[var(--landing-ink)]">{plan.voice}</dd>
+                  </div>
+                </dl>
+                <div className="mt-auto">
+                  {plan.price === "Free" ? (
+                    <Link href={ctaHref} className={cn(primaryButton, "h-12 w-full")}>
+                      {isAuthenticated ? "Go to app" : "Start free"}
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openSubscribeModal(plan.name)}
+                      className={cn(quietButton, "h-12 w-full cursor-pointer")}
+                    >
+                      Request {plan.name.replace("Luna ", "")}
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -530,11 +466,6 @@ export default function HomeClient() {
         className="relative z-10 overflow-hidden bg-[var(--landing-bg)] px-5 pb-24 pt-16 text-center md:px-12 md:pb-40 md:pt-20"
       >
         <div className="relative mx-auto max-w-3xl">
-          <Sparkles
-            aria-hidden
-            className="mx-auto mb-8 h-9 w-9 text-[var(--landing-rose)]"
-            strokeWidth={1}
-          />
           <h2 className="font-display font-semibold leading-[1.06] tracking-[-0.03em] text-[var(--landing-ink)] text-[clamp(2.5rem,6vw,4.25rem)]">
             Meet Luna gently.
           </h2>
@@ -571,7 +502,7 @@ export default function HomeClient() {
                 }}
                 aria-expanded={canInstall ? undefined : showInstallHelp}
                 aria-controls={canInstall ? undefined : "install-help"}
-                className={cn(quietButton, "h-12 cursor-pointer border-[var(--landing-blush)]/80 bg-[var(--landing-surface)]/40 px-7 backdrop-blur-md")}
+                className={cn(quietButton, "h-12 cursor-pointer px-7")}
               >
                 <Download className="h-4 w-4" aria-hidden />
                 {platform === "ios" ? "How to install on iOS" : "Install app"}

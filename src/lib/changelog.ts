@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.20.2",
+    date: "2026-09-26",
+    type: "feat",
+    title: "A plainer, more honest front page",
+    description:
+      "The plans section now says what every plan includes once, then shows only what actually differs: the price, the layout and Luna's voice. The made-up Popular badge is gone, a filler section that said nothing new is gone, and the buttons are plain instead of frosted glass.",
+  },
+  {
     version: "0.20.1",
     date: "2026-09-26",
     type: "fix",
