@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.11.3",
+    date: "2026-09-26",
+    type: "chore",
+    title: "Adopt the Next.js 16 proxy convention",
+    description:
+      "Renamed the request middleware to proxy.ts as Next.js 16 recommends, and cleaned up stale pnpm settings that produced warnings on every command. Behavior is unchanged.",
+  },
+  {
     version: "0.11.2",
     date: "2026-09-26",
     type: "chore",

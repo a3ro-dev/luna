@@ -483,7 +483,7 @@ const SECTIONS: Section[] = [
           </li>
           <li>
             <strong>Content Security Policy.</strong> Per-request nonces generated
-            in middleware. strict-dynamic for script loading. No unsafe-eval or
+            in the request proxy. strict-dynamic for script loading. No unsafe-eval or
             unsafe-inline in production.
           </li>
           <li>

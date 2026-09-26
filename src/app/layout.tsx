@@ -49,9 +49,9 @@ export const metadata: Metadata = {
   },
 };
 
-// Next.js automatically reads the x-nonce request header (set by middleware)
+// Next.js automatically reads the x-nonce request header (set by src/proxy.ts)
 // and stamps it onto its own inline hydration <script> tags. No action needed
-// in the layout — the middleware does the work.
+// in the layout — the proxy does the work.
 export default function RootLayout({
   children,
 }: Readonly<{
