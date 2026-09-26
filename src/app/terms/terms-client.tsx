@@ -59,9 +59,9 @@ const SECTIONS: LegalSection[] = [
           contraceptive. Luna has no such clearance. Always consult a qualified
           healthcare provider for medical advice.
         </p>
-        <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4 mt-2">
-          <p className="text-xs text-[#75636A] flex items-start gap-2">
-            <span aria-hidden className="text-[#A34E68] shrink-0">⚠</span>
+        <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-4 mt-2">
+          <p className="text-xs text-[var(--landing-secondary)] flex items-start gap-2">
+            <span aria-hidden className="text-[var(--landing-accent)] shrink-0">⚠</span>
             Luna is unvalidated. No clinical studies, no accuracy benchmarks,
             no published user research. 80 unit tests and synthetic backtests
             verify the implementation — but the live dataset is too small to
@@ -102,15 +102,15 @@ const SECTIONS: LegalSection[] = [
           lengths can vary naturally. The AI assistant may misinterpret dates
           or miss information. Always verify what Luna logs.
         </p>
-        <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4 mt-2">
-          <p className="text-xs text-[#75636A]">
+        <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-4 mt-2">
+          <p className="text-xs text-[var(--landing-secondary)]">
             The prediction engine is fully open source. You can read the exact
             algorithm in{" "}
             <Link
               href="https://github.com/a3ro-dev/luna/blob/main/src/lib/prediction/forecast.ts"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
+              className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]"
             >
               forecast.ts
             </Link>{" "}
@@ -119,7 +119,7 @@ const SECTIONS: LegalSection[] = [
               href="https://github.com/a3ro-dev/luna/blob/main/src/lib/prediction/__tests__/engine.test.ts"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
+              className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]"
             >
               engine.test.ts
             </Link>
@@ -191,7 +191,7 @@ const SECTIONS: LegalSection[] = [
           deletion is coming soon to settings. When your account is deleted,
           all associated data is permanently removed from Luna&apos;s database.
         </p>
-        <p className="text-[#75636A] text-xs">
+        <p className="text-[var(--landing-secondary)] text-xs">
           Note: Data logged by third-party services (HackClub AI proxy,
           Supermemory) may persist according to their own retention policies.
           Luna can only delete data in its own database.
@@ -262,41 +262,41 @@ const SECTIONS: LegalSection[] = [
           Luna depends on three third-party services that process your data:
         </p>
         <div className="space-y-2 mt-2">
-          <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-3">
-            <p className="text-sm font-medium text-[#6D5A60] mb-1">
+          <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-3">
+            <p className="text-sm font-medium text-[var(--landing-ink)] mb-1">
               Neon (database)
             </p>
-            <p className="text-xs text-[#75636A]">
+            <p className="text-xs text-[var(--landing-secondary)]">
               SOC 2 Type II, ISO 27001 certified. AES-256 at rest, TLS 1.2+ in
               transit. Acquired by Databricks (May 2025). HIPAA only on Scale
               plan — Luna does not use this plan.
             </p>
           </div>
-          <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-3">
-            <p className="text-sm font-medium text-[#6D5A60] mb-1">
+          <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-3">
+            <p className="text-sm font-medium text-[var(--landing-ink)] mb-1">
               HackClub (AI proxy + search)
             </p>
-            <p className="text-xs text-[#75636A]">
+            <p className="text-xs text-[var(--landing-secondary)]">
               US 501(c)(3) nonprofit. Logs all AI prompts and responses in full.
               No documented retention period. No service-specific privacy policy.
               Code is open source and verifiable.
             </p>
           </div>
-          <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-3">
-            <p className="text-sm font-medium text-[#6D5A60] mb-1">
+          <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-3">
+            <p className="text-sm font-medium text-[var(--landing-ink)] mb-1">
               Supermemory (AI memory)
             </p>
-            <p className="text-xs text-[#75636A]">
+            <p className="text-xs text-[var(--landing-secondary)]">
               Early-stage company. Claims SOC 2, HIPAA, GDPR compliance — no
               public audits. Encryption at rest not documented. Core engine
               is open source (MIT).
             </p>
           </div>
         </div>
-        <p className="mt-3 text-[#75636A] text-xs">
+        <p className="mt-3 text-[var(--landing-secondary)] text-xs">
           Self-hosting with replacement infrastructure is the only path to full
           data control. See our{" "}
-          <Link href="/transparency" className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]">
+          <Link href="/transparency" className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]">
             Transparency
           </Link>{" "}
           page for details.
@@ -344,7 +344,7 @@ const SECTIONS: LegalSection[] = [
           changes constitutes acceptance. If you do not agree with the updated
           terms, stop using Luna and contact us to delete your account.
         </p>
-        <p className="text-[#75636A] text-xs">
+        <p className="text-[var(--landing-secondary)] text-xs">
           These terms are tracked in Luna&apos;s open-source Git repository.
           You can see the full history of changes on GitHub.
         </p>

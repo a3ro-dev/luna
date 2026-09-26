@@ -11,7 +11,7 @@ export interface LegalSection {
 }
 
 const focusRing =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D5A60]";
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--landing-ink)]";
 
 /**
  * Shared reading layout for /privacy, /terms and /transparency: a ~65ch
@@ -63,11 +63,11 @@ export function LegalDocument({
           aria-current={activeSection === s.id ? "location" : undefined}
           className={`flex min-h-11 items-baseline gap-3 rounded-xl px-3 py-2.5 text-sm leading-snug transition-colors lg:min-h-0 lg:py-1.5 lg:text-[13px] ${focusRing} ${
             activeSection === s.id
-              ? "bg-[#FFDDE0]/40 text-[#6D5A60]"
-              : "text-[#75636A] hover:bg-[#FFF5F7] hover:text-[#6D5A60]"
+              ? "bg-[var(--landing-blush)]/40 text-[var(--landing-ink)]"
+              : "text-[var(--landing-secondary)] hover:bg-[var(--landing-hover)] hover:text-[var(--landing-ink)]"
           }`}
         >
-          <span className="w-5 shrink-0 text-[11px] tabular-nums text-[#75636A]">
+          <span className="w-5 shrink-0 text-[13px] tabular-nums text-[var(--landing-secondary)]">
             {String(index + 1).padStart(2, "0")}
           </span>
           <span className="min-w-0">{s.title}</span>
@@ -76,40 +76,40 @@ export function LegalDocument({
     ));
 
   return (
-    <div className="min-h-dvh bg-[#FCFBFB] font-sans text-[#6D5A60] selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
+    <div className="luna-landing min-h-dvh bg-[var(--luna-page)] font-sans text-[var(--landing-ink)] selection:bg-[var(--landing-blush)] selection:text-[var(--landing-ink)]">
       <div className="mx-auto max-w-5xl px-5 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-[calc(2.5rem+env(safe-area-inset-top))] md:px-8 md:pb-24 md:pt-20">
         <header className="mb-8 lg:mb-16">
           <Link
             href="/"
             aria-label="Back to Luna home"
-            className={`mb-8 inline-flex h-11 items-center gap-2 rounded-full border border-[#FFDDE0] bg-white/60 pl-3 pr-4 text-xs font-medium text-[#6D5A60] transition hover:bg-[#FFF5F7] ${focusRing}`}
+            className={`mb-8 inline-flex h-11 items-center gap-2 rounded-full border border-[var(--landing-blush)] bg-[var(--landing-surface)]/60 pl-3 pr-4 text-xs font-medium text-[var(--landing-ink)] transition hover:bg-[var(--landing-hover)] ${focusRing}`}
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
             Luna
           </Link>
-          <h1 className="font-display text-[clamp(2.25rem,6vw,3.25rem)] font-bold leading-[1.08] tracking-[-0.03em] text-[#6D5A60]">
+          <h1 className="font-display text-[clamp(2.25rem,6vw,3.25rem)] font-bold leading-[1.08] tracking-[-0.03em] text-[var(--landing-ink)]">
             {title}
           </h1>
-          <p className="mt-3 text-sm text-[#75636A]">Last updated {updated}</p>
+          <p className="mt-3 text-sm text-[var(--landing-secondary)]">Last updated {updated}</p>
         </header>
 
         {/* Phones and tablets: sticky, collapsible contents bar */}
-        <div className="sticky top-0 z-30 -mx-5 mb-8 border-y border-[#FFDDE0]/60 bg-[#FCFBFB]/95 px-5 pt-[env(safe-area-inset-top)] backdrop-blur-md md:-mx-8 md:px-8 lg:hidden">
+        <div className="sticky top-0 z-30 -mx-5 mb-8 border-y border-[var(--landing-blush)]/60 bg-[var(--luna-page)]/95 px-5 pt-[env(safe-area-inset-top)] backdrop-blur-md md:-mx-8 md:px-8 lg:hidden">
           <details className="group">
             <summary
               className={`flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg [&::-webkit-details-marker]:hidden ${focusRing}`}
             >
               <span className="flex min-w-0 items-baseline gap-2">
-                <span className="shrink-0 text-[13px] font-medium text-[#75636A]">
+                <span className="shrink-0 text-[13px] font-medium text-[var(--landing-secondary)]">
                   On this page
                 </span>
-                <span className="truncate text-sm text-[#6D5A60]">
+                <span className="truncate text-sm text-[var(--landing-ink)]">
                   {activeTitle}
                 </span>
               </span>
               <ChevronDown
                 aria-hidden
-                className="h-4 w-4 shrink-0 text-[#75636A] transition-transform group-open:rotate-180 motion-reduce:transition-none"
+                className="h-4 w-4 shrink-0 text-[var(--landing-secondary)] transition-transform group-open:rotate-180 motion-reduce:transition-none"
               />
             </summary>
             <nav aria-label="On this page" className="pb-3">
@@ -123,7 +123,7 @@ export function LegalDocument({
         <div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-16">
           <nav aria-label="On this page" className="hidden lg:block">
             <div className="sticky top-10">
-              <p className="mb-2 px-3 text-[13px] font-semibold text-[#75636A]">
+              <p className="mb-2 px-3 text-[13px] font-semibold text-[var(--landing-secondary)]">
                 On this page
               </p>
               <ol className="space-y-0.5">{tocLinks()}</ol>
@@ -131,7 +131,7 @@ export function LegalDocument({
           </nav>
 
           <article className="min-w-0 max-w-[65ch]">
-            <div className="text-[1.25rem] leading-[1.45] tracking-[-0.012em] text-[#6D5A60] md:text-[1.375rem]">
+            <div className="text-[1.25rem] leading-[1.45] tracking-[-0.012em] text-[var(--landing-ink)] md:text-[1.375rem]">
               {intro}
             </div>
 
@@ -140,17 +140,17 @@ export function LegalDocument({
                 key={section.id}
                 id={section.id}
                 aria-labelledby={`${section.id}-title`}
-                className="mt-12 scroll-mt-20 border-t border-[#FFDDE0]/70 pt-10 lg:scroll-mt-10"
+                className="mt-12 scroll-mt-20 border-t border-[var(--landing-blush)]/70 pt-10 lg:scroll-mt-10"
               >
                 <p
                   aria-hidden
-                  className="mb-2 text-[11px] font-semibold tabular-nums tracking-widest text-[#A34E68]"
+                  className="mb-2 text-[13px] font-medium tabular-nums text-[var(--landing-accent)]"
                 >
                   {String(index + 1).padStart(2, "0")}
                 </p>
                 <h2
                   id={`${section.id}-title`}
-                  className="font-display text-[1.375rem] font-semibold leading-tight tracking-[-0.022em] text-[#6D5A60] md:text-[1.625rem]"
+                  className="font-display text-[1.375rem] font-semibold leading-tight tracking-[-0.022em] text-[var(--landing-ink)] md:text-[1.625rem]"
                 >
                   <a
                     href={`#${section.id}`}
@@ -159,13 +159,13 @@ export function LegalDocument({
                     {section.title}
                     <span
                       aria-hidden
-                      className="ml-2 text-[#A34E68] opacity-0 transition-opacity group-hover/anchor:opacity-100 group-focus-visible/anchor:opacity-100"
+                      className="ml-2 text-[var(--landing-accent)] opacity-0 transition-opacity group-hover/anchor:opacity-100 group-focus-visible/anchor:opacity-100"
                     >
                       #
                     </span>
                   </a>
                 </h2>
-                <div className="mt-5 space-y-4 text-[0.95rem] leading-[1.7] text-[#6D5A60] [&_strong]:font-semibold">
+                <div className="mt-5 space-y-4 text-[0.95rem] leading-[1.7] text-[var(--landing-ink)] [&_strong]:font-semibold">
                   {section.content}
                 </div>
               </section>
@@ -173,8 +173,8 @@ export function LegalDocument({
           </article>
         </div>
 
-        <footer className="mt-20 border-t border-[#FFDDE0]/70 pt-10 text-center md:mt-24">
-          <p className="text-sm text-[#75636A]">{footer}</p>
+        <footer className="mt-20 border-t border-[var(--landing-blush)]/70 pt-10 text-center md:mt-24">
+          <p className="text-sm text-[var(--landing-secondary)]">{footer}</p>
           <nav
             aria-label="Legal"
             className="mt-4 flex flex-wrap justify-center gap-x-2 text-xs"
@@ -187,7 +187,7 @@ export function LegalDocument({
               <Link
                 key={href}
                 href={href}
-                className={`inline-flex min-h-11 items-center rounded-full px-3 text-[#75636A] underline decoration-[#FFDDE0] underline-offset-4 transition-colors hover:text-[#6D5A60] hover:decoration-[#A34E68] ${focusRing}`}
+                className={`inline-flex min-h-11 items-center rounded-full px-3 text-[var(--landing-secondary)] underline decoration-[var(--landing-blush)] underline-offset-4 transition-colors hover:text-[var(--landing-ink)] hover:decoration-[var(--landing-accent)] ${focusRing}`}
               >
                 {label}
               </Link>
@@ -284,35 +284,35 @@ const SECTIONS: LegalSection[] = [
           All structured data lives in a Neon PostgreSQL database. Neon is a
           serverless Postgres platform running on AWS.
         </p>
-        <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4 mt-2 space-y-1 text-xs [&_span:last-child]:text-right">
-          <div className="flex justify-between gap-4 py-1 border-b border-[#FFDDE0]/10">
-            <span className="text-[#75636A]">Encryption at rest</span>
-            <span className="text-[#6D5A60] font-medium">AES-256</span>
+        <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-4 mt-2 space-y-1 text-xs [&_span:last-child]:text-right">
+          <div className="flex justify-between gap-4 py-1 border-b border-[var(--landing-line)]">
+            <span className="text-[var(--landing-secondary)]">Encryption at rest</span>
+            <span className="text-[var(--landing-ink)] font-medium">AES-256</span>
           </div>
-          <div className="flex justify-between gap-4 py-1 border-b border-[#FFDDE0]/10">
-            <span className="text-[#75636A]">Encryption in transit</span>
-            <span className="text-[#6D5A60] font-medium">TLS 1.2+</span>
+          <div className="flex justify-between gap-4 py-1 border-b border-[var(--landing-line)]">
+            <span className="text-[var(--landing-secondary)]">Encryption in transit</span>
+            <span className="text-[var(--landing-ink)] font-medium">TLS 1.2+</span>
           </div>
-          <div className="flex justify-between gap-4 py-1 border-b border-[#FFDDE0]/10">
-            <span className="text-[#75636A]">Certifications</span>
-            <span className="text-[#6D5A60] font-medium">SOC 2 Type II, ISO 27001</span>
+          <div className="flex justify-between gap-4 py-1 border-b border-[var(--landing-line)]">
+            <span className="text-[var(--landing-secondary)]">Certifications</span>
+            <span className="text-[var(--landing-ink)] font-medium">SOC 2 Type II, ISO 27001</span>
           </div>
-          <div className="flex justify-between gap-4 py-1 border-b border-[#FFDDE0]/10">
-            <span className="text-[#75636A]">HIPAA</span>
-            <span className="text-[#75636A]">
+          <div className="flex justify-between gap-4 py-1 border-b border-[var(--landing-line)]">
+            <span className="text-[var(--landing-secondary)]">HIPAA</span>
+            <span className="text-[var(--landing-secondary)]">
               Scale plan only (~$700/mo)
             </span>
           </div>
-          <div className="flex justify-between gap-4 py-1 border-b border-[#FFDDE0]/10">
-            <span className="text-[#75636A]">Infrastructure</span>
-            <span className="text-[#6D5A60] font-medium">AWS, 8 regions</span>
+          <div className="flex justify-between gap-4 py-1 border-b border-[var(--landing-line)]">
+            <span className="text-[var(--landing-secondary)]">Infrastructure</span>
+            <span className="text-[var(--landing-ink)] font-medium">AWS, 8 regions</span>
           </div>
           <div className="flex justify-between gap-4 py-1">
-            <span className="text-[#75636A]">Open source</span>
-            <span className="text-[#6D5A60] font-medium">Apache 2.0</span>
+            <span className="text-[var(--landing-secondary)]">Open source</span>
+            <span className="text-[var(--landing-ink)] font-medium">Apache 2.0</span>
           </div>
         </div>
-        <p className="mt-3 text-[#75636A] text-xs">
+        <p className="mt-3 text-[var(--landing-secondary)] text-xs">
           Neon was acquired by Databricks in May 2025. Privacy policy now falls
           under Databricks&apos; legal framework. Luna uses Neon&apos;s HTTP
           serverless driver with <code>cache: no-store</code> to prevent Vercel
@@ -321,7 +321,7 @@ const SECTIONS: LegalSection[] = [
             href="https://trust.neon.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
+            className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]"
           >
             Neon Trust Center
           </a>{" "}
@@ -330,7 +330,7 @@ const SECTIONS: LegalSection[] = [
             href="https://neon.com/security"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
+            className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]"
           >
             Security
           </a>
@@ -349,10 +349,10 @@ const SECTIONS: LegalSection[] = [
           to xAI (Grok) and Anthropic (Claude). Web searches use HackClub&apos;s
           search API.
         </p>
-        <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4 mt-2 space-y-3 text-xs">
+        <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-4 mt-2 space-y-3 text-xs">
           <div className="flex items-start gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#FFB5C0] mt-1.5 shrink-0" />
-            <p className="text-[#6D5A60]">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--landing-rose)] mt-1.5 shrink-0" />
+            <p className="text-[var(--landing-ink)]">
               <strong>Full prompt logging.</strong> HackClub logs every AI prompt
               and response in full (jsonb), linked to your user ID and IP address.
               This includes anything you type to the AI — symptoms, cycle details,
@@ -360,31 +360,31 @@ const SECTIONS: LegalSection[] = [
             </p>
           </div>
           <div className="flex items-start gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#FFB5C0] mt-1.5 shrink-0" />
-            <p className="text-[#6D5A60]">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--landing-rose)] mt-1.5 shrink-0" />
+            <p className="text-[var(--landing-ink)]">
               <strong>No retention policy.</strong> There is no documented deletion
               schedule for these logs. HackClub&apos;s general privacy policy does
               not specifically address the AI proxy or search API.
             </p>
           </div>
           <div className="flex items-start gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#D6CBE3] mt-1.5 shrink-0" />
-            <p className="text-[#6D5A60]">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--landing-lavender)] mt-1.5 shrink-0" />
+            <p className="text-[var(--landing-ink)]">
               <strong>Verifiable.</strong> HackClub&apos;s AI proxy code is fully
               open source. You can verify exactly what they log. But you cannot
               opt out of it.
             </p>
           </div>
           <div className="flex items-start gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#8E7D82]/40 mt-1.5 shrink-0" />
-            <p className="text-[#75636A] text-xs">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--landing-tertiary)]/40 mt-1.5 shrink-0" />
+            <p className="text-[var(--landing-secondary)] text-xs">
               Upstream: HackClub → OpenRouter → xAI/Anthropic. Each upstream
               provider has their own data policies.{" "}
               <a
                 href="https://hackclub.com/privacy-and-terms"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
+                className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]"
               >
                 HackClub Privacy & Terms
               </a>
@@ -406,33 +406,33 @@ const SECTIONS: LegalSection[] = [
           facts — never cycle data or chat messages. Each user&apos;s facts are
           scoped via containerTag.
         </p>
-        <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4 mt-2 space-y-1 text-xs [&_span:last-child]:text-right">
-          <div className="flex justify-between gap-4 py-1 border-b border-[#FFDDE0]/10">
-            <span className="text-[#75636A]">Infrastructure</span>
-            <span className="text-[#6D5A60] font-medium">Timescale + Cloudflare</span>
+        <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-4 mt-2 space-y-1 text-xs [&_span:last-child]:text-right">
+          <div className="flex justify-between gap-4 py-1 border-b border-[var(--landing-line)]">
+            <span className="text-[var(--landing-secondary)]">Infrastructure</span>
+            <span className="text-[var(--landing-ink)] font-medium">Timescale + Cloudflare</span>
           </div>
-          <div className="flex justify-between gap-4 py-1 border-b border-[#FFDDE0]/10">
-            <span className="text-[#75636A]">Encryption at rest</span>
-            <span className="text-[#75636A]">
+          <div className="flex justify-between gap-4 py-1 border-b border-[var(--landing-line)]">
+            <span className="text-[var(--landing-secondary)]">Encryption at rest</span>
+            <span className="text-[var(--landing-secondary)]">
               Not explicitly documented
             </span>
           </div>
-          <div className="flex justify-between gap-4 py-1 border-b border-[#FFDDE0]/10">
-            <span className="text-[#75636A]">Compliance claims</span>
-            <span className="text-[#6D5A60] font-medium">SOC 2, HIPAA (unverified)</span>
+          <div className="flex justify-between gap-4 py-1 border-b border-[var(--landing-line)]">
+            <span className="text-[var(--landing-secondary)]">Compliance claims</span>
+            <span className="text-[var(--landing-ink)] font-medium">SOC 2, HIPAA (unverified)</span>
           </div>
-          <div className="flex justify-between gap-4 py-1 border-b border-[#FFDDE0]/10">
-            <span className="text-[#75636A]">Public audit reports</span>
-            <span className="text-[#75636A]">None available</span>
+          <div className="flex justify-between gap-4 py-1 border-b border-[var(--landing-line)]">
+            <span className="text-[var(--landing-secondary)]">Public audit reports</span>
+            <span className="text-[var(--landing-secondary)]">None available</span>
           </div>
           <div className="flex justify-between gap-4 py-1">
-            <span className="text-[#75636A]">Third-party AI</span>
-            <span className="text-[#75636A]">
+            <span className="text-[var(--landing-secondary)]">Third-party AI</span>
+            <span className="text-[var(--landing-secondary)]">
               Content may be sent to OpenAI/Gemini
             </span>
           </div>
         </div>
-        <p className="mt-3 text-[#75636A] text-xs">
+        <p className="mt-3 text-[var(--landing-secondary)] text-xs">
           Supermemory is an early-stage company (Supermemory Inc., founded by
           Dhravya Shah). Their core engine is open source (MIT). Luna queries
           Supermemory with a 3-second AbortSignal timeout.{" "}
@@ -440,7 +440,7 @@ const SECTIONS: LegalSection[] = [
             href="https://supermemory.ai/privacy"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
+            className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]"
           >
             Supermemory Privacy
           </a>
@@ -462,7 +462,7 @@ const SECTIONS: LegalSection[] = [
             href="https://resend.com/legal/privacy-policy"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
+            className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]"
           >
             Resend Privacy
           </a>
@@ -573,7 +573,7 @@ const SECTIONS: LegalSection[] = [
             use placeholder addresses, not real user data.
           </li>
         </ul>
-        <p className="mt-3 text-[#75636A] text-xs">
+        <p className="mt-3 text-[var(--landing-secondary)] text-xs">
           Security audit by Kiro (May 2025). 10 fixes applied: Redis rate
           limiting, CSP hardening, Zod import validation, conditions allowlist,
           third-party timeouts, admin email env var, and more.
@@ -609,7 +609,7 @@ const SECTIONS: LegalSection[] = [
         <p>
           <a
             href="mailto:akshatsingh14372@outlook.com"
-            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 transition-colors hover:decoration-[#A34E68]"
+            className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 transition-colors hover:decoration-[var(--landing-accent)]"
           >
             akshatsingh14372@outlook.com
           </a>
@@ -617,14 +617,14 @@ const SECTIONS: LegalSection[] = [
         <p className="mt-2">
           <Link
             href="https://github.com/a3ro-dev/luna"
-            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 transition-colors hover:decoration-[#A34E68]"
+            className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 transition-colors hover:decoration-[var(--landing-accent)]"
             target="_blank"
             rel="noopener noreferrer"
           >
             github.com/a3ro-dev/luna
           </Link>
         </p>
-        <p className="mt-4 text-[#75636A] text-xs">
+        <p className="mt-4 text-[var(--landing-secondary)] text-xs">
           This policy is part of Luna&apos;s open-source repository. You can
           see its history and suggest changes on GitHub.
         </p>

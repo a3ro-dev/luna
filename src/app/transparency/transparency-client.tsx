@@ -112,7 +112,7 @@ const SECTIONS: LegalSection[] = [
             href="https://github.com/a3ro-dev/luna/blob/main/src/lib/prediction/forecast.ts"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
+            className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]"
           >
             forecast.ts
           </Link>
@@ -120,8 +120,8 @@ const SECTIONS: LegalSection[] = [
         </p>
 
         <div className="space-y-4 mt-2">
-          <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4">
-            <h3 className="text-sm font-medium text-[#6D5A60] mb-2">
+          <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-4">
+            <h3 className="text-sm font-medium text-[var(--landing-ink)] mb-2">
               1. Broad starting assumptions
             </h3>
             <p>
@@ -132,7 +132,7 @@ const SECTIONS: LegalSection[] = [
               contraception do not receive invented means when the source only
               supports a directional association.
             </p>
-            <p className="mt-2 text-xs text-[#75636A]">
+            <p className="mt-2 text-xs text-[var(--landing-secondary)]">
               The numerical assumptions, source populations, and transfer
               limits are listed in papers/references.md. Several components are
               conservative engineering assumptions that still require
@@ -140,8 +140,8 @@ const SECTIONS: LegalSection[] = [
             </p>
           </div>
 
-          <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4">
-            <h3 className="text-sm font-medium text-[#6D5A60] mb-2">
+          <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-4">
+            <h3 className="text-sm font-medium text-[var(--landing-ink)] mb-2">
               2. Learning from your history
             </h3>
             <p>
@@ -150,14 +150,14 @@ const SECTIONS: LegalSection[] = [
               point, but a variance floor prevents one or two similar cycles
               from producing a falsely precise prediction.
             </p>
-            <p className="mt-1 text-xs text-[#75636A]">
+            <p className="mt-1 text-xs text-[var(--landing-secondary)]">
               Only the 12 most recent usable intervals inform a forecast. The
               exact shrinkage strength remains an assumption to validate.
             </p>
           </div>
 
-          <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4">
-            <h3 className="text-sm font-medium text-[#6D5A60] mb-2">
+          <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-4">
+            <h3 className="text-sm font-medium text-[var(--landing-ink)] mb-2">
               3. Uncertain logs
             </h3>
             <p>
@@ -166,14 +166,14 @@ const SECTIONS: LegalSection[] = [
               is counted in the forecast basis. Repeated long intervals are
               treated as a personal pattern instead of being discarded.
             </p>
-            <p className="mt-1 text-xs text-[#75636A]">
+            <p className="mt-1 text-xs text-[var(--landing-secondary)]">
               Luna does not know whether a long gap is a missed log or a genuine
               long cycle. This is an uncertainty rule, not a diagnosis.
             </p>
           </div>
 
-          <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4">
-            <h3 className="text-sm font-medium text-[#6D5A60] mb-2">
+          <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-4">
+            <h3 className="text-sm font-medium text-[var(--landing-ink)] mb-2">
               4. Prediction intervals
             </h3>
             <p>
@@ -183,7 +183,7 @@ const SECTIONS: LegalSection[] = [
               person&apos;s typical cycle. Ovulation is clearly labelled as a
               calendar estimate or withheld when unsuitable.
             </p>
-            <p className="mt-1 text-xs text-[#75636A]">
+            <p className="mt-1 text-xs text-[var(--landing-secondary)]">
               Synthetic tests check calibration under known assumptions. The
               live dataset is too small to establish real-world coverage.
             </p>
@@ -203,8 +203,8 @@ const SECTIONS: LegalSection[] = [
         </p>
 
         <div className="space-y-3 mt-2">
-          <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4">
-            <h3 className="text-sm font-medium text-[#6D5A60] mb-2">
+          <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-4">
+            <h3 className="text-sm font-medium text-[var(--landing-ink)] mb-2">
               Neon (database)
             </h3>
             <p>
@@ -213,29 +213,29 @@ const SECTIONS: LegalSection[] = [
               on AWS (8 regions, 4 continents).
             </p>
             <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
-              <span className="text-[#75636A]">Encryption at rest</span>
-              <span className="text-[#6D5A60] font-medium">AES-256</span>
-              <span className="text-[#75636A]">In transit</span>
-              <span className="text-[#6D5A60] font-medium">TLS 1.2+</span>
-              <span className="text-[#75636A]">Certifications</span>
-              <span className="text-[#6D5A60] font-medium">SOC 2, ISO 27001</span>
-              <span className="text-[#75636A]">HIPAA</span>
-              <span className="text-[#75636A]">Scale plan only</span>
-              <span className="text-[#75636A]">Parent company</span>
-              <span className="text-[#6D5A60] font-medium">Databricks (acquired 2025)</span>
+              <span className="text-[var(--landing-secondary)]">Encryption at rest</span>
+              <span className="text-[var(--landing-ink)] font-medium">AES-256</span>
+              <span className="text-[var(--landing-secondary)]">In transit</span>
+              <span className="text-[var(--landing-ink)] font-medium">TLS 1.2+</span>
+              <span className="text-[var(--landing-secondary)]">Certifications</span>
+              <span className="text-[var(--landing-ink)] font-medium">SOC 2, ISO 27001</span>
+              <span className="text-[var(--landing-secondary)]">HIPAA</span>
+              <span className="text-[var(--landing-secondary)]">Scale plan only</span>
+              <span className="text-[var(--landing-secondary)]">Parent company</span>
+              <span className="text-[var(--landing-ink)] font-medium">Databricks (acquired 2025)</span>
             </div>
-            <p className="mt-2 text-xs text-[#75636A]">
+            <p className="mt-2 text-xs text-[var(--landing-secondary)]">
               Neon does not sell personal data. Core engine is Apache 2.0
               open source. Luna uses the HTTP serverless driver with cache:
               no-store.{" "}
-              <a href="https://trust.neon.com" target="_blank" rel="noopener noreferrer" className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]">Trust Center</a>{" "}
+              <a href="https://trust.neon.com" target="_blank" rel="noopener noreferrer" className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]">Trust Center</a>{" "}
               ·{" "}
-              <a href="https://neon.com/security" target="_blank" rel="noopener noreferrer" className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]">Security</a>
+              <a href="https://neon.com/security" target="_blank" rel="noopener noreferrer" className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]">Security</a>
             </p>
           </div>
 
-          <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4">
-            <h3 className="text-sm font-medium text-[#6D5A60] mb-2">
+          <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-4">
+            <h3 className="text-sm font-medium text-[var(--landing-ink)] mb-2">
               HackClub (AI proxy + search)
             </h3>
             <p>
@@ -244,9 +244,9 @@ const SECTIONS: LegalSection[] = [
               may route them to xAI or Anthropic. Web search requests use
               HackClub&apos;s search API.
             </p>
-            <div className="mt-2 flex items-start gap-2 p-2 rounded-lg bg-[#FFDDE0]/20">
-              <span aria-hidden className="text-[#A34E68] shrink-0 text-base">⚠</span>
-              <p className="text-xs text-[#6D5A60]">
+            <div className="mt-2 flex items-start gap-2 p-2 rounded-lg bg-[var(--landing-blush)]/20">
+              <span aria-hidden className="text-[var(--landing-accent)] shrink-0 text-base">⚠</span>
+              <p className="text-xs text-[var(--landing-ink)]">
                 <strong>Critical concern:</strong> HackClub logs every AI prompt
                 and response in full (jsonb), linked to user ID and IP. No
                 retention policy. No deletion schedule. No service-specific
@@ -254,16 +254,16 @@ const SECTIONS: LegalSection[] = [
                 messages is stored indefinitely on their infrastructure.
               </p>
             </div>
-            <p className="mt-2 text-xs text-[#75636A]">
+            <p className="mt-2 text-xs text-[var(--landing-secondary)]">
               All code is open source — the logging is verifiable. But it is
               not optional. If you need strong privacy, self-host Luna with
               your own AI backend.{" "}
-              <a href="https://hackclub.com/privacy-and-terms" target="_blank" rel="noopener noreferrer" className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]">HackClub Privacy & Terms</a>
+              <a href="https://hackclub.com/privacy-and-terms" target="_blank" rel="noopener noreferrer" className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]">HackClub Privacy & Terms</a>
             </p>
           </div>
 
-          <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4">
-            <h3 className="text-sm font-medium text-[#6D5A60] mb-2">
+          <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-4">
+            <h3 className="text-sm font-medium text-[var(--landing-ink)] mb-2">
               Supermemory (personal facts)
             </h3>
             <p>
@@ -272,20 +272,20 @@ const SECTIONS: LegalSection[] = [
               data or chat messages. Scoped per user via containerTag.
             </p>
             <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
-              <span className="text-[#75636A]">Infrastructure</span>
-              <span className="text-[#6D5A60] font-medium">Timescale + Cloudflare</span>
-              <span className="text-[#75636A]">At-rest encryption</span>
-              <span className="text-[#75636A]">Not documented</span>
-              <span className="text-[#75636A]">Compliance</span>
-              <span className="text-[#75636A]">Claims only (no audits)</span>
-              <span className="text-[#75636A]">Third-party AI</span>
-              <span className="text-[#75636A]">May use OpenAI/Gemini</span>
+              <span className="text-[var(--landing-secondary)]">Infrastructure</span>
+              <span className="text-[var(--landing-ink)] font-medium">Timescale + Cloudflare</span>
+              <span className="text-[var(--landing-secondary)]">At-rest encryption</span>
+              <span className="text-[var(--landing-secondary)]">Not documented</span>
+              <span className="text-[var(--landing-secondary)]">Compliance</span>
+              <span className="text-[var(--landing-secondary)]">Claims only (no audits)</span>
+              <span className="text-[var(--landing-secondary)]">Third-party AI</span>
+              <span className="text-[var(--landing-secondary)]">May use OpenAI/Gemini</span>
             </div>
-            <p className="mt-2 text-xs text-[#75636A]">
+            <p className="mt-2 text-xs text-[var(--landing-secondary)]">
               Supermemory Inc. is early-stage (founded by Dhravya Shah). Core
               engine is MIT open source. Luna uses a 3-second AbortSignal
               timeout on all Supermemory calls.{" "}
-              <a href="https://supermemory.ai/privacy" target="_blank" rel="noopener noreferrer" className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]">Supermemory Privacy</a>
+              <a href="https://supermemory.ai/privacy" target="_blank" rel="noopener noreferrer" className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]">Supermemory Privacy</a>
             </p>
           </div>
         </div>
@@ -300,11 +300,11 @@ const SECTIONS: LegalSection[] = [
         role="region"
         aria-label="Data flow summary table, scrolls sideways on small screens"
         tabIndex={0}
-        className="-mx-5 overflow-x-auto px-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D5A60] sm:mx-0 sm:px-0"
+        className="-mx-5 overflow-x-auto px-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--landing-ink)] sm:mx-0 sm:px-0"
       >
         <table className="w-full min-w-[34rem] text-xs leading-relaxed">
           <thead>
-            <tr className="border-b border-[#FFDDE0] text-[#75636A]">
+            <tr className="border-b border-[var(--landing-blush)] text-[var(--landing-secondary)]">
               <th scope="col" className="text-left py-2 pr-2 font-medium">Data type</th>
               <th scope="col" className="text-left py-2 px-2 font-medium">Stored in</th>
               <th scope="col" className="text-left py-2 px-2 font-medium">Also processed by</th>
@@ -319,11 +319,11 @@ const SECTIONS: LegalSection[] = [
               ["Web searches", "—", "HackClub search API", "Subject to HackClub's handling"],
               ["Auth credentials", "Neon (AWS)", "—", "bcryptjs hashed"],
             ].map(([type, stored, processed, logging]) => (
-              <tr key={type} className="border-b border-[#FFDDE0]/60 align-top">
-                <th scope="row" className="text-left py-2 pr-2 text-[#6D5A60] font-medium">{type}</th>
+              <tr key={type} className="border-b border-[var(--landing-blush)]/60 align-top">
+                <th scope="row" className="text-left py-2 pr-2 text-[var(--landing-ink)] font-medium">{type}</th>
                 <td className="py-2 px-2">{stored}</td>
                 <td className="py-2 px-2">{processed}</td>
-                <td className="py-2 pl-2 text-[#75636A]">{logging}</td>
+                <td className="py-2 pl-2 text-[var(--landing-secondary)]">{logging}</td>
               </tr>
             ))}
           </tbody>
@@ -396,14 +396,14 @@ const SECTIONS: LegalSection[] = [
             deletion schedule.
           </li>
         </ul>
-        <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4 mt-4">
-          <p className="text-xs text-[#75636A]">
+        <div className="rounded-[1.125rem] bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)] p-4 mt-4">
+          <p className="text-xs text-[var(--landing-secondary)]">
             These limitations are documented in detail in Luna&apos;s{" "}
             <Link
               href="https://github.com/a3ro-dev/luna/tree/main/papers"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
+              className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]"
             >
               papers directory
             </Link>
@@ -462,7 +462,7 @@ const SECTIONS: LegalSection[] = [
             href="https://github.com/a3ro-dev/luna"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
+            className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]"
           >
             github.com/a3ro-dev/luna
           </Link>
@@ -479,10 +479,10 @@ const SECTIONS: LegalSection[] = [
           ].map((item) => (
             <div
               key={item}
-              className="flex items-start gap-2 text-xs p-2 rounded-lg bg-[#FFF9F9]"
+              className="flex items-start gap-2 text-xs p-2 rounded-xl bg-[var(--landing-surface)] shadow-[var(--landing-shadow-card)]"
             >
-              <span aria-hidden className="text-[#A34E68] shrink-0">→</span>
-              <span className="text-[#6D5A60]">{item}</span>
+              <span aria-hidden className="text-[var(--landing-accent)] shrink-0">→</span>
+              <span className="text-[var(--landing-ink)]">{item}</span>
             </div>
           ))}
         </div>
@@ -505,7 +505,7 @@ const SECTIONS: LegalSection[] = [
           href="https://github.com/a3ro-dev/luna/blob/main/src/lib/chat/models.ts"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
+          className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 hover:decoration-[var(--landing-accent)]"
         >
           models.ts
         </Link>
@@ -535,7 +535,7 @@ const SECTIONS: LegalSection[] = [
         <p>
           <a
             href="mailto:akshatsingh14372@outlook.com"
-            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 transition-colors hover:decoration-[#A34E68]"
+            className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 transition-colors hover:decoration-[var(--landing-accent)]"
           >
             akshatsingh14372@outlook.com
           </a>
@@ -545,7 +545,7 @@ const SECTIONS: LegalSection[] = [
             href="https://github.com/a3ro-dev/luna"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 transition-colors hover:decoration-[#A34E68]"
+            className="text-[var(--landing-accent)] underline decoration-[var(--landing-rose)] underline-offset-2 transition-colors hover:decoration-[var(--landing-accent)]"
           >
             github.com/a3ro-dev/luna
           </Link>

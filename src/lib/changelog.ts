@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.19.1",
+    date: "2026-09-26",
+    type: "feat",
+    title: "The front page and legal pages at night",
+    description:
+      "The front page, Privacy, Terms and Transparency now go dark too. At night the hero becomes a plum-indigo sky, the moon turns pearly with a deep shadow side, and the call to action is a light capsule. A System / Light / Dark switch sits in the front page header (inside the menu on phones). Light mode looks exactly as before.",
+  },
+  {
     version: "0.19.0",
     date: "2026-09-26",
     type: "feat",

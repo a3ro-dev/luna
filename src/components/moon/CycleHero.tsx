@@ -7,6 +7,8 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import { useCan3d } from "./capability";
+import { spring } from "@/lib/motion";
+import { useResolvedTheme } from "@/lib/theme/mode";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -31,7 +33,7 @@ interface Chapter {
 }
 
 const proofCard =
-  "mt-5 rounded-2xl border border-[#F3DDE2] bg-white/80 p-4 text-sm text-[#6D5A60] shadow-[0_12px_32px_rgba(255,181,192,0.12)] backdrop-blur-md";
+  "mt-5 rounded-2xl border border-[var(--landing-line)] bg-[var(--landing-surface)]/80 p-4 text-sm text-[var(--landing-ink)] shadow-[var(--landing-shadow-card)] backdrop-blur-md";
 
 const CHAPTER_CONTENT: Chapter[] = [
   {
@@ -40,8 +42,8 @@ const CHAPTER_CONTENT: Chapter[] = [
     body: "Tell Luna “my period started today” and it's logged. Or tap once on your dashboard.",
     proof: (
       <div className={proofCard}>
-        <p className="ml-auto w-fit rounded-2xl rounded-br-md bg-[#6D5A60] px-3.5 py-2 text-white">my period started today</p>
-        <p className="mt-2 w-fit rounded-2xl rounded-bl-md bg-[#FFF1F3] px-3.5 py-2">Logged for today. Your next window is updating.</p>
+        <p className="ml-auto w-fit rounded-2xl rounded-br-md bg-[var(--landing-ink)] px-3.5 py-2 text-[var(--landing-surface)]">my period started today</p>
+        <p className="mt-2 w-fit rounded-2xl rounded-bl-md bg-[var(--landing-bubble)] px-3.5 py-2">Logged for today. Your next window is updating.</p>
       </div>
     ),
   },
@@ -51,9 +53,9 @@ const CHAPTER_CONTENT: Chapter[] = [
     body: "Luna shows a range and what it's based on, so you can tell when to lean on it and when it's still learning.",
     proof: (
       <div className={proofCard}>
-        <p className="text-xs font-medium uppercase tracking-widest text-[#8A6F77]">Next period · example</p>
-        <p className="mt-1 font-serif text-2xl text-[#6D5A60]">Most likely Oct 21 to 26</p>
-        <p className="mt-1 text-xs text-[#75636A]">Based on 5 of your cycles</p>
+        <p className="text-[13px] font-medium text-[var(--landing-secondary)]">Next period, example</p>
+        <p className="mt-1 font-display text-2xl font-semibold tracking-[-0.022em] tabular-nums text-[var(--landing-ink)]">Most likely Oct 21 to 26</p>
+        <p className="mt-1 text-xs text-[var(--landing-secondary)]">Based on 5 of your cycles</p>
       </div>
     ),
   },
@@ -64,14 +66,14 @@ const CHAPTER_CONTENT: Chapter[] = [
     proof: (
       <ul className={`${proofCard} space-y-2`}>
         {[
-          ["Cycle length", "typical", "bg-emerald-400"],
-          ["Period length", "typical", "bg-emerald-400"],
-          ["Regularity", "needs 1 more cycle", "bg-[#D9CFE3]"],
+          ["Cycle length", "typical", "bg-[var(--landing-sage)]"],
+          ["Period length", "typical", "bg-[var(--landing-sage)]"],
+          ["Regularity", "needs 1 more cycle", "bg-[var(--landing-lavender)]"],
         ].map(([k, v, dot]) => (
           <li key={k} className="flex items-center gap-2.5">
             <span aria-hidden className={`size-2.5 rounded-full ${dot}`} />
             <span className="font-medium">{k}</span>
-            <span className="text-[#75636A]">{v}</span>
+            <span className="text-[var(--landing-secondary)]">{v}</span>
           </li>
         ))}
       </ul>
@@ -88,24 +90,27 @@ const CHAPTER_CONTENT: Chapter[] = [
 function StaticMoon({ phase = "crescent" }: { phase?: "crescent" | "full" | "waning" }) {
   const background =
     phase === "full"
-      ? "radial-gradient(circle at 45% 40%, #FFF8F4 0%, #FFF1EC 60%, #F1E3E8 100%)"
-      : phase === "waning"
-        ? "radial-gradient(circle at 78% 46%, #E6DDEE 0%, #E6DDEE 58%, #F6ECEF 70%, #FFF4EF 82%)"
-        : "radial-gradient(circle at 22% 46%, #E6DDEE 0%, #E6DDEE 58%, #F6ECEF 70%, #FFF4EF 82%)";
-  return <div className="absolute inset-0 rounded-full" style={{ background, boxShadow: "inset 0.3rem -0.2rem 1rem rgba(255,181,192,0.22)" }} />;
+      ? "radial-gradient(circle at 45% 40%, var(--landing-moon-full))"
+      : `radial-gradient(circle at ${phase === "waning" ? 78 : 22}% 46%, var(--landing-moon-phase))`;
+  return (
+    <div
+      className="absolute inset-0 rounded-full"
+      style={{ background, boxShadow: "var(--landing-moon-rim)" }}
+    />
+  );
 }
 
 function ChapterText({ c, i }: { c: Chapter; i: number }) {
   return (
     <>
-      <p className="text-[15px] font-semibold tracking-[-0.01em] text-[#A34E68]">
+      <p className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--landing-accent)]">
         <span className="sr-only">Step {i + 1}: </span>
         {c.label}
       </p>
-      <h2 className="mt-2 font-display text-[clamp(1.9rem,4vw,2.9rem)] font-semibold leading-[1.06] tracking-[-0.03em] text-[#6D5A60]">
+      <h2 className="mt-2 font-display text-[clamp(1.9rem,4vw,2.9rem)] font-semibold leading-[1.06] tracking-[-0.03em] text-[var(--landing-ink)]">
         {c.title}
       </h2>
-      <p className="mt-3 max-w-[34ch] text-[17px] leading-[1.47] tracking-[-0.01em] text-[#75636A]">{c.body}</p>
+      <p className="mt-3 max-w-[34ch] text-[17px] leading-[1.47] tracking-[-0.01em] text-[var(--landing-secondary)]">{c.body}</p>
     </>
   );
 }
@@ -123,7 +128,7 @@ export default function CycleHero({ intro, finale }: { intro: ReactNode; finale:
 function StaticHero({ intro, finale }: { intro: ReactNode; finale: ReactNode }) {
   return (
     <>
-      <section className="relative flex min-h-dvh items-center overflow-hidden px-5 pb-16 pt-[calc(5rem+env(safe-area-inset-top))] md:px-12 wide:pb-24 wide:pt-32">
+      <section className="relative flex min-h-dvh items-center overflow-hidden px-5 [background:var(--landing-sky)] pb-16 pt-[calc(5rem+env(safe-area-inset-top))] md:px-12 wide:pb-24 wide:pt-32">
         {/* Normal flow: moon above the text on phones, beside it (left) when wide. Never on top of it. */}
         <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-10 wide:flex-row wide:justify-between wide:gap-12">
           <div aria-hidden className="relative aspect-square w-[min(56vw,15rem)] shrink-0 wide:w-[min(38vw,30rem)]">
@@ -132,7 +137,7 @@ function StaticHero({ intro, finale }: { intro: ReactNode; finale: ReactNode }) 
           <div className="relative z-10 min-w-0">{intro}</div>
         </div>
       </section>
-      <section aria-label="How Luna works" className="relative bg-[#FFF9F9] px-5 py-16 md:px-12 md:py-28">
+      <section aria-label="How Luna works" className="relative bg-[var(--landing-bg)] px-5 py-16 md:px-12 md:py-28">
         <ol className="mx-auto grid max-w-5xl gap-14 md:grid-cols-2 md:gap-x-16 md:gap-y-20">
           {CHAPTER_CONTENT.map((c, i) => (
             <li key={c.label} className="relative min-w-0">
@@ -161,6 +166,7 @@ function PinnedHero({ intro, finale }: { intro: ReactNode; finale: ReactNode }) 
   const pointer = useRef({ x: 0, y: 0 });
   const invalidate = useRef<() => void>(() => {});
   const [ready, setReady] = useState(false);
+  const theme = useResolvedTheme();
 
   useGSAP(
     () => {
@@ -233,26 +239,24 @@ function PinnedHero({ intro, finale }: { intro: ReactNode; finale: ReactNode }) 
   );
 
   return (
-    <section ref={section} aria-label="Luna, and how it works" className="relative h-svh overflow-hidden">
+    <section ref={section} aria-label="Luna, and how it works" className="relative h-svh overflow-hidden [background:var(--landing-sky)]">
       {/* 3D layer */}
       <div aria-hidden className="pointer-events-none absolute inset-0 z-0">
         <div
           ref={halo}
           className="absolute left-1/2 top-[24%] aspect-square w-[min(120vw,56rem)] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-50 wide:left-1/4 wide:top-[52%]"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(255,221,224,0.85) 0%, rgba(255,221,224,0.3) 40%, rgba(214,203,227,0.16) 58%, transparent 72%)",
-          }}
+          style={{ background: "var(--landing-halo)" }}
         />
         <motion.div
           className="absolute inset-0"
           initial={{ opacity: 0, scale: 0.96 }}
           animate={ready ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.96 }}
-          transition={{ type: "spring", duration: 0.9, bounce: 0.12, delay: 0.1 }}
+          transition={{ ...spring.smooth, delay: 0.1 }}
         >
           <CycleScene
             progress={progress}
             pointer={pointer}
+            theme={theme}
             onReady={(requestFrame) => {
               invalidate.current = requestFrame;
               setReady(true);
@@ -270,18 +274,18 @@ function PinnedHero({ intro, finale }: { intro: ReactNode; finale: ReactNode }) 
       </div>
 
       {/* Readability scrim for chapters on phones, where text sits over the scene */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-[55%] bg-gradient-to-t from-[#FFF9F9] via-[#FFF9F9]/85 to-transparent wide:hidden" />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-[55%] bg-gradient-to-t from-[var(--landing-bg)] via-[var(--landing-bg)]/85 to-transparent wide:hidden" />
 
       <p
         ref={dayReadout}
         aria-hidden
-        className="absolute left-1/2 top-[calc(4.75rem+env(safe-area-inset-top))] z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/70 bg-white/70 px-3.5 py-1.5 text-xs font-medium tabular-nums text-[#6D5A60] opacity-0 backdrop-blur-md wide:left-1/4 wide:top-auto wide:bottom-10"
+        className="absolute left-1/2 top-[calc(4.75rem+env(safe-area-inset-top))] z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-[var(--landing-surface)]/70 bg-[var(--landing-surface)]/70 px-3.5 py-1.5 text-xs font-medium tabular-nums text-[var(--landing-ink)] opacity-0 backdrop-blur-md wide:left-1/4 wide:top-auto wide:bottom-10"
       >
         Day <span ref={dayNum}>1</span> · <span ref={dayPhase}>Period</span>
-        <span className="text-[#8A6F77]"> · example cycle</span>
+        <span className="text-[var(--landing-tertiary)]"> · example cycle</span>
       </p>
 
-      <ol className="absolute inset-x-0 bottom-0 z-10 px-5 pb-[calc(2.25rem+env(safe-area-inset-bottom))] wide:bottom-auto wide:left-auto wide:right-[max(1.5rem,calc(50%-34rem))] wide:top-1/2 wide:w-[26rem] wide:-translate-y-1/2 wide:px-0 wide:pb-0">
+      <ol className="absolute inset-x-0 bottom-0 z-10 px-5 pb-[calc(2.25rem+env(safe-area-inset-bottom))] wide:bottom-auto wide:left-auto wide:right-[max(1.5rem,calc(50%-34rem))] wide:top-1/2 wide:w-[min(26rem,calc(50%-2rem))] wide:-translate-y-1/2 wide:px-0 wide:pb-0">
         {CHAPTER_CONTENT.map((c, i) => (
           <li
             key={c.label}
@@ -291,7 +295,8 @@ function PinnedHero({ intro, finale }: { intro: ReactNode; finale: ReactNode }) 
             className="pointer-events-none absolute inset-x-5 bottom-[calc(2.25rem+env(safe-area-inset-bottom))] opacity-0 data-[active]:pointer-events-auto wide:inset-x-0 wide:bottom-auto wide:top-1/2 wide:-translate-y-1/2"
           >
             <ChapterText c={c} i={i} />
-            {c.proof ?? <div className="mt-6">{finale}</div>}
+            {/* Short landscape screens (a phone on its side): the pin can't fit the proof card. */}
+            {c.proof ? <div className="[@media(max-height:30rem)]:hidden">{c.proof}</div> : <div className="mt-6">{finale}</div>}
           </li>
         ))}
       </ol>
