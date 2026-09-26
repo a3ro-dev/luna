@@ -24,6 +24,7 @@ import {
 import { Renderer } from "@openuidev/react-lang";
 import { openuiChatLibrary } from "@openuidev/react-ui";
 import { looksLikeOpenUiLang } from "@/lib/chat/openui";
+import { CheckIcon } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /*  Stable helpers (module-level — never recreated)                    */
@@ -73,6 +74,26 @@ function extractSourcesFromParts(
   }
   return sources;
 }
+
+// Plain-language names for tool cards; unknown tools fall back to their id
+const TOOL_LABELS: Record<string, string> = {
+  logPeriodStart: "Period start",
+  logPeriodEnd: "Period end",
+  logOvulation: "Ovulation",
+  addNoteSymptom: "Note",
+  fetchRecentCycles: "Recent cycles",
+  computePredictions: "Forecast",
+  fetchStats: "Cycle stats",
+  exportData: "Export",
+  rememberFact: "Memory",
+  searchWeb: "Web search",
+};
+
+type ToolState =
+  | "input-streaming"
+  | "input-available"
+  | "output-available"
+  | "output-error";
 
 // hasReasoningParts is not needed — getReasoningText length check replaces it
 
@@ -149,22 +170,30 @@ export const AssistantMessage = memo(function AssistantMessage({
   const hasReasoning = reasoning.length > 0;
   const sources = extractSourcesFromParts(message.parts);
 
+  // Web search shows as a card only while it runs; once done it becomes Sources
   const toolParts = Array.isArray(message.parts)
     ? message.parts.filter(
         (p) =>
           p.type.startsWith("tool-") &&
-          p.type !== "tool-searchWeb" &&
-          !["tool-invocation"].includes(p.type),
+          p.type !== "tool-invocation" &&
+          !(p.type === "tool-searchWeb" && p.state === "output-available"),
       )
     : [];
 
+  const [copied, setCopied] = useState(false);
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(content);
+    navigator.clipboard
+      .writeText(content)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1600);
+      })
+      .catch(() => {});
   }, [content]);
 
   return (
-    <Message from="assistant">
-      <MessageContent>
+    <Message from="assistant" className="max-w-full">
+      <MessageContent className="w-full text-[0.95rem] leading-relaxed">
         <div className="space-y-3">
           {/* Reasoning */}
           {hasReasoning && (
@@ -183,30 +212,30 @@ export const AssistantMessage = memo(function AssistantMessage({
                 toolName?: string;
                 input?: unknown;
                 output?: unknown;
+                errorText?: string;
               };
+              const toolId =
+                toolPart.toolName ?? toolPart.type.replace("tool-", "");
               return (
                 <Tool key={`tool-${i}`} defaultOpen={false}>
                   <ToolHeader
                     type="dynamic-tool"
-                    state={
-                      toolPart.state as
-                        | "input-streaming"
-                        | "input-available"
-                        | "output-available"
-                    }
-                    toolName={
-                      toolPart.toolName ?? toolPart.type.replace("tool-", "")
-                    }
+                    state={toolPart.state as ToolState}
+                    toolName={toolId}
+                    title={TOOL_LABELS[toolId]}
                   />
                   <ToolContent>
-                    {toolPart.input && (
-                      <pre className="text-xs text-muted-foreground overflow-x-auto">
+                    {Boolean(toolPart.input) && (
+                      <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs">
                         {JSON.stringify(toolPart.input, null, 2)}
                       </pre>
                     )}
-                    {toolPart.output &&
+                    {toolPart.state === "output-error" && toolPart.errorText && (
+                      <p className="text-xs">{toolPart.errorText}</p>
+                    )}
+                    {Boolean(toolPart.output) &&
                       toolPart.state === "output-available" && (
-                        <div className="text-xs text-muted-foreground">
+                        <div className="whitespace-pre-wrap break-words text-xs">
                           {typeof toolPart.output === "string"
                             ? toolPart.output
                             : JSON.stringify(toolPart.output, null, 2)}
@@ -232,10 +261,10 @@ export const AssistantMessage = memo(function AssistantMessage({
                 type="dynamic-tool"
                 state="output-available"
                 toolName="assistant-data"
-                title="Tool data (collapsed)"
+                title="Details"
               />
               <ToolContent>
-                <pre className="max-h-64 overflow-auto rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
+                <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-[var(--tier-bg)] p-3 text-xs">
                   {content}
                 </pre>
               </ToolContent>
@@ -256,8 +285,15 @@ export const AssistantMessage = memo(function AssistantMessage({
         </div>
       </MessageContent>
       {content.length > 0 && (
-        <MessageActions>
-          <MessageAction tooltip="Copy" onClick={handleCopy}>
+        <MessageActions className="-mt-1 -ml-2.5 md:-ml-1">
+          <MessageAction
+            tooltip={copied ? "Copied" : "Copy"}
+            onClick={handleCopy}
+            className="size-11 text-[var(--tier-muted)] hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)] md:size-8"
+          >
+            {copied ? (
+              <CheckIcon className="size-3.5" />
+            ) : (
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="14"
@@ -272,6 +308,7 @@ export const AssistantMessage = memo(function AssistantMessage({
               <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
               <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
             </svg>
+            )}
           </MessageAction>
         </MessageActions>
       )}

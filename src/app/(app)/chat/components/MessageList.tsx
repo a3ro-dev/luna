@@ -5,8 +5,7 @@ import type { UIMessage } from "ai";
 import { AssistantMessage } from "./AssistantMessage";
 import { UserMessage } from "./UserMessage";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { Button } from "@/components/ui/button";
-import { ArrowDownIcon } from "lucide-react";
+import { ArrowDownIcon, RotateCcwIcon } from "lucide-react";
 import { Suggestions, Suggestion } from "@/components/ai-elements/suggestion";
 import Image from "next/image";
 import type { UserPlan } from "@/lib/theme/accent";
@@ -24,6 +23,21 @@ const starterSuggestions = [
   "I've been having cramps",
 ];
 
+const GREETING: Record<UserPlan, { title: string; body: string }> = {
+  free: {
+    title: "Hi, I’m Luna",
+    body: "Log a date, ask about your cycle, or start a conversation.",
+  },
+  premium: {
+    title: "I’m here with you",
+    body: "Log what changed, ask about a pattern, or tell me how you’re feeling.",
+  },
+  "premium+": {
+    title: "Take your time. I’m here.",
+    body: "Start with what’s on your mind. We can look at your cycle together.",
+  },
+};
+
 function lastAssistantHasContent(messages: UIMessage[]): boolean {
   const last = messages[messages.length - 1];
   if (!last || last.role !== "assistant") return false;
@@ -31,6 +45,17 @@ function lastAssistantHasContent(messages: UIMessage[]): boolean {
   return last.parts.some(
     (p) => p.type === "text" && typeof p.text === "string" && p.text.length > 0,
   );
+}
+
+/** The chat API answers failures with `{ error }` JSON; anything else gets a gentle default. */
+function describeError(error: Error): string {
+  try {
+    const parsed = JSON.parse(error.message) as { error?: unknown };
+    if (typeof parsed?.error === "string") return parsed.error;
+  } catch {
+    // not JSON
+  }
+  return "Luna couldn’t finish that reply. Check your connection and try again.";
 }
 
 /* ------------------------------------------------------------------ */
@@ -63,37 +88,47 @@ const EmptyState = memo(function EmptyState({
   onSuggestionClick,
   plan,
 }: EmptyStateProps) {
+  const greeting = GREETING[plan];
+  // Journal-style dateline; server and browser may format it differently
+  const today = new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
   return (
-    <div className="flex size-full flex-col items-center justify-center gap-4 p-8 text-center">
-      <div className="w-12 h-12 rounded-full bg-[var(--tier-tint)] flex items-center justify-center">
+    <div className="flex flex-1 flex-col items-center justify-center px-2 py-8 text-center">
+      <div className="flex size-14 items-center justify-center rounded-full bg-[var(--tier-tint)]">
         <Image
           src="/luna.png"
-          alt="Luna"
-          width={32}
-          height={32}
-          className="h-8 w-8 rounded-full"
+          alt=""
+          width={36}
+          height={36}
+          className="size-9 rounded-full"
         />
       </div>
-      <div className="space-y-1">
-        <h3 className="font-serif font-light text-xl text-[var(--tier-ink)]">
-          {plan === "free" ? "Hi, I’m Luna" : plan === "premium" ? "I’m here with you" : "Take your time. I’m here."}
-        </h3>
-      </div>
-      <p className="text-sm leading-relaxed text-[var(--tier-muted)] max-w-xs">
-        {plan === "free" ? "Log a date, ask about your cycle, or start a conversation." : plan === "premium" ? "Log what changed, ask about a pattern, or tell me how you’re feeling." : "Start with what’s on your mind. We can look at your cycle together."}
+      <p
+        suppressHydrationWarning
+        className="mt-6 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--tier-muted)]"
+      >
+        {today}
       </p>
-      <div className="mt-1">
-        <Suggestions>
-          {starterSuggestions.map((s) => (
-            <Suggestion
-              key={s}
-              suggestion={s}
-              onClick={onSuggestionClick}
-              className="cursor-pointer"
-            />
-          ))}
-        </Suggestions>
-      </div>
+      <h2 className="mt-2 max-w-sm text-balance font-serif text-[2rem] leading-tight text-[var(--tier-ink)] sm:text-4xl">
+        {greeting.title}
+      </h2>
+      <p className="mt-3 max-w-xs text-[0.95rem] leading-relaxed text-[var(--tier-muted)]">
+        {greeting.body}
+      </p>
+      <Suggestions className="mx-auto mt-8 max-w-md px-1">
+        {starterSuggestions.map((s) => (
+          <Suggestion
+            key={s}
+            suggestion={s}
+            onClick={onSuggestionClick}
+            className="h-auto min-h-11 whitespace-normal border-[var(--tier-line)] py-2 bg-[var(--tier-surface)] px-4 text-sm font-normal text-[var(--tier-ink)] hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)]"
+          />
+        ))}
+      </Suggestions>
     </div>
   );
 });
@@ -107,6 +142,9 @@ interface MessageListProps {
   messages: UIMessage[];
   isStreaming: boolean;
   isBusy: boolean;
+  isLoading?: boolean;
+  error?: Error;
+  onRetry?: () => void;
   onSuggestionClick: (text: string) => void;
 }
 
@@ -115,6 +153,9 @@ export const MessageList = memo(function MessageList({
   messages,
   isStreaming,
   isBusy,
+  isLoading = false,
+  error,
+  onRetry,
   onSuggestionClick,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -122,7 +163,6 @@ export const MessageList = memo(function MessageList({
   const [showScrollButton, setShowScrollButton] = useState(false);
   const stickToBottomRef = useRef(true);
   const scrollRafRef = useRef<number>(0);
-  const lastScrollEventRef = useRef<number>(0);
 
   /* ---- Scroll handler (coalesced, no state on every event) ---- */
   useEffect(() => {
@@ -130,15 +170,11 @@ export const MessageList = memo(function MessageList({
     if (!el) return;
 
     const onScroll = () => {
-      const now = performance.now();
-      lastScrollEventRef.current = now;
-
       // Coalesce: use rAF so we only update once per frame
       cancelAnimationFrame(scrollRafRef.current);
       scrollRafRef.current = requestAnimationFrame(() => {
-        const threshold = STICK_THRESHOLD_PX;
         const atBottom =
-          el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
+          el.scrollHeight - el.scrollTop - el.clientHeight <= STICK_THRESHOLD_PX;
 
         stickToBottomRef.current = atBottom;
         setShowScrollButton(!atBottom);
@@ -152,7 +188,7 @@ export const MessageList = memo(function MessageList({
     };
   }, []);
 
-  /* ---- Auto-scroll on content grow (ResizeObserver) ---- */
+  /* ---- Auto-scroll when content grows or the viewport shrinks (keyboard) ---- */
   useEffect(() => {
     const contentEl = contentRef.current;
     const scrollEl = scrollRef.current;
@@ -165,23 +201,24 @@ export const MessageList = memo(function MessageList({
     });
 
     observer.observe(contentEl);
+    observer.observe(scrollEl);
     return () => observer.disconnect();
   }, []);
 
-  /* ---- Smooth scroll to bottom on initial session load ---- */
+  /* ---- Re-anchor to the bottom when a session loads or the user sends ---- */
+  const firstId = messages[0]?.id;
+  const last = messages[messages.length - 1];
+  const pendingUserId = last?.role === "user" ? last.id : undefined;
   useEffect(() => {
-    if (messages.length > 0) {
-      const el = scrollRef.current;
-      if (el) {
-        // Defer to next frame so content is painted
-        requestAnimationFrame(() => {
-          el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
-          stickToBottomRef.current = true;
-        });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const el = scrollRef.current;
+    if (!el || (!firstId && !pendingUserId)) return;
+    stickToBottomRef.current = true;
+    // Defer to next frame so content is painted
+    const raf = requestAnimationFrame(() => {
+      el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [firstId, pendingUserId]);
 
   /* ---- Scroll-to-bottom button handler ---- */
   const handleScrollToBottom = useCallback(() => {
@@ -192,54 +229,76 @@ export const MessageList = memo(function MessageList({
     }
   }, []);
 
+  const showThinking =
+    messages.length > 0 && isBusy && !lastAssistantHasContent(messages);
+
   /* ---- Render ---- */
   return (
-    <div className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain">
+    <div className="relative min-h-0 flex-1 overflow-hidden">
       <div
         ref={scrollRef}
         role="log"
+        aria-label="Conversation"
+        aria-busy={isBusy}
         className="h-full overflow-y-auto overscroll-contain"
       >
         <div
           ref={contentRef}
-          className="mx-auto max-w-3xl px-4 md:px-6 py-6 space-y-4"
+          className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 px-4 py-6 md:px-6 md:py-8"
         >
           {messages.length === 0 ? (
-            <div className="min-h-full flex">
+            isLoading ? (
+              <div role="status" className="flex flex-1 items-center justify-center">
+                <Shimmer className="text-sm">Opening your chats...</Shimmer>
+              </div>
+            ) : (
               <EmptyState plan={plan} onSuggestionClick={onSuggestionClick} />
-            </div>
+            )
           ) : (
             messages.map((m) => (
               <MessageItem key={m.id} message={m} isStreaming={isStreaming} />
             ))
           )}
 
-          {/* Streaming indicator */}
-          {messages.length > 0 &&
-            isBusy &&
-            !lastAssistantHasContent(messages) && (
-              <div>
-                <div className="is-assistant group flex w-full max-w-[95%] flex-col gap-2">
-                  <div className="flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm text-foreground">
-                    <Shimmer>Thinking...</Shimmer>
-                  </div>
-                </div>
-              </div>
-            )}
+          {showThinking && <Shimmer className="text-sm">Thinking...</Shimmer>}
+
+          {error && !isBusy && (
+            <div
+              role="alert"
+              className="flex flex-col gap-3 rounded-2xl border border-[var(--tier-line)] bg-[var(--tier-surface)] p-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <p className="text-sm leading-relaxed text-[var(--tier-ink)]">
+                {describeError(error)}
+              </p>
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="tier-primary-action shrink-0 cursor-pointer self-start sm:self-auto"
+                >
+                  <RotateCcwIcon className="size-4" />
+                  Try again
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Scroll-to-bottom button */}
+      {/* Screen readers hear the reply once it settles (aria-busy) plus this cue */}
+      <p role="status" className="sr-only">
+        {isBusy ? "Luna is replying" : ""}
+      </p>
+
       {showScrollButton && (
-        <Button
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full z-20 shadow-md"
-          onClick={handleScrollToBottom}
-          size="icon"
+        <button
           type="button"
-          variant="outline"
+          onClick={handleScrollToBottom}
+          aria-label="Jump to latest message"
+          className="absolute bottom-3 left-1/2 z-20 flex size-11 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-[var(--tier-line)] bg-[var(--tier-surface)] text-[var(--tier-ink)] shadow-[0_8px_24px_-10px_oklch(0.4_0.04_355/0.35)] transition-colors duration-150 hover:bg-[var(--tier-tint)]"
         >
           <ArrowDownIcon className="size-4" />
-        </Button>
+        </button>
       )}
     </div>
   );

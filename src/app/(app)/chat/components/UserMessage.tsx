@@ -28,9 +28,9 @@ export const UserMessage = memo(function UserMessage({
     message.parts.some((p) => p.type === "file");
 
   return (
-    <Message from="user">
-      <MessageContent>
-        {text}
+    <Message from="user" className="max-w-[85%] sm:max-w-[75%]">
+      <MessageContent className="group-[.is-user]:rounded-[1.25rem] group-[.is-user]:rounded-br-md group-[.is-user]:bg-[var(--tier-tint)] group-[.is-user]:px-4 group-[.is-user]:py-2.5 group-[.is-user]:text-[var(--tier-ink)] text-[0.95rem] leading-relaxed">
+        {text && <p className="whitespace-pre-wrap break-words">{text}</p>}
         {hasFiles && (
           <Attachments variant="grid" className="mt-2">
             {message

@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import type { MotionProps } from "motion/react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import type { CSSProperties, ElementType, JSX } from "react";
 import { memo, useMemo } from "react";
 
@@ -39,7 +39,6 @@ const ShimmerComponent = ({
   spread = 2,
 }: TextShimmerProps) => {
   // Cached per element at module level, so identity is stable across renders
-  // eslint-disable-next-line react-hooks/static-components
   const MotionComponent = getMotionComponent(
     Component as keyof JSX.IntrinsicElements
   );
@@ -48,10 +47,13 @@ const ShimmerComponent = ({
     () => (children?.length ?? 0) * spread,
     [children, spread]
   );
+  // Reduced motion: the highlight stays parked off-text, leaving plain muted text
+  const reduceMotion = useReducedMotion();
 
   return (
+    // eslint-disable-next-line react-hooks/static-components -- cached above, identity is stable
     <MotionComponent
-      animate={{ backgroundPosition: "0% center" }}
+      animate={reduceMotion ? undefined : { backgroundPosition: "0% center" }}
       className={cn(
         "relative inline-block bg-[length:250%_100%,auto] bg-clip-text text-transparent",
         "[--bg:linear-gradient(90deg,#0000_calc(50%-var(--spread)),var(--color-background),#0000_calc(50%+var(--spread)))] [background-repeat:no-repeat,padding-box]",
@@ -65,11 +67,11 @@ const ShimmerComponent = ({
             "var(--bg), linear-gradient(var(--color-muted-foreground), var(--color-muted-foreground))",
         } as CSSProperties
       }
-      transition={{
-        duration,
-        ease: "linear",
-        repeat: Number.POSITIVE_INFINITY,
-      }}
+      transition={
+        reduceMotion
+          ? undefined
+          : { duration, ease: "linear", repeat: Number.POSITIVE_INFINITY }
+      }
     >
       {children}
     </MotionComponent>

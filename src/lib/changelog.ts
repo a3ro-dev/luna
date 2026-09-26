@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.14.1",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Chat that works well on a phone",
+    description:
+      "The chat composer stays above the keyboard, the chat list opens as a proper drawer (focus stays inside, Escape and tapping outside close it), and Today and Settings are always one tap away. If a reply fails, a Try again card resends it without duplicating your message. Deleting a chat now always moves you to another one.",
+  },
+  {
     version: "0.14.0",
     date: "2026-09-26",
     type: "feat",

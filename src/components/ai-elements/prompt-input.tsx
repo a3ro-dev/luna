@@ -42,12 +42,11 @@ import {
 import { cn } from "@/lib/utils";
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
 import {
-  CornerDownLeftIcon,
+  ArrowUpIcon,
   ImageIcon,
   Monitor,
   PlusIcon,
   SquareIcon,
-  XIcon,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import type {
@@ -921,7 +920,10 @@ export const PromptInput = ({
         ref={formRef}
         {...props}
       >
-        <InputGroup className="overflow-hidden">{children}</InputGroup>
+        {/* The form carries the visible surface; the group stays flat inside it */}
+        <InputGroup className="overflow-hidden border-0 bg-transparent shadow-none has-[[data-slot=input-group-control]:focus-visible]:ring-0">
+          {children}
+        </InputGroup>
       </form>
     </>
   );
@@ -983,12 +985,14 @@ export const PromptInputTextarea = ({
         }
         e.preventDefault();
 
-        // Check if the submit button is disabled before submitting
+        // No enabled submit button means a reply is still generating (the
+        // button has become Stop). Submitting now would reset the form and
+        // drop what the user typed, so keep the draft instead.
         const { form } = e.currentTarget;
         const submitButton = form?.querySelector(
           'button[type="submit"]'
         ) as HTMLButtonElement | null;
-        if (submitButton?.disabled) {
+        if (!submitButton || submitButton.disabled) {
           return;
         }
 
@@ -1225,14 +1229,13 @@ export const PromptInputSubmit = ({
 }: PromptInputSubmitProps) => {
   const isGenerating = status === "submitted" || status === "streaming";
 
-  let Icon = <CornerDownLeftIcon className="size-4" />;
+  // After an error the button simply sends again, so it keeps the send arrow
+  let Icon = <ArrowUpIcon className="size-4" />;
 
   if (status === "submitted") {
     Icon = <Spinner />;
   } else if (status === "streaming") {
-    Icon = <SquareIcon className="size-4" />;
-  } else if (status === "error") {
-    Icon = <XIcon className="size-4" />;
+    Icon = <SquareIcon className="size-3.5 fill-current" />;
   }
 
   const handleClick = useCallback(
@@ -1249,7 +1252,7 @@ export const PromptInputSubmit = ({
 
   return (
     <InputGroupButton
-      aria-label={isGenerating ? "Stop" : "Submit"}
+      aria-label={isGenerating ? "Stop reply" : "Send message"}
       className={cn(className)}
       onClick={handleClick}
       size={size}

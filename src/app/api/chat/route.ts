@@ -166,6 +166,27 @@ const getRecentMessages = async (sessionId: string) => {
     }));
 };
 
+/**
+ * "Try again" resends the last user turn, which a failed attempt may already have saved.
+ * True when the newest stored turn is that user text; a partial reply after it is dropped.
+ */
+const reuseSavedUserTurn = async (sessionId: string, userText: string) => {
+  const [newest, previous] = await db
+    .select({ id: chatMessages.id, role: chatMessages.role, textContent: chatMessages.textContent })
+    .from(chatMessages)
+    .where(eq(chatMessages.sessionId, sessionId))
+    .orderBy(desc(chatMessages.createdAt))
+    .limit(2);
+  if (newest?.role === "user") return (newest.textContent ?? "") === userText;
+  if (newest?.role === "assistant" && previous?.role === "user" && (previous.textContent ?? "") === userText) {
+    await db
+      .delete(chatMessages)
+      .where(and(eq(chatMessages.id, newest.id), eq(chatMessages.sessionId, sessionId)));
+    return true;
+  }
+  return false;
+};
+
 const getLatestSummary = async (sessionId: string) => {
   const rows = await db
     .select()
@@ -631,7 +652,7 @@ export async function POST(req: Request) {
   if (!body || typeof body !== "object") {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
-  const { messages, sessionId: requestSessionId, timezone: clientTimeZone } = body;
+  const { messages, sessionId: requestSessionId, timezone: clientTimeZone, trigger } = body;
   const userMessages = (Array.isArray(messages) ? messages : []) as UIMessage[];
   const userTimeZone = await resolveUserTimeZone(
     userId,
@@ -645,7 +666,11 @@ export async function POST(req: Request) {
   const sessionId = chatSession.id;
 
   const lastIncoming = userMessages[userMessages.length - 1];
-  if (lastIncoming && lastIncoming.role === "user") {
+  const alreadySaved =
+    trigger === "regenerate-message" &&
+    lastIncoming?.role === "user" &&
+    (await reuseSavedUserTurn(sessionId, getTextFromParts(lastIncoming.parts ?? [])));
+  if (lastIncoming && lastIncoming.role === "user" && !alreadySaved) {
     // Images move to uploaded_images (7-day retention); history keeps a reference
     const parts = await externalizeImageParts(userId, Array.isArray(lastIncoming.parts) ? lastIncoming.parts : []);
     await db.batch([

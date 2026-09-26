@@ -1,19 +1,13 @@
 "use client";
 
-import React, { memo, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import type { ChatSession } from "./ChatSidebar";
+import React, { memo } from "react";
+import Link from "next/link";
+import { Dialog as DialogPrimitive } from "radix-ui";
+import { MoonIcon, PlusIcon, SettingsIcon, XIcon } from "lucide-react";
+import { SessionList, type ChatSession } from "./ChatSidebar";
 
 interface MobileSidebarProps {
   open: boolean;
-  desktopEnabled?: boolean;
   onClose: () => void;
   sessions: ChatSession[];
   activeSessionId: string | null;
@@ -24,148 +18,62 @@ interface MobileSidebarProps {
   onDeleteSession: (id: string) => void;
 }
 
-const MobileSessionItem = memo(function MobileSessionItem({
-  session,
-  isActive,
-  onSelect,
-  onRename,
-  onDelete,
-}: {
-  session: ChatSession;
-  isActive: boolean;
-  onSelect: () => void;
-  onRename: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <div
-      className={`group flex items-center gap-1 rounded-xl px-3 py-2.5 text-sm transition-colors duration-150 cursor-pointer ${
-        isActive
-          ? "bg-[var(--tier-tint)] text-[var(--tier-ink)]"
-          : "text-[var(--tier-muted)] hover:bg-[var(--tier-tint)]"
-      }`}
-    >
-      <button
-        type="button"
-        onClick={onSelect}
-        className="flex-1 text-left truncate font-light cursor-pointer"
-      >
-        {session.title || "Untitled chat"}
-      </button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="shrink-0 text-[#8E7D82] hover:text-[#6D5A60] cursor-pointer"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="1" />
-              <circle cx="19" cy="12" r="1" />
-              <circle cx="5" cy="12" r="1" />
-            </svg>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-36">
-          <DropdownMenuItem onClick={onRename}>Rename</DropdownMenuItem>
-          <DropdownMenuItem variant="destructive" onClick={onDelete}>
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-});
+const footerLink =
+  "flex min-h-11 items-center gap-3 rounded-2xl px-3 text-sm text-[var(--tier-ink)] transition-colors duration-150 hover:bg-[var(--tier-tint)]";
 
+/**
+ * Chat drawer. Radix supplies the focus trap, Escape, backdrop dismissal and
+ * focus return. It is not portalled, so it stays inside .tier-app and keeps
+ * the plan colours. Deliberately not md:hidden: a hidden-but-open modal would
+ * keep Radix's pointer-events lock on the page after a resize or rotation.
+ */
 export const MobileSidebar = memo(function MobileSidebar({
   open,
-  desktopEnabled = false,
   onClose,
-  sessions,
-  activeSessionId,
-  isLoading,
-  onSelectSession,
   onNewSession,
-  onRenameSession,
-  onDeleteSession,
+  ...listProps
 }: MobileSidebarProps) {
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  // Close on escape key
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
   return (
-    <div className={`fixed inset-0 z-50 ${desktopEnabled ? "" : "md:hidden"}`} role="dialog" aria-modal="true" aria-label="Chats">
-      {/* Backdrop */}
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/20"
-        onClick={onClose}
-        aria-label="Close chat list"
+    <DialogPrimitive.Root open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogPrimitive.Overlay
+        className="fixed inset-0 z-50 bg-[color-mix(in_oklch,var(--tier-ink)_28%,transparent)] duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
       />
-
-      {/* Panel — CSS transition instead of Framer Motion for performance */}
-      <div
-        ref={panelRef}
-        className="absolute right-0 top-0 h-full w-[78%] max-w-[320px] bg-[var(--tier-surface)] border-l border-[var(--tier-line)] px-4 py-6 flex flex-col gap-4 animate-slide-in-right"
+      <DialogPrimitive.Content
+        aria-describedby={undefined}
+        className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,86vw)] flex-col gap-5 border-r border-[var(--tier-line)] bg-[var(--tier-surface)] pt-[max(1.25rem,env(safe-area-inset-top))] pr-3 pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] shadow-[0_30px_60px_oklch(0.4_0.04_355/0.18)] outline-none duration-200 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:animate-in data-[state=open]:slide-in-from-left"
       >
-        <div className="flex items-center justify-between">
-          <h2 className="font-serif text-base text-[#6D5A60]">Chats</h2>
-          <div className="flex items-center gap-2"><Button
-            variant="ghost"
-            size="sm"
-            onClick={onNewSession}
-            className="text-xs text-[#8E7D82] hover:text-[#6D5A60] cursor-pointer"
+        <div className="flex items-center justify-between pl-3">
+          <DialogPrimitive.Title className="font-serif text-2xl text-[var(--tier-ink)]">
+            Your chats
+          </DialogPrimitive.Title>
+          <DialogPrimitive.Close
+            aria-label="Close chats"
+            className="flex size-11 cursor-pointer items-center justify-center rounded-full text-[var(--tier-muted)] hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)]"
           >
-            New
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close chats" className="min-h-11 cursor-pointer">Close</Button></div>
+            <XIcon className="size-5" />
+          </DialogPrimitive.Close>
         </div>
-        <Separator className="bg-[#FFDDE0]/40" />
-        <div className="flex-1 overflow-y-auto overscroll-contain">
-          <div className="space-y-1 pr-2">
-            {isLoading && (
-              <div className="px-3 py-2 text-xs text-muted-foreground">
-                Loading...
-              </div>
-            )}
-            {!isLoading && sessions.length === 0 && (
-              <div className="px-3 py-2 text-xs text-muted-foreground">
-                No chats yet
-              </div>
-            )}
-            {sessions.map((session) => (
-              <MobileSessionItem
-                key={session.id}
-                session={session}
-                isActive={session.id === activeSessionId}
-                onSelect={() => onSelectSession(session.id)}
-                onRename={() => onRenameSession(session.id)}
-                onDelete={() => onDeleteSession(session.id)}
-              />
-            ))}
-          </div>
+
+        <button type="button" onClick={onNewSession} className="tier-primary-action mx-1 cursor-pointer">
+          <PlusIcon className="size-4" />
+          New chat
+        </button>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <SessionList {...listProps} />
         </div>
-      </div>
-    </div>
+
+        <nav aria-label="Luna" className="border-t border-[var(--tier-line)] pt-3">
+          <Link href="/dashboard" className={footerLink}>
+            <MoonIcon className="size-4 text-[var(--tier-muted)]" />
+            Today
+          </Link>
+          <Link href="/settings" className={footerLink}>
+            <SettingsIcon className="size-4 text-[var(--tier-muted)]" />
+            Settings
+          </Link>
+        </nav>
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Root>
   );
 });

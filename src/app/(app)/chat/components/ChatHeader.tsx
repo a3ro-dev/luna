@@ -4,7 +4,7 @@ import React, { memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { signOut, useSession } from "next-auth/react";
-import { Button } from "@/components/ui/button";
+import { MessagesSquareIcon, MoonIcon, SettingsIcon } from "lucide-react";
 import type { UserPlan } from "@/lib/theme/accent";
 
 interface ChatHeaderProps {
@@ -13,6 +13,22 @@ interface ChatHeaderProps {
   plan: UserPlan;
 }
 
+const PLAN_LABEL: Record<UserPlan, string> = {
+  free: "Free",
+  premium: "Premium",
+  "premium+": "Premium+",
+};
+
+const iconButton =
+  "flex size-11 cursor-pointer items-center justify-center rounded-full text-[var(--tier-muted)] transition-colors duration-150 hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)]";
+
+const pill =
+  "inline-flex min-h-11 cursor-pointer items-center rounded-full border border-[var(--tier-line)] px-4 text-xs font-medium text-[var(--tier-ink)] transition-colors duration-150 hover:bg-[var(--tier-tint)]";
+
+/**
+ * Chat keeps its own header instead of the shared bottom tab bar: the composer
+ * owns the bottom edge on phones, so Today and Settings live up here.
+ */
 export const ChatHeader = memo(function ChatHeader({
   onOpenSessions,
   showDesktopSessions,
@@ -21,140 +37,58 @@ export const ChatHeader = memo(function ChatHeader({
   const { status: authStatus } = useSession();
 
   return (
-    <header className="sticky top-0 z-10 border-b border-[var(--tier-line)] bg-[var(--tier-surface)] px-4 py-2 md:px-6 md:py-3">
-      <div className="mx-auto max-w-3xl flex items-center justify-between gap-2">
-        {/* Logo */}
-        <div className="flex items-center gap-1.5">
-          <h1 className="flex items-center gap-1.5 font-serif text-xl md:text-2xl font-light text-[var(--tier-ink)]">
-            <Image
-              src="/luna.png"
-              alt=""
-              width={28}
-              height={28}
-              className="h-6 w-6 md:h-7 md:w-7 rounded-full"
-            />
-            Luna
-          </h1>
-          <span className="hidden text-xs font-medium text-[var(--tier-muted)] sm:inline">
-            {plan === "free" ? "Free" : plan === "premium" ? "Premium" : "Premium+"}
-          </span>
-        </div>
+    <header className="shrink-0 border-b border-[var(--tier-line)] bg-[var(--tier-surface)] pt-[env(safe-area-inset-top)]">
+      <div className="mx-auto flex h-14 max-w-2xl items-center gap-1 px-2 md:h-16 md:px-6">
+        <button
+          type="button"
+          onClick={onOpenSessions}
+          aria-label="Open chats"
+          className={`${iconButton} md:hidden`}
+        >
+          <MessagesSquareIcon className="size-5" />
+        </button>
 
-        {/* Mobile: icon-only nav */}
-        <div className="flex items-center gap-1 rounded-full border border-[#FFDDE0]/50 bg-white/70 px-1 py-0.5 md:hidden">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onOpenSessions}
-            aria-label="Open chats"
-            className="size-9 text-[#8E7D82] hover:text-[#6D5A60] hover:bg-[#FFF5F7] cursor-pointer"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-          </Button>
-          <Link href="/dashboard">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="size-9 text-[#8E7D82] hover:text-[#6D5A60] hover:bg-[#FFF5F7] cursor-pointer"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect width="7" height="7" x="3" y="3" rx="1" />
-                <rect width="7" height="7" x="14" y="3" rx="1" />
-                <rect width="7" height="7" x="14" y="14" rx="1" />
-                <rect width="7" height="7" x="3" y="14" rx="1" />
-              </svg>
-            </Button>
-          </Link>
-          <Link href="/settings">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="size-9 text-[#8E7D82] hover:text-[#6D5A60] hover:bg-[#FFF5F7] cursor-pointer"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </Button>
-          </Link>
-        </div>
+        <h1 className="flex min-w-0 items-center gap-2 font-serif text-2xl leading-none text-[var(--tier-ink)] md:text-[1.75rem]">
+          <Image src="/luna.png" alt="" width={28} height={28} className="size-7 rounded-full" />
+          Luna
+        </h1>
+        <span className="ml-1.5 mt-1 hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--tier-muted)] sm:inline">
+          {PLAN_LABEL[plan]}
+        </span>
 
-        {/* Desktop: text nav */}
-        <div className="hidden md:flex items-center gap-2">
+        {/* Phones: icon links, labelled for assistive tech */}
+        <nav aria-label="Luna" className="ml-auto flex items-center md:hidden">
+          <Link href="/dashboard" aria-label="Today" title="Today" className={iconButton}>
+            <MoonIcon className="size-5" />
+          </Link>
+          <Link href="/settings" aria-label="Settings" title="Settings" className={iconButton}>
+            <SettingsIcon className="size-5" />
+          </Link>
+        </nav>
+
+        {/* Tablet and up: text pills */}
+        <nav aria-label="Luna" className="ml-auto hidden items-center gap-2 md:flex">
           {showDesktopSessions && (
-            <Button variant="outline" size="sm" onClick={onOpenSessions} className="min-h-11 rounded-full border-[var(--tier-line)] text-[var(--tier-ink)] cursor-pointer">Chats</Button>
+            <button type="button" onClick={onOpenSessions} className={pill}>
+              Chats
+            </button>
           )}
-          <Link href="/dashboard">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7] cursor-pointer"
-            >
-              Dashboard
-            </Button>
+          <Link href="/dashboard" className={pill}>
+            Today
           </Link>
-          <Link href="/settings">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7] cursor-pointer"
-            >
-              Settings
-            </Button>
+          <Link href="/settings" className={pill}>
+            Settings
           </Link>
           {authStatus === "authenticated" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              className="text-xs text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7] cursor-pointer"
-            >
+            <button type="button" onClick={() => signOut({ callbackUrl: "/login" })} className={pill}>
               Sign out
-            </Button>
+            </button>
           ) : (
-            <Link href="/login">
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs text-[#6D5A60] border-[#FFDDE0]/60 rounded-full hover:bg-[#FFF5F7] cursor-pointer"
-              >
-                Log in
-              </Button>
+            <Link href="/login" className={pill}>
+              Log in
             </Link>
           )}
-        </div>
+        </nav>
       </div>
     </header>
   );

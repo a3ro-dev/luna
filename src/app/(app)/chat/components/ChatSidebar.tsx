@@ -1,8 +1,8 @@
 "use client";
 
 import React, { memo } from "react";
+import { EllipsisIcon, PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
   TooltipContent,
@@ -32,7 +32,15 @@ interface ChatSidebarProps {
   onDeleteSession: (id: string) => void;
 }
 
-const SessionItem = memo(function SessionItem({
+function formatEntryDate(iso: string) {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** One chat in a list, dated like a journal entry. Shared by the rail and the mobile drawer. */
+export const SessionItem = memo(function SessionItem({
   session,
   isActive,
   onSelect,
@@ -45,119 +53,117 @@ const SessionItem = memo(function SessionItem({
   onRename: () => void;
   onDelete: () => void;
 }) {
+  const title = session.title || "Untitled chat";
   return (
-    <div
-      className={`group flex items-center gap-1 rounded-xl px-3 py-2.5 text-sm transition-colors duration-150 cursor-pointer ${
+    <li
+      className={`flex items-center gap-1 rounded-2xl transition-colors duration-150 ${
         isActive
           ? "bg-[var(--tier-tint)] text-[var(--tier-ink)]"
-          : "text-[var(--tier-muted)] hover:bg-[var(--tier-tint)]"
+          : "text-[var(--tier-muted)] hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)]"
       }`}
     >
       <button
         type="button"
         onClick={onSelect}
-        className="flex-1 text-left truncate font-light cursor-pointer"
+        aria-current={isActive ? "true" : undefined}
+        className="flex min-h-12 min-w-0 flex-1 cursor-pointer flex-col justify-center rounded-2xl py-2 pl-3 text-left"
       >
-        {session.title || "Untitled chat"}
+        <span className={`truncate text-sm ${isActive ? "font-medium" : ""}`}>{title}</span>
+        <span className="text-xs tabular-nums text-[var(--tier-muted)]">
+          {formatEntryDate(session.updatedAt)}
+        </span>
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            size="icon-xs"
-            className="shrink-0 text-[#8E7D82] hover:text-[#6D5A60] cursor-pointer"
+            size="icon"
+            aria-label={`Options for ${title}`}
+            className="size-11 shrink-0 cursor-pointer rounded-xl text-[var(--tier-muted)] hover:bg-transparent hover:text-[var(--tier-ink)]"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="1" />
-              <circle cx="19" cy="12" r="1" />
-              <circle cx="5" cy="12" r="1" />
-            </svg>
+            <EllipsisIcon className="size-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-36">
-          <DropdownMenuItem onClick={onRename}>Rename</DropdownMenuItem>
-          <DropdownMenuItem variant="destructive" onClick={onDelete}>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuItem onClick={onRename} className="min-h-10">
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onClick={onDelete} className="min-h-10">
             Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
+    </li>
   );
 });
 
-export const ChatSidebar = memo(function ChatSidebar({
+/** Loading, empty and filled states for a chat list. */
+export function SessionList({
   sessions,
   activeSessionId,
   isLoading,
   onSelectSession,
-  onNewSession,
   onRenameSession,
   onDeleteSession,
+}: Omit<ChatSidebarProps, "onNewSession">) {
+  if (isLoading && sessions.length === 0) {
+    return (
+      <p role="status" className="px-3 py-2 text-sm text-[var(--tier-muted)]">
+        Gathering your chats...
+      </p>
+    );
+  }
+  if (sessions.length === 0) {
+    return (
+      <p className="px-3 py-2 text-sm leading-relaxed text-[var(--tier-muted)]">
+        No chats yet. Anything you start will be kept here.
+      </p>
+    );
+  }
+  return (
+    <ul className="space-y-1">
+      {sessions.map((session) => (
+        <SessionItem
+          key={session.id}
+          session={session}
+          isActive={session.id === activeSessionId}
+          onSelect={() => onSelectSession(session.id)}
+          onRename={() => onRenameSession(session.id)}
+          onDelete={() => onDeleteSession(session.id)}
+        />
+      ))}
+    </ul>
+  );
+}
+
+export const ChatSidebar = memo(function ChatSidebar({
+  onNewSession,
+  ...listProps
 }: ChatSidebarProps) {
   return (
-    <aside className="w-[260px] shrink-0 border-r border-[var(--tier-line)] bg-[var(--tier-surface)] px-4 py-6 hidden md:flex md:flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-serif text-xl text-[var(--tier-ink)]">Chats</h2>
+    <aside
+      aria-label="Chats"
+      className="hidden w-[272px] shrink-0 flex-col gap-5 border-r border-[var(--tier-line)] bg-[var(--tier-surface)] px-4 py-6 md:flex"
+    >
+      <div className="flex items-center justify-between pl-3">
+        <h2 className="font-serif text-2xl text-[var(--tier-ink)]">Chats</h2>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
-              size="icon-sm"
+              size="icon"
               onClick={onNewSession}
-              className="text-[#8E7D82] hover:text-[#6D5A60] cursor-pointer"
+              aria-label="New chat"
+              className="size-10 cursor-pointer rounded-full text-[var(--tier-muted)] hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)]"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 5v14M5 12h14" />
-              </svg>
+              <PlusIcon className="size-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>New chat</TooltipContent>
         </Tooltip>
       </div>
-      <Separator className="bg-[#FFDDE0]/40" />
-      <div className="flex-1 overflow-y-auto overscroll-contain">
-        <div className="space-y-1 pr-2">
-          {isLoading && (
-            <div className="px-3 py-2 text-xs text-muted-foreground">
-              Loading...
-            </div>
-          )}
-          {!isLoading && sessions.length === 0 && (
-            <div className="px-3 py-2 text-xs text-muted-foreground">
-              No chats yet
-            </div>
-          )}
-          {sessions.map((session) => (
-            <SessionItem
-              key={session.id}
-              session={session}
-              isActive={session.id === activeSessionId}
-              onSelect={() => onSelectSession(session.id)}
-              onRename={() => onRenameSession(session.id)}
-              onDelete={() => onDeleteSession(session.id)}
-            />
-          ))}
-        </div>
+      <div className="-mx-1 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
+        <SessionList {...listProps} />
       </div>
     </aside>
   );

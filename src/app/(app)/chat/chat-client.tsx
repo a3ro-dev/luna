@@ -25,6 +25,7 @@ import { ChatComposer } from "./components/ChatComposer";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import type { UserPlan } from "@/lib/theme/accent";
 import Link from "next/link";
+import { ChevronDownIcon } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /*  Session API helpers (module-level — no recreation on render)       */
@@ -56,6 +57,13 @@ async function renameSession(sessionId: string): Promise<ChatSession | null> {
   return (await res.json()) as ChatSession;
 }
 
+function requestBody(sessionId: string | null) {
+  return {
+    sessionId,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  };
+}
+
 async function deleteSessionApi(sessionId: string): Promise<boolean> {
   const res = await fetch(`/api/chat/sessions/${sessionId}`, {
     method: "DELETE",
@@ -73,7 +81,7 @@ interface ChatPageClientProps {
 }
 
 export default function ChatPageClient({ plan, cycleContext }: ChatPageClientProps) {
-  const { messages, sendMessage, status, setMessages, stop } = useChat({
+  const { messages, sendMessage, status, setMessages, stop, error, regenerate, clearError } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
 
@@ -195,21 +203,18 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
             : []),
         ];
 
-        sendMessage(
-          { role: "user", parts },
-          {
-            body: {
-              sessionId,
-              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            },
-          },
-        );
+        sendMessage({ role: "user", parts }, { body: requestBody(sessionId) });
       } catch {
         // sendMessage errors are handled by useChat
       }
     },
     [activeSessionId, isBusy, sendMessage, setMessages],
   );
+
+  // Resends the last user message after a failed or interrupted reply
+  const handleRetry = useCallback(() => {
+    regenerate({ body: requestBody(activeSessionId) });
+  }, [activeSessionId, regenerate]);
 
   /* ---------------------------------------------------------------- */
   /*  Session switching — NO empty flash                              */
@@ -223,13 +228,14 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
 
       setActiveSessionId(sessionId);
       setIsSessionsOpen(false);
+      clearError();
 
       // Load new messages, then swap atomically
       const sessionMessages = await loadSessionMessages(sessionId);
       loadedSessionRef.current = sessionId;
       setMessages(sessionMessages);
     },
-    [activeSessionId, setMessages],
+    [activeSessionId, setMessages, clearError],
   );
 
   const handleNewSession = useCallback(async () => {
@@ -239,8 +245,9 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
     setActiveSessionId(created.id);
     loadedSessionRef.current = created.id;
     setMessages([]);
+    clearError();
     setIsSessionsOpen(false);
-  }, [setMessages]);
+  }, [setMessages, clearError]);
 
   const handleRenameSession = useCallback(async (sessionId: string) => {
     const updated = await renameSession(sessionId);
@@ -262,16 +269,13 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
       deletingRef.current.delete(sessionId);
       if (!ok) return;
 
-      let nextActiveId: string | null = null;
-      setSessions((prev) => {
-        const remaining = prev.filter((session) => session.id !== sessionId);
-        if (activeSessionId === sessionId) {
-          nextActiveId = remaining[0]?.id ?? null;
-        }
-        return remaining;
-      });
+      setSessions((prev) => prev.filter((session) => session.id !== sessionId));
 
       if (activeSessionId === sessionId) {
+        // Read from the rendered list: a setState updater may not have run yet here
+        const nextActiveId =
+          sessions.find((session) => session.id !== sessionId)?.id ?? null;
+        clearError();
         if (nextActiveId) {
           setActiveSessionId(nextActiveId);
           const nextMessages = await loadSessionMessages(nextActiveId);
@@ -285,7 +289,7 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
       }
       setDeleteTarget(null);
     },
-    [activeSessionId, setMessages],
+    [activeSessionId, sessions, setMessages, clearError],
   );
 
   /* ---------------------------------------------------------------- */
@@ -294,7 +298,7 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
   return (
     <ThemeProvider>
       <TooltipProvider>
-        <div className="tier-app h-dvh overflow-hidden flex font-sans selection:bg-[var(--tier-tint)] selection:text-[var(--tier-ink)]" data-plan={plan}>
+        <div className="tier-app flex h-dvh overflow-hidden pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] font-sans selection:bg-[var(--tier-tint)] selection:text-[var(--tier-ink)]" data-plan={plan}>
           {/* Desktop sidebar */}
           {plan === "premium" && <ChatSidebar
             sessions={sessions}
@@ -311,12 +315,19 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
             <ChatHeader onOpenSessions={() => setIsSessionsOpen(true)} showDesktopSessions={plan !== "premium"} plan={plan} />
 
             {plan === "premium+" && cycleContext && (
-              <details className="mx-4 mt-3 rounded-2xl border border-[var(--tier-line)] bg-[var(--tier-surface)] p-3 text-sm text-[var(--tier-muted)] xl:hidden">
-                <summary className="cursor-pointer font-medium text-[var(--tier-ink)]">Your cycle context</summary>
-                <p className="mt-2">Next period: {cycleContext.nextPeriod}</p>
-                <p className="mt-1">{cycleContext.window ?? cycleContext.status}</p>
-                <Link href="/dashboard" className="mt-2 inline-flex min-h-11 items-center font-medium text-[var(--tier-ink)] underline underline-offset-4">Open dashboard</Link>
-              </details>
+              <div className="shrink-0 px-3 pt-3 sm:px-4 xl:hidden">
+                <details className="group mx-auto max-w-2xl rounded-2xl border border-[var(--tier-line)] bg-[var(--tier-surface)] text-sm text-[var(--tier-muted)]">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-2xl px-4 py-2 [&::-webkit-details-marker]:hidden">
+                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.2em]">Next period</span>
+                    <span className="min-w-0 flex-1 truncate font-serif text-lg text-[var(--tier-ink)]">{cycleContext.nextPeriod}</span>
+                    <ChevronDownIcon aria-hidden className="size-4 shrink-0 transition-transform duration-200 group-open:rotate-180" />
+                  </summary>
+                  <div className="px-4 pb-3">
+                    <p className="leading-relaxed">{cycleContext.window ?? cycleContext.status}</p>
+                    <Link href="/dashboard" className="mt-1 inline-flex min-h-11 items-center font-medium text-[var(--tier-ink)] underline underline-offset-4">See calendar</Link>
+                  </div>
+                </details>
+              </div>
             )}
 
             <MessageList
@@ -324,6 +335,9 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
               messages={messages}
               isStreaming={isStreaming}
               isBusy={isBusy}
+              isLoading={isLoadingSessions}
+              error={error}
+              onRetry={handleRetry}
               onSuggestionClick={(text) =>
                 handlePromptSubmit({ text, files: [] })
               }
@@ -356,7 +370,6 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
           {/* Mobile sidebar overlay */}
           <MobileSidebar
             open={isSessionsOpen}
-            desktopEnabled={plan !== "premium"}
             onClose={() => setIsSessionsOpen(false)}
             sessions={sessions}
             activeSessionId={activeSessionId}
@@ -382,13 +395,13 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
               </DialogHeader>
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button variant="outline" className="rounded-full">
+                  <Button variant="outline" className="min-h-11 rounded-full px-5">
                     Cancel
                   </Button>
                 </DialogClose>
                 <Button
                   variant="destructive"
-                  className="rounded-full"
+                  className="min-h-11 rounded-full px-5"
                   onClick={() =>
                     deleteTarget && handleDeleteSession(deleteTarget)
                   }
