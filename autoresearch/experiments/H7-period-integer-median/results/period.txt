@@ -1,0 +1,7 @@
+model                pMacroMAE  pIS80   pWidth  pCov80 [min,max]      pCov95  within1  days    IS80int dMacroMAE per-run 95% CI (worst hi)
+v2-bayes             0.917      4.060   2.896   0.784 [0.774,0.801]    0.939   0.620    2.852   4.410   0.000 (runs with CI entirely < 0: 0/7; worst hi 0.000)
+H7-round             0.878      4.060   2.896   0.784 [0.774,0.801]    0.939   0.813    2.852   4.410   -0.039 (runs with CI entirely < 0: 7/7; worst hi -0.014)
+H7-discrete          0.878      3.889   2.844   0.905 [0.893,0.920]    0.980   0.813    3.844   3.889   -0.039 (runs with CI entirely < 0: 7/7; worst hi -0.014)
+H7x-nearest80        0.878      4.327   2.061   0.807 [0.799,0.829]    0.980   0.813    3.061   4.327   -0.039 (runs with CI entirely < 0: 7/7; worst hi -0.014)
+H7x-mathround        0.883      4.060   2.896   0.784 [0.774,0.801]    0.939   0.810    2.852   4.410   -0.033 (runs with CI entirely < 0: 7/7; worst hi -0.000)
+H7x-all-discrete     0.878      3.889   2.844   0.905 [0.893,0.920]    0.980   0.813    3.844   3.889   -0.039 (runs with CI entirely < 0: 7/7; worst hi -0.014)

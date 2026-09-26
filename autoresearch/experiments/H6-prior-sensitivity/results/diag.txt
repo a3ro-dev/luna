@@ -1,0 +1,22 @@
+scenario  profile    target    n      share  v2-bayes nu1      sd0.75   sd1.25   
+base: gated targets = 0.059 of rows, 0.451 of v2-bayes IS80
+base      base  all            6507   0.833  0.838    0.809    0.789    0.870    
+base      base  in-gate        6083   0.779  0.897    0.865    0.844    0.930    
+base      base  gated          424    0.054  0.000    0.000    0.000    0.000    
+base      irreg all            1306   0.167  0.802    0.766    0.730    0.836    
+base      irreg in-gate        1270   0.163  0.824    0.788    0.751    0.860    
+base      irreg gated          36     0.005  0.000    0.000    0.000    0.000    
+noisy: gated targets = 0.131 of rows, 0.600 of v2-bayes IS80
+noisy     base  all            3436   0.714  0.755    0.728    0.703    0.784    
+noisy     base  in-gate        2907   0.604  0.892    0.859    0.831    0.927    
+noisy     base  gated          529    0.110  0.002    0.004    0.000    0.002    
+noisy     irreg all            1378   0.286  0.729    0.718    0.667    0.779    
+noisy     irreg in-gate        1276   0.265  0.787    0.776    0.720    0.841    
+noisy     irreg gated          102    0.021  0.000    0.000    0.000    0.000    
+regular: gated targets = 0.028 of rows, 0.346 of v2-bayes IS80
+regular   base  all            5032   0.952  0.883    0.846    0.832    0.913    
+regular   base  in-gate        4890   0.926  0.909    0.870    0.856    0.940    
+regular   base  gated          142    0.027  0.000    0.000    0.000    0.000    
+regular   irreg all            251    0.048  0.829    0.801    0.757    0.892    
+regular   irreg in-gate        247    0.047  0.842    0.814    0.769    0.907    
+regular   irreg gated          4      0.001  0.000    0.000    0.000    0.000    
