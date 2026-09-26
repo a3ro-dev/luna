@@ -194,6 +194,7 @@ Luna should feel like a first-party Apple app: intentionally premium, soothing a
 - **Colour.** Each plan keeps its hue; `--tint` is the plan's iOS tint colour for links, selected states and primary text accents. `--label-secondary` and `--label-tertiary` give a subtle hierarchy that still meets 4.5:1.
 - **Controls.** Segmented controls (`Segmented`) for mode switches, bottom sheets (`Sheet`) for short focused tasks on phones, and an iOS tab bar with filled-when-selected icons.
 - **Motion.** Springs only, from `src/lib/motion.ts`: `smooth` for most state changes, `snappy` for small feedback, `bouncy` only for moments of delight such as a logged period. Product surfaces do not choreograph page loads; the landing page may.
+- **Night.** A soft dark mode, never black: each plan has a night palette (Free deep plum, Premium indigo, Premium+ espresso) with pastel accents, and grouped cells a step lighter than the page. It follows the device by default; Settings and the front page offer System / Light / Dark (`src/lib/theme/mode.ts`, stored locally, applied before first paint). App pages go dark through the `.tier-app` tokens under `html.dark`; the landing and legal pages through their `--landing-*` block. Every colour is a token; `src/lib/theme/__tests__/contrast.test.ts` holds every text token to 4.5:1 on bg, surface and tint in both modes. Cards trade drop shadows for a faint top highlight at night.
 
 The sections below describe the earlier soft-glass language. Where they conflict with this direction, this direction wins.
 

@@ -77,7 +77,7 @@ export function GroupedRow({
 }) {
   const color =
     tone === "destructive"
-      ? "text-[#C0364F]"
+      ? "text-[var(--danger)]"
       : tone === "accent"
         ? "text-[var(--tint)]"
         : "text-[var(--tier-ink)]";
@@ -119,7 +119,7 @@ export function GroupedRow({
 /** A rounded-square, SF-style icon tile for grouped rows. */
 export function RowIcon({ children, color }: { children: ReactNode; color: string }) {
   return (
-    <span aria-hidden className="flex size-7 items-center justify-center rounded-[7px] text-white" style={{ background: color }}>
+    <span aria-hidden className="flex size-7 items-center justify-center rounded-[7px] text-[var(--tier-surface)]" style={{ background: color }}>
       {children}
     </span>
   );

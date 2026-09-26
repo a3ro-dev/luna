@@ -55,22 +55,22 @@ export default function CookieConsent() {
       aria-label="Cookie notice"
       className="fixed inset-x-0 bottom-0 z-[45] px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-4 sm:pb-[calc(1rem+env(safe-area-inset-bottom))] max-md:[body:has(nav[aria-label=Primary])_&]:bottom-16 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300"
     >
-      <div className="mx-auto flex max-w-3xl flex-col gap-3 rounded-2xl border border-[#FFDDE0]/70 bg-white/95 p-4 shadow-[0_-8px_32px_rgba(255,181,192,0.12)] backdrop-blur-xl sm:flex-row sm:items-center sm:gap-5 sm:p-5">
-        <p className="min-w-0 text-[13px] leading-relaxed text-[#6D5A60] sm:flex-1">
+      <div className="mx-auto flex max-w-3xl flex-col gap-3 rounded-2xl bg-[color-mix(in_oklch,var(--chrome-surface)_95%,transparent)] p-4 shadow-[var(--chrome-shadow)] backdrop-blur-xl sm:flex-row sm:items-center sm:gap-5 sm:p-5">
+        <p className="min-w-0 text-[13px] leading-relaxed text-[var(--chrome-ink)] sm:flex-1">
           Luna uses only essential cookies to keep you signed in and remember
           your preferences. No tracking, no ads, no analytics cookies, ever.
         </p>
         <div className="flex shrink-0 items-center justify-between gap-2">
           <Link
             href="/privacy"
-            className="inline-flex min-h-11 items-center rounded-full px-3 text-xs font-medium text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-4 transition-colors hover:decoration-[#A34E68] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D5A60]"
+            className="inline-flex min-h-11 items-center rounded-full px-3 text-[13px] font-medium text-[var(--chrome-accent)] underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--chrome-ink)]"
           >
             Privacy Policy
           </Link>
           <button
             type="button"
             onClick={dismiss}
-            className="h-11 shrink-0 cursor-pointer rounded-full bg-[#6D5A60] px-6 text-[11px] font-semibold uppercase tracking-widest text-white shadow-[0_8px_16px_rgba(109,90,96,0.15)] transition hover:bg-[#5E4C52] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D5A60]"
+            className="h-11 shrink-0 cursor-pointer rounded-full bg-[var(--chrome-ink)] px-6 text-[15px] font-medium text-[var(--chrome-surface)] transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--chrome-ink)]"
           >
             Got it
           </button>

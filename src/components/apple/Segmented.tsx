@@ -41,7 +41,7 @@ export function Segmented<T extends string>({
               <motion.span
                 layoutId={`${id}-thumb`}
                 transition={spring.snappy}
-                className="absolute inset-0 rounded-[7px] bg-[var(--tier-surface)] shadow-[0_3px_8px_rgba(0,0,0,0.08),0_1px_1px_rgba(0,0,0,0.04)]"
+                className="absolute inset-0 rounded-[7px] bg-[var(--surface-elevated,var(--tier-surface))] shadow-[0_3px_8px_rgba(0,0,0,0.08),0_1px_1px_rgba(0,0,0,0.04)]"
               />
             ) : null}
             <span className="relative">{o.label}</span>

@@ -3,7 +3,11 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* Tailwind's dark: variant applies only on pages built on the plan tokens
+   (they render .tier-app). The landing and legal pages go dark through their
+   own --landing-* token block instead (html.dark:has(.luna-landing)).
+   :where keeps the specificity of the usual `.dark *`. */
+@custom-variant dark (&:is(.dark:where(:has(.tier-app)) *));
 /* Side-by-side hero: wide enough and landscape. CycleScene.tsx mirrors this test. */
 @custom-variant wide (@media (min-width: 48rem) and (orientation: landscape));
 
@@ -86,40 +90,53 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+    /* Page behind everything (body). */
+    --luna-page: #fcfbfb;
 }
 
-.dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+/* Night: every token is redefined on <html> (only while the page has a
+   .tier-app, see the dark variant above) and again on `.tier-app`, so aliases
+   re-resolve against that element's plan palette. On <html> they carry the
+   page's plan palette, so Radix portals under <body> and the overscroll area
+   match it. */
+html.dark:has(.tier-app) {
+    color-scheme: dark;
+}
+
+.dark:has(.tier-app),
+.dark .tier-app {
+    --luna-page: var(--tier-bg);
+    --background: var(--tier-bg);
+    --foreground: var(--tier-ink);
+    --card: var(--tier-surface);
+    --card-foreground: var(--tier-ink);
+    --popover: var(--tier-surface);
+    --popover-foreground: var(--tier-ink);
+    --primary: var(--tier-ink);
+    --primary-foreground: var(--tier-bg);
+    --secondary: var(--tier-tint);
+    --secondary-foreground: var(--tier-ink);
+    --muted: var(--tier-tint);
+    --muted-foreground: var(--label-secondary);
+    --accent: var(--tier-tint);
+    --accent-foreground: var(--tier-ink);
     --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
+    --border: var(--separator);
+    --input: color-mix(in oklch, var(--tier-ink) 16%, transparent);
+    --ring: var(--tier-accent);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --sidebar: var(--tier-surface);
+    --sidebar-foreground: var(--tier-ink);
+    --sidebar-primary: var(--tier-accent);
+    --sidebar-primary-foreground: var(--tier-bg);
+    --sidebar-accent: var(--tier-tint);
+    --sidebar-accent-foreground: var(--tier-ink);
+    --sidebar-border: var(--separator);
+    --sidebar-ring: var(--tier-accent);
 }
 
 @layer base {
@@ -148,12 +165,6 @@
     .h-dvh {
         height: 100dvh;
     }
-}
-
-/* Mobile sidebar slide-in (replaces Framer Motion) */
-/* User message bubble: visible tint instead of near-white */
-.group-is-user-bg {
-    background-color: #ffeef1;
 }
 
 /* Each plan has its own composition. These tokens keep the shared controls
@@ -191,6 +202,46 @@
     --tier-line: oklch(0.88 0.034 80);
 }
 
+/* Night palettes: soft, never black. Backgrounds carry a little of the plan
+   hue; grouped surfaces sit a step lighter so cells lift off the page, like
+   iOS dark grouped lists. Accents go pastel. src/lib/theme/__tests__/contrast.test.ts
+   checks every text token against bg, surface and tint. */
+.dark:has(.tier-app),
+.dark .tier-app {
+    /* Free: deep plum night */
+    --tier-bg: oklch(0.2 0.03 340);
+    --tier-surface: oklch(0.255 0.034 342);
+    --tier-ink: oklch(0.935 0.018 350);
+    --tier-muted: oklch(0.78 0.03 350);
+    --tier-accent: oklch(0.8 0.1 358);
+    --tier-tint: oklch(0.31 0.055 350);
+    --tier-line: oklch(0.34 0.035 345);
+}
+
+.dark:has(.tier-app[data-plan="premium"]),
+.dark .tier-app[data-plan="premium"] {
+    /* Indigo night, lavender light */
+    --tier-bg: oklch(0.195 0.045 283);
+    --tier-surface: oklch(0.25 0.048 286);
+    --tier-ink: oklch(0.935 0.02 300);
+    --tier-muted: oklch(0.78 0.04 298);
+    --tier-accent: oklch(0.79 0.11 300);
+    --tier-tint: oklch(0.31 0.07 292);
+    --tier-line: oklch(0.34 0.05 290);
+}
+
+.dark:has(.tier-app[data-plan="premium+"]),
+.dark .tier-app[data-plan="premium+"] {
+    /* Espresso night, amber light */
+    --tier-bg: oklch(0.2 0.02 55);
+    --tier-surface: oklch(0.255 0.024 58);
+    --tier-ink: oklch(0.935 0.025 80);
+    --tier-muted: oklch(0.78 0.035 75);
+    --tier-accent: oklch(0.83 0.11 80);
+    --tier-tint: oklch(0.32 0.045 68);
+    --tier-line: oklch(0.35 0.03 62);
+}
+
 /* ------------------------------------------------------------------ */
 /*  Apple feel: materials, hairlines, grouped surfaces                 */
 /* ------------------------------------------------------------------ */
@@ -198,31 +249,62 @@
 .tier-app {
     --separator: color-mix(in oklch, var(--tier-ink) 13%, transparent);
     --label-secondary: color-mix(in oklch, var(--tier-ink) 82%, var(--tier-surface));
-    /* Both stay >= 4.5:1 on the surface (UIKit grays do not; Luna should). */
-    --label-tertiary: color-mix(in oklch, var(--tier-ink) 74%, var(--tier-surface));
+    /* Both stay >= 4.5:1 on the surface and the tint (UIKit grays do not; Luna should). */
+    --label-tertiary: color-mix(in oklch, var(--tier-ink) 77%, var(--tier-surface));
     --fill-tertiary: color-mix(in oklch, var(--tier-ink) 6%, transparent);
+    /* Raised above a fill or the page: segmented thumb, sheets. */
+    --surface-elevated: var(--tier-surface);
+    /* Dims the page behind a sheet or dialog. */
+    --scrim: color-mix(in oklch, var(--tier-ink) 28%, transparent);
     /* iOS "tint colour": the plan accent pulled toward ink so text in it keeps >= 4.5:1. */
     --tint: color-mix(in oklch, var(--tier-accent) 40%, var(--tier-ink));
     --shadow-card: 0 1px 1px oklch(0.3 0.02 355 / 0.03), 0 6px 24px -6px oklch(0.35 0.03 355 / 0.08);
+    /* Destructive text: system red pulled toward ink, >= 4.5:1 in both modes. */
+    --danger: color-mix(in oklch, var(--destructive) 80%, var(--tier-ink));
+    /* Hues no plan token carries (ovulation, status green/amber). Mixed with ink,
+       so they darken on day surfaces and lighten on night ones (>= 3:1 on the surface). */
+    --honey: color-mix(in oklab, oklch(0.78 0.12 85) 60%, var(--tier-ink));
+    --positive: color-mix(in oklab, oklch(0.7 0.14 155) 70%, var(--tier-ink));
+    --caution: color-mix(in oklab, oklch(0.78 0.14 60) 70%, var(--tier-ink));
     font-feature-settings: "kern", "ss01";
     -webkit-tap-highlight-color: transparent;
+}
+
+.dark:has(.tier-app),
+.dark .tier-app {
+    --separator: color-mix(in oklch, var(--tier-ink) 15%, transparent);
+    --label-secondary: color-mix(in oklch, var(--tier-ink) 78%, var(--tier-surface));
+    --label-tertiary: color-mix(in oklch, var(--tier-ink) 65%, var(--tier-surface));
+    --fill-tertiary: color-mix(in oklch, var(--tier-ink) 11%, transparent);
+    /* Lighter than the fill beneath it, as iOS raises controls in the dark. */
+    --surface-elevated: color-mix(in oklch, var(--tier-ink) 20%, var(--tier-surface));
+    --scrim: color-mix(in oklch, black 50%, transparent);
+    /* The pastel accent already reads on night surfaces; no pull toward ink. */
+    --tint: var(--tier-accent);
+    /* Light from above: a faint top highlight instead of a drop shadow. */
+    --shadow-card: inset 0 1px 0 color-mix(in oklch, var(--tier-ink) 8%, transparent);
 }
 
 /* Translucent "regular material" for bars and sheets. Solid when the user asks
    for reduced transparency, or when the browser can't blur. */
 .material {
-    background: color-mix(in oklch, var(--tier-surface, #fff) 94%, transparent);
+    background: color-mix(in oklch, var(--tier-surface, var(--background)) 94%, transparent);
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .material {
-        background: color-mix(in oklch, var(--tier-surface, #fff) 72%, transparent);
+        background: color-mix(in oklch, var(--tier-surface, var(--background)) 72%, transparent);
         -webkit-backdrop-filter: saturate(180%) blur(20px);
         backdrop-filter: saturate(180%) blur(20px);
     }
+    /* Night: a little more opaque so bright text beneath never ghosts through. */
+    .dark:has(.tier-app) .material {
+        background: color-mix(in oklch, var(--tier-surface, var(--background)) 80%, transparent);
+    }
 }
 @media (prefers-reduced-transparency: reduce) {
-    .material {
-        background: var(--tier-surface, #fff);
+    .material,
+    .dark:has(.tier-app) .material {
+        background: var(--tier-surface, var(--background));
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
     }
@@ -258,6 +340,10 @@
     box-shadow: 0 12px 32px oklch(0.40 0.025 355 / 0.035);
 }
 
+.dark .tier-panel {
+    box-shadow: var(--shadow-card);
+}
+
 .tier-primary-action {
     display: inline-flex;
     min-height: 44px;
@@ -282,9 +368,31 @@
     transform: scale(0.98);
 }
 
+/* --tint, not the pastel accent: a focus ring needs >= 3:1 on the surface. */
 .tier-app :is(a, button, input, textarea, select, summary):focus-visible {
-    outline: 3px solid var(--tier-accent);
+    outline: 3px solid var(--tint);
     outline-offset: 3px;
+}
+
+/* Premium+'s accent is already honey, so its ovulation marks take a calm sky hue. */
+.tier-app[data-plan="premium+"] {
+    --honey: color-mix(in oklab, oklch(0.72 0.08 235) 60%, var(--tier-ink));
+}
+
+/* Grouped lists clip their rows (overflow hidden), so the ring goes inside. */
+.tier-app .grouped :focus-visible {
+    outline-offset: -3px;
+}
+
+/* Chrome outside any page root (cookie banner, install prompt) takes the page's
+   palette: plan tokens when <html> carries them (app pages at night), otherwise
+   the landing tokens. Resolved on <html>, inherited by everything. */
+:root {
+    --chrome-surface: var(--tier-surface, var(--landing-surface));
+    --chrome-ink: var(--tier-ink, var(--landing-ink));
+    --chrome-secondary: var(--label-secondary, var(--landing-secondary));
+    --chrome-accent: var(--tint, var(--landing-accent));
+    --chrome-shadow: var(--shadow-card, var(--landing-shadow-card));
 }
 
 .tier-settings section:not(#account-actions) {
@@ -303,13 +411,129 @@
     border-color: var(--tier-line);
 }
 
-.tier-app[data-plan="premium"] .group-is-user-bg {
-    background-color: var(--tier-tint);
+.dark:has(.tier-app) ::selection {
+    background-color: color-mix(in oklch, var(--tier-accent) 38%, transparent);
+    color: var(--tier-ink);
 }
 
-.tier-app[data-plan="premium+"] .group-is-user-bg {
-    background-color: var(--tier-tint);
+/* ================================================================== */
+/*  Landing and legal tokens: begin                                    */
+/*  home-client.tsx, moon/CycleHero.tsx, /privacy, /terms and           */
+/*  /transparency. They are not plan pages, so they keep their own      */
+/*  small palette: light is the original landing palette, value for     */
+/*  value; night (html.dark, on a page whose root has .luna-landing) is  */
+/*  a plum-indigo sky. Declared on <html> so the menu and dialog,       */
+/*  portalled to <body>, share them.                                    */
+/* ================================================================== */
+:root {
+    --landing-bg: #FFF9F9;
+    --landing-surface: #FFFFFF;
+    --landing-ink: #6D5A60;
+    --landing-ink-hover: #5E4C52;
+    /* Text: ink, secondary and accent are >= 4.5:1 on bg and surface. */
+    --landing-secondary: #75636A;
+    --landing-tertiary: #8A6F77;
+    --landing-accent: #A34E68;
+    --landing-danger: oklch(0.505 0.213 27.518);
+    --landing-line: #F3DDE2;
+    --landing-field-line: #A08A92;
+    --landing-hover: #FFF5F7;
+    --landing-bubble: #FFF1F3;
+    /* Decoration only (dots, icons, borders, underlines), never text. */
+    --landing-blush: #FFDDE0;
+    --landing-rose: #FFB5C0;
+    --landing-lavender: #D6CBE3;
+    --landing-honey: #FBE6B6;
+    --landing-honey-line: #F1DCA8;
+    --landing-sage: #B7D7BF;
+    /* Hero: sky behind the moon, its halo, and the flat moon's gradient stops. */
+    --landing-sky: transparent;
+    --landing-halo: radial-gradient(circle, rgb(255 221 224 / 0.85) 0%, rgb(255 221 224 / 0.3) 40%, rgb(214 203 227 / 0.16) 58%, transparent 72%);
+    --landing-moon-full: #FFF8F4 0%, #FFF1EC 60%, #F1E3E8 100%;
+    --landing-moon-phase: #E6DDEE 0%, #E6DDEE 58%, #F6ECEF 70%, #FFF4EF 82%;
+    --landing-moon-rim: inset 0.3rem -0.2rem 1rem color-mix(in srgb, var(--landing-rose) 22%, transparent);
+    --landing-shadow-card: 0 1px 1px rgb(109 90 96 / 0.03), 0 12px 40px -8px rgb(109 90 96 / 0.12);
+    --landing-shadow-premium: 0 1px 1px rgb(109 90 96 / 0.03), 0 16px 48px -10px rgb(150 120 190 / 0.28);
+    --landing-shadow-premium-plus: 0 1px 1px rgb(109 90 96 / 0.03), 0 16px 48px -10px rgb(210 170 90 / 0.22);
+    --landing-shadow-button: 0 12px 24px rgb(109 90 96 / 0.2);
 }
+
+html.dark:has(.luna-landing) {
+    color-scheme: dark;
+    --luna-page: oklch(0.185 0.032 318);
+    --landing-bg: oklch(0.2 0.035 318);
+    --landing-surface: oklch(0.255 0.04 316);
+    --landing-ink: oklch(0.935 0.018 340);
+    --landing-ink-hover: oklch(0.87 0.025 340);
+    --landing-secondary: color-mix(in oklch, var(--landing-ink) 78%, var(--landing-surface));
+    --landing-tertiary: color-mix(in oklch, var(--landing-ink) 65%, var(--landing-surface));
+    --landing-accent: oklch(0.8 0.1 358);
+    --landing-danger: oklch(0.808 0.114 19.571);
+    --landing-line: color-mix(in oklch, var(--landing-ink) 15%, transparent);
+    --landing-field-line: color-mix(in oklch, var(--landing-ink) 38%, transparent);
+    --landing-hover: color-mix(in oklch, var(--landing-ink) 8%, transparent);
+    --landing-bubble: oklch(0.32 0.05 340);
+    --landing-blush: oklch(0.36 0.06 350);
+    --landing-lavender: oklch(0.72 0.08 300);
+    --landing-honey-line: color-mix(in oklch, var(--landing-honey) 35%, transparent);
+    --landing-sage: oklch(0.74 0.07 160);
+    --landing-sky: linear-gradient(to bottom, oklch(0.165 0.05 280), oklch(0.185 0.045 300) 45%, var(--landing-bg));
+    /* Moonlight: pearl at the centre, lavender at the edge. */
+    --landing-halo: radial-gradient(circle, oklch(0.85 0.05 300 / 0.28) 0%, oklch(0.72 0.08 292 / 0.12) 40%, oklch(0.6 0.08 285 / 0.05) 58%, transparent 72%);
+    /* Same night moon as moonMaterial.ts: pearly lit side, deep indigo shade, lavender rim. */
+    --landing-moon-full: #FFFBF8 0%, #EEE4F1 60%, #CDBEE3 100%;
+    --landing-moon-phase: #29254F 0%, #29254F 58%, #9F8BEA 70%, #FFFBF8 82%;
+    --landing-moon-rim: inset 0.3rem -0.2rem 1rem color-mix(in srgb, var(--landing-lavender) 22%, transparent);
+    /* Light from above instead of a drop shadow; plan cards keep a faint glow. */
+    --landing-shadow-card: inset 0 1px 0 color-mix(in oklch, var(--landing-ink) 8%, transparent);
+    --landing-shadow-premium: var(--landing-shadow-card), 0 16px 48px -12px color-mix(in oklch, var(--landing-lavender) 22%, transparent);
+    --landing-shadow-premium-plus: var(--landing-shadow-card), 0 16px 48px -12px color-mix(in oklch, var(--landing-honey) 14%, transparent);
+    --landing-shadow-button: 0 10px 28px -10px color-mix(in oklch, var(--landing-ink) 30%, transparent);
+    /* shadcn aliases, for the landing menu and dialog. */
+    --background: var(--landing-bg);
+    --foreground: var(--landing-ink);
+    --popover: var(--landing-surface);
+    --popover-foreground: var(--landing-ink);
+    --accent: var(--landing-hover);
+    --accent-foreground: var(--landing-ink);
+    --border: var(--landing-line);
+    --muted: var(--landing-hover);
+    --muted-foreground: var(--landing-secondary);
+    --card: var(--landing-surface);
+    --card-foreground: var(--landing-ink);
+    --primary: var(--landing-ink);
+    --primary-foreground: var(--landing-surface);
+    --input: var(--landing-field-line);
+    --ring: var(--landing-ink);
+}
+
+/* The header's hairline-b (--separator is otherwise only set on .tier-app). */
+.luna-landing {
+    --separator: var(--landing-line);
+}
+
+/* Apple controls (ThemeToggle's Segmented) read the plan tokens. */
+.landing-control {
+    --tier-ink: var(--landing-ink);
+    --tier-surface: var(--landing-surface);
+    --surface-elevated: var(--landing-surface);
+    --fill-tertiary: color-mix(in oklch, var(--landing-ink) 6%, transparent);
+}
+/* Same ring as the landing's other controls (.tier-app's ring doesn't reach here). */
+.landing-control button:focus-visible {
+    outline: 2px solid var(--landing-ink);
+    outline-offset: 2px;
+}
+
+html.dark .landing-control {
+    /* Raised above the fill, as iOS does in the dark. */
+    --tier-surface: color-mix(in oklch, var(--landing-ink) 20%, var(--landing-surface));
+    --surface-elevated: var(--tier-surface);
+    --fill-tertiary: color-mix(in oklch, var(--landing-ink) 11%, transparent);
+}
+/* ================================================================== */
+/*  Landing and legal tokens: end                                       */
+/* ================================================================== */
 
 /* Global, so dialogs and popovers portalled outside .tier-app respect it too. */
 @media (prefers-reduced-motion: reduce) {

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import type { ResolvedTheme } from "@/lib/theme/mode";
 
 /**
  * The procedural moon surface shared by the landing scenes. Nothing is loaded
@@ -99,15 +100,32 @@ export const moonFragmentShader = /* glsl */ `
   }
 `;
 
+/**
+ * Day: a pale blush moon on a light page. Night: a brighter pearly lit side, a
+ * deep indigo shadow side that still lifts off the night sky, and a lavender rim.
+ */
+const MOON_PALETTE = {
+  light: { lit: "#FFF6F1", mare: "#E7CFD4", shadow: "#E6DDEE", rim: "#FFB5C0" },
+  dark: { lit: "#FFFBF8", mare: "#DCCAE0", shadow: "#211E40", rim: "#9F8BEA" },
+} as const;
+
 export function createMoonUniforms() {
   return {
     uSun: { value: new THREE.Vector3(0, 0, 1) },
     uRot: { value: new THREE.Matrix3() },
-    uLit: { value: new THREE.Color("#FFF6F1") },
-    uMare: { value: new THREE.Color("#E7CFD4") },
-    uShadow: { value: new THREE.Color("#E6DDEE") },
-    uRim: { value: new THREE.Color("#FFB5C0") },
+    uLit: { value: new THREE.Color(MOON_PALETTE.light.lit) },
+    uMare: { value: new THREE.Color(MOON_PALETTE.light.mare) },
+    uShadow: { value: new THREE.Color(MOON_PALETTE.light.shadow) },
+    uRim: { value: new THREE.Color(MOON_PALETTE.light.rim) },
   };
+}
+
+export function setMoonPalette(u: ReturnType<typeof createMoonUniforms>, theme: ResolvedTheme) {
+  const p = MOON_PALETTE[theme];
+  u.uLit.value.set(p.lit);
+  u.uMare.value.set(p.mare);
+  u.uShadow.value.set(p.shadow);
+  u.uRim.value.set(p.rim);
 }
 
 /** Sun direction for a phase angle: 0 = new, PI/2 = first quarter (lit right), PI = full. */

@@ -65,7 +65,7 @@ function InstallHelpDialog({
               : "If you don’t see an install prompt, you can install from your browser menu."}
           </DialogDescription>
         </DialogHeader>
-        <ol className="list-decimal space-y-2 pl-5 text-sm text-[#6D5A60] marker:text-[#75636A]">
+        <ol className="list-decimal space-y-2 pl-5 text-sm text-[var(--chrome-ink)] marker:text-[var(--chrome-secondary)]">
           {steps.map((step) => (
             <li key={step}>{step}</li>
           ))}
@@ -290,7 +290,7 @@ export function PWAInstallPrompt() {
         ) : (
           <Button
             variant="outline"
-            className={`${quietButton} border-[#FFDDE0] bg-white hover:bg-[#FFF5F7]`}
+            className={quietButton}
             onClick={() => setIsHelpOpen(true)}
           >
             How to install
@@ -308,7 +308,7 @@ export function PWAInstallPrompt() {
         body={
           <>
             Tap <ShareIcon /> in Safari&apos;s toolbar, then{" "}
-            <strong className="font-medium text-[#6D5A60]">
+            <strong className="font-medium text-[var(--chrome-ink)]">
               &quot;Add to Home Screen&quot;
             </strong>
             .
@@ -326,9 +326,9 @@ export function PWAInstallPrompt() {
 }
 
 const quietButton =
-  "h-11 rounded-full px-4 text-xs font-medium text-[#6D5A60] hover:bg-[#FFF5F7] hover:text-[#6D5A60] focus-visible:ring-[#6D5A60]/40";
+  "h-11 rounded-full bg-transparent px-4 text-[15px] font-medium text-[var(--chrome-accent)] hover:bg-[color-mix(in_oklch,var(--chrome-ink)_6%,transparent)] hover:text-[var(--chrome-accent)] focus-visible:ring-[var(--chrome-ink)]/40";
 const primaryButton =
-  "h-11 rounded-full bg-[#6D5A60] px-5 text-xs font-medium text-white hover:bg-[#5E4C52] focus-visible:ring-[#6D5A60]/40";
+  "h-11 rounded-full bg-[var(--chrome-ink)] px-5 text-[15px] font-medium text-[var(--chrome-surface)] hover:bg-[var(--chrome-ink)] active:scale-[0.98] focus-visible:ring-[var(--chrome-ink)]/40";
 
 /**
  * Bottom card, clear of the safe area. On phones it lifts above the app tab bar
@@ -348,9 +348,9 @@ function InstallCard({
       aria-label="Install Luna"
       className="fixed left-3 right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-50 max-md:[body:has(nav[aria-label=Primary])_&]:bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:left-auto md:right-6 md:bottom-6 md:w-full md:max-w-sm motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-4 motion-safe:duration-300"
     >
-      <div className="flex flex-col gap-3 rounded-2xl border border-[#FFDDE0] bg-white p-4 shadow-[0_20px_40px_rgba(109,90,96,0.12)]">
+      <div className="flex flex-col gap-3 rounded-2xl bg-[var(--chrome-surface)] p-4 shadow-[var(--chrome-shadow)]">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#FFDDE0]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[color-mix(in_oklch,var(--chrome-accent)_18%,var(--chrome-surface))]">
             <Image
               src="/luna.png"
               alt=""
@@ -360,8 +360,8 @@ function InstallCard({
             />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-[#6D5A60]">{title}</p>
-            <p className="mt-0.5 text-[13px] leading-relaxed text-[#75636A]">
+            <p className="text-[15px] font-semibold text-[var(--chrome-ink)]">{title}</p>
+            <p className="mt-0.5 text-[13px] leading-relaxed text-[var(--chrome-secondary)]">
               {body}
             </p>
           </div>
@@ -385,7 +385,7 @@ function ShareIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="inline-block mx-0.5 -mt-0.5 text-[#6D5A60]"
+      className="inline-block mx-0.5 -mt-0.5 text-[var(--chrome-ink)]"
     >
       <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
       <polyline points="16 6 12 2 8 6" />

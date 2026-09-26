@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useRef, type RefObject } from "react";
+import { useEffect, useMemo, useRef, type RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import type { ResolvedTheme } from "@/lib/theme/mode";
 import {
   createMoonUniforms,
   moonFragmentShader,
   moonVertexShader,
+  setMoonPalette,
   springStep,
   sunForPhase,
 } from "./moonMaterial";
@@ -36,11 +38,19 @@ export function phaseOfDay(day: number): "period" | "follicular" | "ovulation" |
   if (day <= 16) return "ovulation";
   return "luteal";
 }
-const PHASE_COLOR = {
-  period: "#EE8FA3",
-  follicular: "#B9A6DD",
-  ovulation: "#EBC46E",
-  luteal: "#F4B8C4",
+/** Bead colours per phase; `dim` is what days not yet walked fade toward. */
+const RING_PALETTE = {
+  light: {
+    phase: { period: "#EE8FA3", follicular: "#B9A6DD", ovulation: "#EBC46E", luteal: "#F4B8C4" },
+    dim: "#EDE6F2",
+    track: "#C9B8E3",
+  },
+  // Night: brighter beads that glow on the dark sky; unwalked days recede into it.
+  dark: {
+    phase: { period: "#FF9DB4", follicular: "#C6B2FF", ovulation: "#FFD57E", luteal: "#F8C2D2" },
+    dim: "#3A3354",
+    track: "#B4A3E8",
+  },
 } as const;
 
 // Scroll choreography (fractions of the pin).
@@ -81,7 +91,7 @@ function glowTexture() {
   return tex;
 }
 
-function Scene({ progress, pointer }: CycleInputs) {
+function Scene({ progress, pointer, theme }: CycleInputs & { theme: ResolvedTheme }) {
   const viewport = useThree((s) => s.viewport);
   const size = useThree((s) => s.size);
   const group = useRef<THREE.Group>(null);
@@ -90,6 +100,7 @@ function Scene({ progress, pointer }: CycleInputs) {
   const beads = useRef<THREE.InstancedMesh>(null);
   const track = useRef<THREE.Mesh>(null);
   const marker = useRef<THREE.Sprite>(null);
+  const halo = useRef<THREE.Sprite>(null);
 
   const p = useRef({ x: 0, v: 0 });
   // Entrance: the crescent grows in on load. It also keeps frames coming while
@@ -107,10 +118,24 @@ function Scene({ progress, pointer }: CycleInputs) {
       q: new THREE.Quaternion(),
       s: new THREE.Vector3(),
       c: new THREE.Color(),
-      dim: new THREE.Color("#EDE6F2"),
     }),
     [],
   );
+  const night = theme === "dark";
+  const ringPalette = RING_PALETTE[theme];
+  const beadColors = useMemo(() => {
+    const dim = new THREE.Color(ringPalette.dim);
+    return Array.from({ length: DAYS }, (_, i) => {
+      const lit = new THREE.Color(ringPalette.phase[phaseOfDay(i + 1)]);
+      return { lit, dim: lit.clone().lerp(dim, 0.55) };
+    });
+  }, [ringPalette]);
+
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    setMoonPalette(uniforms, theme);
+    invalidate();
+  }, [uniforms, theme, invalidate]);
 
   useFrame((state, delta) => {
     const g = group.current;
@@ -148,7 +173,8 @@ function Scene({ progress, pointer }: CycleInputs) {
 
     // Moon: phase follows the walk around the ring; it turns a little as it goes.
     const q = smooth(CYCLE_START, CYCLE_END, pr);
-    sunForPhase(PHASE_START - 0.2 * Math.PI * (1 - introT) + PHASE_SPAN * q, uniforms.uSun.value);
+    const phase = PHASE_START - 0.2 * Math.PI * (1 - introT) + PHASE_SPAN * q;
+    sunForPhase(phase, uniforms.uSun.value);
     m.rotation.set(0.18 + tiltX.current.x, -0.6 + q * 1.1 + tiltY.current.x, 0.08);
     m.updateMatrixWorld();
     uniforms.uRot.value.setFromMatrix4(m.matrixWorld);
@@ -170,9 +196,7 @@ function Scene({ progress, pointer }: CycleInputs) {
       scratch.s.setScalar(size);
       scratch.m.compose(scratch.v, scratch.q, scratch.s);
       beads.current.setMatrixAt(d - 1, scratch.m);
-      scratch.c.set(PHASE_COLOR[phaseOfDay(d)]);
-      if (!lit) scratch.c.lerp(scratch.dim, 0.55);
-      beads.current.setColorAt(d - 1, scratch.c);
+      beads.current.setColorAt(d - 1, lit ? beadColors[d - 1].lit : beadColors[d - 1].dim);
     }
     beads.current.instanceMatrix.needsUpdate = true;
     if (beads.current.instanceColor) beads.current.instanceColor.needsUpdate = true;
@@ -181,11 +205,20 @@ function Scene({ progress, pointer }: CycleInputs) {
     marker.current.material.opacity = arrive * 0.95;
     marker.current.scale.setScalar(0.55);
 
+    // Night only: a soft glow around the moon that brightens toward full.
+    if (halo.current) {
+      halo.current.visible = night;
+      halo.current.material.opacity = night ? introT * (0.14 + 0.24 * (1 - Math.cos(phase)) * 0.5) : 0;
+    }
+
     if (moving) state.invalidate();
   });
 
   return (
     <group ref={group}>
+      <sprite ref={halo} visible={false} position={[0, 0, -1.05]} scale={4}>
+        <spriteMaterial map={glow} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+      </sprite>
       <mesh ref={moon}>
         <sphereGeometry args={[1, 96, 96]} />
         <shaderMaterial vertexShader={moonVertexShader} fragmentShader={moonFragmentShader} uniforms={uniforms} />
@@ -193,7 +226,7 @@ function Scene({ progress, pointer }: CycleInputs) {
       <group ref={ring} visible={false}>
         <mesh ref={track} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[1.75, 0.006, 8, 160]} />
-          <meshBasicMaterial color="#C9B8E3" transparent opacity={0} toneMapped={false} />
+          <meshBasicMaterial color={ringPalette.track} transparent opacity={0} toneMapped={false} />
         </mesh>
         <instancedMesh ref={beads} args={[undefined, undefined, DAYS]}>
           <sphereGeometry args={[0.052, 16, 16]} />
@@ -211,7 +244,16 @@ export default function CycleScene({
   progress,
   pointer,
   onReady,
-}: CycleInputs & { onReady: (requestFrame: () => void) => void }) {
+  theme = "light",
+}: CycleInputs & {
+  onReady: (requestFrame: () => void) => void;
+  /**
+   * The surface the canvas sits on, not the global mode: the moon draws opaque,
+   * so it must match its page. Pass useResolvedTheme() once that page is on the
+   * plan tokens.
+   */
+  theme?: ResolvedTheme;
+}) {
   return (
     <Canvas
       frameloop="demand"
@@ -225,7 +267,7 @@ export default function CycleScene({
       style={{ pointerEvents: "none" }}
       aria-hidden
     >
-      <Scene progress={progress} pointer={pointer} />
+      <Scene progress={progress} pointer={pointer} theme={theme} />
     </Canvas>
   );
 }

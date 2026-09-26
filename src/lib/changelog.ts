@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.19.0",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Luna at night",
+    description:
+      "Luna now has a soft dark mode. It isn't pitch black: Free turns deep plum, Premium indigo and Premium+ a warm espresso, with gentle pastel accents and cards that sit a step lighter than the page, like iOS. It follows your device's light or dark setting automatically, and switches before the page paints, so there's no white flash. Every text colour was checked for readable contrast in both modes. The cookie notice and install card follow along too.",
+  },
+  {
     version: "0.18.0",
     date: "2026-09-26",
     type: "feat",
