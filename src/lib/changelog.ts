@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.12.1",
+    date: "2026-09-26",
+    type: "fix",
+    title: "Smoother onboarding with a first period date",
+    description:
+      "Onboarding now asks (optionally) when your last period started, so predictions appear right away. Perimenopause stage is actually saved from your selection, early and late can no longer both be picked, every timezone is available with your own detected automatically, and error messages are easier to read.",
+  },
+  {
     version: "0.12.0",
     date: "2026-09-26",
     type: "feat",

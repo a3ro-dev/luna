@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 
-const TIMEZONES = [
+const COMMON_TIMEZONES = [
   "Asia/Kolkata",
   "Asia/Dubai",
   "Asia/Singapore",
@@ -32,6 +32,33 @@ const TIMEZONES = [
   "Pacific/Auckland",
   "UTC",
 ];
+
+// Every IANA zone the browser knows, so no one is stuck with a wrong local date
+const TIMEZONES = (() => {
+  try {
+    const all = Intl.supportedValuesOf("timeZone");
+    return all.includes("UTC") ? all : [...all, "UTC"];
+  } catch {
+    return COMMON_TIMEZONES;
+  }
+})();
+
+function detectTimeZone() {
+  try {
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (TIMEZONES.includes(detected)) return detected;
+  } catch {
+    // fall through
+  }
+  return "Asia/Kolkata";
+}
+
+const localIsoDate = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const PERIMENO = ["perimenopause_early", "perimenopause_late"];
 
 const CONDITIONS = [
   { id: "pcos", label: "PCOS" },
@@ -68,11 +95,11 @@ export default function OnboardingPageClient() {
 
   const [step, setStep] = useState(0);
   const [dateOfBirth, setDateOfBirth] = useState("");
-  const [timezone, setTimezone] = useState("Asia/Kolkata");
+  // Steps that show the timezone never render on the server, so a lazy
+  // client-side default cannot cause a hydration mismatch.
+  const [timezone, setTimezone] = useState(detectTimeZone);
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
-  const [perimenoStage, setPerimenoStage] = useState<
-    "early" | "late" | "unknown"
-  >("unknown");
+  const [lastPeriodStart, setLastPeriodStart] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -80,7 +107,7 @@ export default function OnboardingPageClient() {
   const [consentChecked, setConsentChecked] = useState(false);
   const [consentDeclined, setConsentDeclined] = useState(false);
 
-  const totalSteps = 4;
+  const totalSteps = 5;
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -89,26 +116,14 @@ export default function OnboardingPageClient() {
     }
   }, [authStatus, router]);
 
-  // Auto-detect timezone
-  useEffect(() => {
-    try {
-      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (TIMEZONES.includes(detected)) {
-        setTimezone(detected);
-      }
-    } catch {
-      // Fallback to IST
-    }
-  }, []);
-
   // Toggle condition
   const toggleCondition = (id: string) => {
     setSelectedConditions((prev) => {
       if (id === "none") return prev.includes("none") ? [] : ["none"];
-      const filtered = prev.filter((c) => c !== "none");
-      return filtered.includes(id)
-        ? filtered.filter((c) => c !== id)
-        : [...filtered, id];
+      if (prev.includes(id)) return prev.filter((c) => c !== id);
+      // Early and late perimenopause are one choice, not two
+      const exclusive = PERIMENO.includes(id) ? PERIMENO : [];
+      return [...prev.filter((c) => c !== "none" && !exclusive.includes(c)), id];
     });
   };
 
@@ -124,10 +139,10 @@ export default function OnboardingPageClient() {
           dateOfBirth: dateOfBirth || undefined,
           timezone,
           conditions: selectedConditions,
-          perimenoStage:
-            selectedConditions.includes("perimenopause_early") ||
-            selectedConditions.includes("perimenopause_late")
-              ? perimenoStage
+          perimenoStage: selectedConditions.includes("perimenopause_late")
+            ? "late"
+            : selectedConditions.includes("perimenopause_early")
+              ? "early"
               : undefined,
           pushNotificationsEnabled: false,
           consentGiven: true,
@@ -139,6 +154,14 @@ export default function OnboardingPageClient() {
         setError(data.error || "Something went wrong.");
         setIsSubmitting(false);
         return;
+      }
+      if (lastPeriodStart) {
+        // Best effort: a duplicate from re-running onboarding is harmless
+        await fetch("/api/cycles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mStart: lastPeriodStart }),
+        }).catch(() => undefined);
       }
       // Refresh session so JWT picks up consentGiven before dashboard navigation
       try {
@@ -234,7 +257,7 @@ export default function OnboardingPageClient() {
                 className="flex-1 flex flex-col items-center justify-center text-center"
               >
                 {error && (
-                <div className="rounded-2xl bg-[#FFB5C0]/10 px-4 py-3 text-sm text-[#FFB5C0] text-center mb-6 w-full">
+                <div role="alert" className="rounded-2xl bg-[#FFB5C0]/10 px-4 py-3 text-sm text-[#B4485F] text-center mb-6 w-full">
                   {error}
                 </div>
               )}
@@ -292,7 +315,7 @@ export default function OnboardingPageClient() {
                 </p>
 
                 {error && (
-                  <div className="rounded-2xl bg-[#FFB5C0]/10 px-4 py-3 text-sm text-[#FFB5C0] text-center mb-4">
+                  <div role="alert" className="rounded-2xl bg-[#FFB5C0]/10 px-4 py-3 text-sm text-[#B4485F] text-center mb-4">
                     {error}
                   </div>
                 )}
@@ -421,30 +444,37 @@ export default function OnboardingPageClient() {
                 </p>
 
                 {error && (
-                  <div className="rounded-2xl bg-[#FFB5C0]/10 px-4 py-3 text-sm text-[#FFB5C0] text-center mb-4">
+                  <div role="alert" className="rounded-2xl bg-[#FFB5C0]/10 px-4 py-3 text-sm text-[#B4485F] text-center mb-4">
                     {error}
                   </div>
                 )}
 
                 <div className="space-y-5 flex-1">
                   <div>
+                    <label htmlFor="dob" className="sr-only">
+                      Date of birth
+                    </label>
                     <input
+                      id="dob"
                       type="date"
+                      min="1900-01-01"
+                      max={localIsoDate()}
                       value={dateOfBirth}
                       onChange={(e) => setDateOfBirth(e.target.value)}
                       className="w-full px-5 py-3.5 rounded-2xl bg-[#FFF9F9] border border-[#FFDDE0]/40 text-[#6D5A60] font-light focus:outline-none focus:ring-2 focus:ring-[#FFB5C0]/30 focus:border-[#FFB5C0]/50 transition-all"
                     />
-                    <p className="mt-2 text-[11px] font-light text-[#8E7D82]/40 ml-1">
+                    <p className="mt-2 text-[11px] font-light text-[#8E7D82]/70 ml-1">
                       Optional. Can be changed up to 2 times later.
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-light text-[#8E7D82]/60 mb-2 ml-1">
+                    <label htmlFor="timezone" className="block text-[11px] font-light text-[#8E7D82] mb-2 ml-1">
                       Timezone — we detected{" "}
                       <span className="text-[#6D5A60]">{timezone}</span>
                     </label>
                     <select
+                      id="timezone"
                       value={timezone}
                       onChange={(e) => setTimezone(e.target.value)}
                       className="w-full px-5 py-3 rounded-2xl bg-[#FFF9F9] border border-[#FFDDE0]/40 text-[#6D5A60] font-light focus:outline-none focus:ring-2 focus:ring-[#FFB5C0]/30 focus:border-[#FFB5C0]/50 transition-all appearance-none cursor-pointer"
@@ -482,7 +512,7 @@ export default function OnboardingPageClient() {
                 </p>
 
                 {error && (
-                  <div className="rounded-2xl bg-[#FFB5C0]/10 px-4 py-3 text-sm text-[#FFB5C0] text-center mb-4">
+                  <div role="alert" className="rounded-2xl bg-[#FFB5C0]/10 px-4 py-3 text-sm text-[#B4485F] text-center mb-4">
                     {error}
                   </div>
                 )}
@@ -531,6 +561,51 @@ export default function OnboardingPageClient() {
                       Luna adapts to your unique rhythm over time
                     </motion.p>
                   )}
+              </motion.div>
+            )}
+
+            {/* ── Step 4: Last period ────────────────────── */}
+            {step === 4 && (
+              <motion.div
+                key="last-period"
+                {...enter}
+                className="flex-1 flex flex-col"
+              >
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#FFB5C0] mb-3"
+                >
+                  A starting point
+                </motion.p>
+                <h2 className="font-serif text-2xl font-light text-[#6D5A60] mb-1">
+                  When did your last period start?
+                </h2>
+                <p className="text-sm font-light text-[#8E7D82] mb-8">
+                  With one date Luna can give you a first estimate right away.
+                  It gets more personal with every cycle you log.
+                </p>
+
+                {error && (
+                  <div role="alert" className="rounded-2xl bg-[#FFB5C0]/10 px-4 py-3 text-sm text-[#B4485F] text-center mb-4">
+                    {error}
+                  </div>
+                )}
+
+                <label htmlFor="last-period-start" className="sr-only">
+                  Last period start date
+                </label>
+                <input
+                  id="last-period-start"
+                  type="date"
+                  value={lastPeriodStart}
+                  max={localIsoDate()}
+                  onChange={(e) => setLastPeriodStart(e.target.value)}
+                  className="w-full px-5 py-3.5 rounded-2xl bg-[#FFF9F9] border border-[#FFDDE0]/40 text-[#6D5A60] font-light focus:outline-none focus:ring-2 focus:ring-[#FFB5C0]/30 focus:border-[#FFB5C0]/50 transition-all"
+                />
+                <p className="mt-2 text-[11px] font-light text-[#8E7D82]/70 ml-1">
+                  Optional. Not sure? Skip it and tell Luna in chat later.
+                </p>
               </motion.div>
             )}
           </AnimatePresence>
