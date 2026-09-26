@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.13.3",
+    date: "2026-09-26",
+    type: "fix",
+    title: "Steadier chat: no stuck sessions, faster replies, less shared",
+    description:
+      "Stopping a reply mid-tool no longer breaks the conversation. Tool calls in one reply run in order, so 'log it and show my forecast' uses the new log. The conversation summary runs after the reply instead of delaying it. Memory recall now reads your saved facts by account only, so chat text is no longer sent to the memory service. Chat history loads photos by link instead of inline data, and the nightly cleanup of old photo copies now actually matches them.",
+  },
+  {
     version: "0.13.2",
     date: "2026-09-26",
     type: "fix",

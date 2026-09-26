@@ -18,7 +18,7 @@ impeccable ~\.agents\skills\impeccable
 - Database: Neon Postgres + Drizzle ORM
 - Auth: Auth.js (NextAuth v5) — Credentials provider only (email + password), JWT strategy
 - AI: Vercel AI SDK v6 + HackClub AI proxy (`x-ai/grok-4.3` for chat, `~anthropic/claude-haiku-latest` for rename)
-- Memory: Supermemory v4 API (per-user persistent facts)
+- Memory: Supermemory v4 API (per-user persistent facts; recall via /v4/profile)
 - Web Search: HackClub Search API (`GET https://search.hackclub.com/res/v1/web/search`)
 - UI: Tailwind v4 + AI Elements + OpenUI + shadcn components
 
@@ -43,7 +43,7 @@ impeccable ~\.agents\skills\impeccable
 - Use `convertToModelMessages` before calling `streamText`.
 - Use Chat Completions for HackClub proxy: `hackClubAI.chat(modelId)`.
 - AI SDK v6: `maxSteps` → `stopWhen: stepCountIs(n)`, `usage.promptTokens` → `usage.inputTokens`.
-- Supermemory uses v4 API: `POST /v4/search` + `POST /v4/memories` (not v1 endpoints).
+- Supermemory uses v4 API: `POST /v4/profile` (recall by user id only, no chat text sent) + `POST /v4/memories` (not v1 endpoints).
 - Web search uses HackClub Search API: `GET https://search.hackclub.com/res/v1/web/search` (not OpenAI plugins).
 - Drizzle chained `.where().where()` is invalid — use `and(eq(...), eq(...))`.
 - OpenUI rendering: `looksLikeOpenUiLang()` checks if text starts with `root =` to gate structured rendering.
@@ -91,7 +91,7 @@ impeccable ~\.agents\skills\impeccable
 - Sessions stored in `chat_sessions`
 - Messages stored in `chat_messages` (parts as jsonb, not plain content)
 - Summaries stored in `chat_summaries` (auto-generated after 30+ messages, delta 12+)
-- Dynamic context: recent 20 messages + summary + keyword snippets (6 keywords, 6 messages) + Supermemory recall (5 results)
+- Dynamic context: recent 20 messages + summary + keyword snippets (6 keywords, 6 messages) + Supermemory profile recall (up to 20 facts)
 - Auto-rename: after first AI response, generates title via `~anthropic/claude-haiku-latest`
 - Cycle endpoints: `POST /api/cycles`, `PATCH/DELETE /api/cycles/:id` (dashboard quick log; same validation as chat tools)
 - API endpoints: `GET/POST /api/chat/sessions`, `DELETE /api/chat/sessions/:id`, `GET /api/chat/sessions/:id/messages`, `POST /api/chat/sessions/:id/rename`

@@ -39,5 +39,6 @@ export async function GET(
     parts: Array.isArray(row.parts) ? (row.parts as UIMessage["parts"]) : [],
   }))
 
-  return Response.json(await resolveImageParts(userId, messages))
+  // Images go out as URLs, not inline data, to stay under the platform response cap
+  return Response.json(await resolveImageParts(userId, messages, true))
 }

@@ -9,6 +9,8 @@ const ALLOWED_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif
 
 /** Chat history stores this reference instead of the image bytes. */
 const IMAGE_REF = "luna-image:";
+/** The client loads stored images from here (src/app/api/chat/sessions/images/[imageId]). */
+const IMAGE_URL = "/api/chat/sessions/images/";
 const EXPIRED_NOTE = `(photo removed after ${IMAGE_RETENTION_DAYS} days)`;
 
 type Parts = UIMessage["parts"];
@@ -61,6 +63,11 @@ export async function storeImage({
 export async function externalizeImageParts(userId: string, parts: Parts): Promise<Parts> {
   const out: Parts = [];
   for (const part of parts) {
+    // An already-stored image sent back by the client (e.g. Retry after a reload)
+    if (isImagePart(part) && part.url?.startsWith(IMAGE_URL)) {
+      out.push({ ...part, url: `${IMAGE_REF}${part.url.slice(IMAGE_URL.length)}` } as Parts[number]);
+      continue;
+    }
     if (!isImagePart(part) || !part.url?.startsWith("data:")) {
       out.push(part);
       continue;
@@ -75,18 +82,28 @@ export async function externalizeImageParts(userId: string, parts: Parts): Promi
   return out;
 }
 
-/** Swap image references back for their data; expired images become a short note. */
-export async function resolveImageParts<M extends { parts: Parts }>(userId: string, messages: M[]): Promise<M[]> {
+/**
+ * Swap image references back for their data (for the model) or, with asUrl,
+ * for a URL the client loads (keeps responses small); expired images become a short note.
+ */
+export async function resolveImageParts<M extends { parts: Parts }>(
+  userId: string,
+  messages: M[],
+  asUrl = false,
+): Promise<M[]> {
   const ids = messages.flatMap((m) =>
     m.parts.flatMap((p) => (isImagePart(p) && p.url?.startsWith(IMAGE_REF) ? [p.url.slice(IMAGE_REF.length)] : [])),
   );
   if (ids.length === 0) return messages;
 
-  const rows = await db
-    .select({ id: uploadedImages.id, imageData: uploadedImages.imageData })
-    .from(uploadedImages)
-    .where(and(inArray(uploadedImages.id, ids), eq(uploadedImages.userId, userId), gt(uploadedImages.expiresAt, new Date())));
-  const data = new Map(rows.map((r) => [r.id, r.imageData]));
+  const live = and(inArray(uploadedImages.id, ids), eq(uploadedImages.userId, userId), gt(uploadedImages.expiresAt, new Date()));
+  const data = new Map(
+    asUrl
+      ? (await db.select({ id: uploadedImages.id }).from(uploadedImages).where(live)).map((r) => [r.id, `${IMAGE_URL}${r.id}`] as const)
+      : (await db.select({ id: uploadedImages.id, imageData: uploadedImages.imageData }).from(uploadedImages).where(live)).map(
+          (r) => [r.id, r.imageData] as const,
+        ),
+  );
 
   return messages.map((m) => ({
     ...m,
@@ -116,7 +133,13 @@ export async function cleanupExpiredImages(): Promise<number> {
     const rows = await db
       .select({ id: chatMessages.id, parts: chatMessages.parts })
       .from(chatMessages)
-      .where(and(lt(chatMessages.createdAt, cutoff), sql`${chatMessages.parts}::text like '%"url":"data:image%'`))
+      .where(
+        and(
+          lt(chatMessages.createdAt, cutoff),
+          // Same test as the rewrite below, so every selected row changes and the loop moves on
+          sql`jsonb_path_exists(${chatMessages.parts}, '$[*] ? (@.type == "file" && @.mediaType starts with "image/" && @.url starts with "data:")')`,
+        ),
+      )
       .limit(100);
     if (rows.length === 0) break;
     await Promise.all(

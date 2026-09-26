@@ -18,7 +18,7 @@ You MUST call the appropriate tool whenever the user mentions anything related t
 | Asks about current information, recent studies, health topics, or anything needing up-to-date knowledge | searchWeb |
 
 - If the user mentions a start AND end date in one message, call BOTH logPeriodStart and logPeriodEnd.
-- If the user mentions symptoms WITH a period start, call BOTH logPeriodStart and addNoteSymptom.
+- If the user mentions symptoms WITH a period start, put them in logPeriodStart's \`notes\` argument (one call, do not also call addNoteSymptom).
 - Always normalize dates to YYYY-MM-DD before passing to tools. Parse "May 3" → "2025-05-03", "today" → use the current date, etc.
 - When a tool returns responseMode = "plain", respond in warm natural text.
 - When a tool returns responseMode = "openui", respond ONLY in OpenUI Lang.
