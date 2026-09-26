@@ -1,21 +1,23 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback, useSyncExternalStore } from "react";
 import Link from "next/link";
 
-export default function CookieConsent() {
-  const [mounted, setMounted] = useState(false);
-  const [visible, setVisible] = useState(false);
+const noopSubscribe = () => () => {};
 
-  useEffect(() => {
-    setMounted(true);
-    try {
-      if (localStorage.getItem("luna-cookie-consent")) return;
-    } catch {
-      // localStorage unavailable (e.g. private browsing on some browsers)
-    }
-    setVisible(true);
-  }, []);
+function needsConsent() {
+  try {
+    return !localStorage.getItem("luna-cookie-consent");
+  } catch {
+    // localStorage unavailable (e.g. private browsing on some browsers)
+    return true;
+  }
+}
+
+export default function CookieConsent() {
+  // Server snapshot is false so the banner never renders during SSR
+  const pending = useSyncExternalStore(noopSubscribe, needsConsent, () => false);
+  const [dismissed, setDismissed] = useState(false);
 
   const dismiss = useCallback(() => {
     try {
@@ -23,10 +25,10 @@ export default function CookieConsent() {
     } catch {
       // silently fail — banner will show again on next visit
     }
-    setVisible(false);
+    setDismissed(true);
   }, []);
 
-  if (!mounted || !visible) return null;
+  if (!pending || dismissed) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-[100] p-4">

@@ -38,6 +38,8 @@ const ShimmerComponent = ({
   duration = 2,
   spread = 2,
 }: TextShimmerProps) => {
+  // Cached per element at module level, so identity is stable across renders
+  // eslint-disable-next-line react-hooks/static-components
   const MotionComponent = getMotionComponent(
     Component as keyof JSX.IntrinsicElements
   );

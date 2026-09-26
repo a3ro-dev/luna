@@ -14,15 +14,7 @@ function ResetPasswordForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [tokenValid, setTokenValid] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (!token) {
-      setTokenValid(false);
-      return;
-    }
-    setTokenValid(true);
-  }, [token]);
+  const tokenValid = Boolean(token);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

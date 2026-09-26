@@ -39,13 +39,8 @@ export function useUserPlan(): UserPlanResult {
   const [loading, setLoading] = useState(!cachedPlan);
 
   useEffect(() => {
-    if (cachedPlan) {
-      setPlan(cachedPlan);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
+    // Initial state already reflects the cache
+    if (cachedPlan) return;
     fetchUserPlan().then((p) => {
       setPlan(p);
       setLoading(false);
