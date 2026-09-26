@@ -87,7 +87,7 @@ export function LegalDocument({
             <ArrowLeft className="h-4 w-4" aria-hidden />
             Luna
           </Link>
-          <h1 className="font-serif text-[clamp(2.5rem,8vw,4rem)] font-light leading-[1.05] tracking-tight text-[#6D5A60]">
+          <h1 className="font-display text-[clamp(2.25rem,6vw,3.25rem)] font-bold leading-[1.08] tracking-[-0.03em] text-[#6D5A60]">
             {title}
           </h1>
           <p className="mt-3 text-sm text-[#75636A]">Last updated {updated}</p>
@@ -100,7 +100,7 @@ export function LegalDocument({
               className={`flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg [&::-webkit-details-marker]:hidden ${focusRing}`}
             >
               <span className="flex min-w-0 items-baseline gap-2">
-                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-[#75636A]">
+                <span className="shrink-0 text-[13px] font-medium text-[#75636A]">
                   On this page
                 </span>
                 <span className="truncate text-sm text-[#6D5A60]">
@@ -123,7 +123,7 @@ export function LegalDocument({
         <div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-16">
           <nav aria-label="On this page" className="hidden lg:block">
             <div className="sticky top-10">
-              <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-widest text-[#75636A]">
+              <p className="mb-2 px-3 text-[13px] font-semibold text-[#75636A]">
                 On this page
               </p>
               <ol className="space-y-0.5">{tocLinks()}</ol>
@@ -131,7 +131,7 @@ export function LegalDocument({
           </nav>
 
           <article className="min-w-0 max-w-[65ch]">
-            <div className="font-serif text-[1.35rem] font-light leading-[1.45] text-[#6D5A60] md:text-2xl">
+            <div className="text-[1.25rem] leading-[1.45] tracking-[-0.012em] text-[#6D5A60] md:text-[1.375rem]">
               {intro}
             </div>
 
@@ -150,7 +150,7 @@ export function LegalDocument({
                 </p>
                 <h2
                   id={`${section.id}-title`}
-                  className="font-serif text-[1.75rem] font-light leading-tight text-[#6D5A60] md:text-3xl"
+                  className="font-display text-[1.375rem] font-semibold leading-tight tracking-[-0.022em] text-[#6D5A60] md:text-[1.625rem]"
                 >
                   <a
                     href={`#${section.id}`}

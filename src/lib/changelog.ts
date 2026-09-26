@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.17.4",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Legal pages in the same calm style",
+    description:
+      "Privacy, Terms and Transparency now use the same system type as the rest of Luna: a bold title, clear section headings and sentence-case labels. The wording is unchanged.",
+  },
+  {
     version: "0.17.3",
     date: "2026-09-26",
     type: "feat",
