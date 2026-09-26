@@ -1,0 +1,23 @@
+late-row composition (pooled rows): {"primary":{"genuine":628,"skip":821,"double":47},"literature":{"genuine":181,"skip":158,"double":8}}
+model        class    n     MAE    cov80  point-in-skip-mode
+v2-trunc     genuine  628   2.45   0.873  0.268
+v2-trunc     skip     821   22.09  0.130  0.210
+v2-trunc     double   47    13.63  0.319  0.340
+A-c2         genuine  628   3.35   0.914  0.357
+A-c2         skip     821   19.92  0.676  0.323
+A-c2         double   47    11.58  0.894  0.468
+A-c23        genuine  628   3.38   0.916  0.357
+A-c23        skip     821   19.88  0.704  0.323
+A-c23        double   47    11.55  0.915  0.468
+A-c23-sum    genuine  628   3.50   0.908  0.366
+A-c23-sum    skip     821   19.70  0.677  0.329
+A-c23-sum    double   47    11.31  0.915  0.468
+A-c23-n4     genuine  628   3.85   0.908  0.385
+A-c23-n4     skip     821   19.43  0.570  0.353
+A-c23-n4     double   47    11.07  0.872  0.489
+A-c23-w09    genuine  628   4.86   0.852  0.454
+A-c23-w09    skip     821   17.72  0.873  0.456
+A-c23-w09    double   47    9.86   0.915  0.681
+oracle-c     genuine  628   2.45   0.873  0.268
+oracle-c     skip     821   5.45   0.949  1.000
+oracle-c     double   47    13.63  0.319  0.340

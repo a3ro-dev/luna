@@ -1,0 +1,46 @@
+
+base: 7813 rows
+branch     target    n      artRate  cov v2 / clean3 / wonly      IS80 v2 / clean3 / wonly
+clean      in-gate   4630   0.063    0.908 / 0.851 / 0.851        12.35 / 11.57 / 11.47
+clean      artifact  313    0.063    0.000 / 0.000 / 0.000        237.76 / 245.51 / 245.56
+set-aside  in-gate   1453   0.071    0.861 / 0.861 / 0.861        12.95 / 12.95 / 12.95
+set-aside  artifact  111    0.071    0.000 / 0.000 / 0.000        232.06 / 232.06 / 232.06
+condition  in-gate   1270   0.028    0.824 / 0.824 / 0.824        44.19 / 44.19 / 44.19
+condition  artifact  36     0.028    0.000 / 0.000 / 0.000        237.23 / 237.23 / 237.23
+PIT clean in-gate v2     0.057 0.066 0.112 0.136 0.150 0.162 0.118 0.090 0.073 0.034
+PIT clean in-gate clean3 0.083 0.081 0.109 0.128 0.127 0.126 0.109 0.092 0.078 0.066
+
+noisy: 4814 rows
+branch     target    n      artRate  cov v2 / clean3 / wonly      IS80 v2 / clean3 / wonly
+clean      in-gate   1556   0.160    0.917 / 0.851 / 0.855        13.64 / 12.96 / 12.75
+clean      artifact  296    0.160    0.000 / 0.000 / 0.000        252.05 / 260.77 / 260.51
+set-aside  in-gate   1351   0.147    0.864 / 0.864 / 0.864        14.12 / 14.12 / 14.12
+set-aside  artifact  233    0.147    0.004 / 0.004 / 0.004        234.45 / 234.45 / 234.45
+condition  in-gate   1276   0.074    0.787 / 0.787 / 0.787        50.41 / 50.41 / 50.41
+condition  artifact  102    0.074    0.000 / 0.000 / 0.000        268.85 / 268.85 / 268.85
+PIT clean in-gate v2     0.053 0.078 0.107 0.136 0.154 0.157 0.116 0.096 0.072 0.030
+PIT clean in-gate clean3 0.084 0.084 0.110 0.125 0.125 0.120 0.107 0.094 0.085 0.065
+
+regular: 5283 rows
+branch     target    n      artRate  cov v2 / clean3 / wonly      IS80 v2 / clean3 / wonly
+clean      in-gate   4284   0.029    0.914 / 0.862 / 0.863        11.25 / 10.33 / 10.30
+clean      artifact  126    0.029    0.000 / 0.000 / 0.000        235.65 / 242.98 / 243.08
+set-aside  in-gate   606    0.026    0.871 / 0.871 / 0.871        12.24 / 12.24 / 12.24
+set-aside  artifact  16     0.026    0.000 / 0.000 / 0.000        209.11 / 209.11 / 209.11
+condition  in-gate   247    0.016    0.842 / 0.842 / 0.842        35.43 / 35.43 / 35.43
+condition  artifact  4      0.016    0.000 / 0.000 / 0.000        263.00 / 263.00 / 263.00
+PIT clean in-gate v2     0.057 0.070 0.090 0.126 0.154 0.166 0.140 0.104 0.062 0.029
+PIT clean in-gate clean3 0.085 0.076 0.100 0.117 0.123 0.125 0.132 0.102 0.086 0.054
+
+literature (report-only): 4928 rows
+branch     target    n      artRate  cov v2 / clean3 / wonly      IS80 v2 / clean3 / wonly
+clean      in-gate   3143   0.055    0.915 / 0.862 / 0.864        11.70 / 10.79 / 10.72
+clean      artifact  183    0.055    0.000 / 0.000 / 0.000        225.06 / 232.52 / 232.50
+set-aside  in-gate   782    0.054    0.881 / 0.881 / 0.881        12.03 / 12.03 / 12.03
+set-aside  artifact  45     0.054    0.000 / 0.000 / 0.000        234.99 / 234.99 / 234.99
+condition  in-gate   753    0.028    0.834 / 0.834 / 0.834        40.19 / 40.19 / 40.19
+condition  artifact  22     0.028    0.000 / 0.000 / 0.000        235.23 / 235.23 / 235.23
+PIT clean in-gate v2     0.052 0.064 0.097 0.160 0.142 0.153 0.132 0.108 0.058 0.033
+PIT clean in-gate clean3 0.078 0.077 0.093 0.153 0.119 0.116 0.118 0.108 0.078 0.060
+
+null check passed: cleanSd = 4 reproduces v2-bayes on every row

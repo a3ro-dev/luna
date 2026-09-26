@@ -1,0 +1,9 @@
+DAY-0                        macroMAE  IS80    calib  gCalib gIS80   ok     litMAE litIS80
+v2-bayes                     5.527  34.036  0.052  0.084  18.419  true  4.570  27.064
+R26-clean3                   5.538  33.898  0.034  0.049  17.916  true  4.570  26.763
+R26-clean3.5                 5.530  33.923  0.043  0.068  18.120  true  4.569  26.873
+R26-clean3-n3                5.528  33.940  0.037  0.062  18.144  true  4.571  26.894
+R26-clean3-wonly             5.527  33.842  0.034  0.049  17.859  true  4.570  26.715
+
+LATE                         lateMAE  macro  cov80  covOk  IS80    d40MAE d40cov litLateMAE n
+v2-trunc                     12.616  12.882  0.478  false  100.128  12.092  0.490  11.398  213.714

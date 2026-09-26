@@ -1,0 +1,12 @@
+base       single-like share=0.38 irr=0.13 y-t0=1.6 P(skip|late) norm=0.29 t4=0.23 v2-trunc=1.73 B1-norm-c2=2.42 B3-t4-c2=3.72
+base       skip-like   share=0.62 irr=0.29 y-t0=21.0 P(skip|late) norm=0.29 t4=0.23 v2-trunc=18.81 B1-norm-c2=17.41 B3-t4-c2=16.22
+base       oracle-class point MAE 4.27  all-rows v2-trunc 12.38
+noisy      single-like share=0.19 irr=0.18 y-t0=1.6 P(skip|late) norm=0.32 t4=0.26 v2-trunc=1.82 B1-norm-c2=2.94 B3-t4-c2=4.63
+noisy      skip-like   share=0.81 irr=0.34 y-t0=23.1 P(skip|late) norm=0.30 t4=0.24 v2-trunc=20.55 B1-norm-c2=18.98 B3-t4-c2=17.87
+noisy      oracle-class point MAE 7.27  all-rows v2-trunc 16.99
+regular    single-like share=0.61 irr=0.04 y-t0=1.0 P(skip|late) norm=0.28 t4=0.22 v2-trunc=1.14 B1-norm-c2=1.90 B3-t4-c2=3.07
+regular    skip-like   share=0.39 irr=0.18 y-t0=21.5 P(skip|late) norm=0.28 t4=0.22 v2-trunc=20.01 B1-norm-c2=19.01 B3-t4-c2=18.13
+regular    oracle-class point MAE 2.45  all-rows v2-trunc 8.48
+literature single-like share=0.41 irr=0.10 y-t0=1.5 P(skip|late) norm=0.28 t4=0.22 v2-trunc=1.38 B1-norm-c2=1.98 B3-t4-c2=3.19
+literature skip-like   share=0.59 irr=0.31 y-t0=20.5 P(skip|late) norm=0.27 t4=0.22 v2-trunc=18.44 B1-norm-c2=17.34 B3-t4-c2=16.37
+literature oracle-class point MAE 3.38  all-rows v2-trunc 11.36

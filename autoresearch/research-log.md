@@ -11,3 +11,10 @@
 - Key diagnostic (H3, H6): artifact targets (missed/double logs) are 3--13% of targets but 45--60% of IS80 with ~0 coverage; clean targets are over-covered. Location changes are redundant with v2 (error correlation 0.97--0.99).
 - Literature scout (8 sources) independently points at explicit skip modelling (SkipTrack, Li 2022) and personal artifact gates (AWHS).
 - Decision: promote nothing to production from round 1. Build harness v2 (locked before round 2) that adds in-gate metrics, a late-regime conditional evaluation, a literature-anchored scenario and PIT histograms. Round 2 tests R2-1 (personal gate), R2-2 (adaptive conformal), R2-3 (late-regime skip mixture), R2-5 (literature scenario re-score). R2-4 (age prior) is deferred to a real-data run.
+
+## 2026-09-26 -- round 2 results (harness v2)
+- R2-1 personal gate: refuted (macro MAE -0.002 d, IS80 +0.1%). Changes the fitted set on <4% of forecasts; for irregular profiles it removes real long cycles.
+- R2-2 per-user ACI: refuted (in-gate calibration -0.006 vs -0.02 bar). About 7 past intervals per person is too little history to adapt a level.
+- R2-6 narrower width for clean histories: met clause (c) on the harness, REJECTED by the adversarial verifier: noisy coverage breaks the 0.72 floor on 10/40 unseen seeds and the gain depends on the generator's tight regular users (reverses with a literature-realistic 3.8 d SD).
+- R2-3 late-regime skip mixture (two independent designs): failed the locked MAE rule (-5.6/-5.7% vs -10%) but fixes late calibration (cov80 0.48 -> 0.78-0.84, every run in range), late IS80 -59%, day-40 MAE -30%; literature scenario keeps the sign. 55% of late rows are merged gaps.
+- Decision: promote nothing from round 2. Pre-register R3 as a confirmatory test of the interval-quality claim on unseen seeds before any product use.
