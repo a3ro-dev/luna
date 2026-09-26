@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.19.5",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Chat, quieter and clearer",
+    description:
+      "Chat now feels like Messages: a calm header, your conversations as a grouped list sorted by day, soft bubbles for what you write and plain text for Luna's replies, and a capsule composer with a tint send button. Tool steps show as a short status line instead of raw data, forecast and stats cards follow light and dark mode, each conversation shows the day it started, and deleting a chat asks in a small sheet. Sign out now lives in Settings.",
+  },
+  {
     version: "0.19.4",
     date: "2026-09-26",
     type: "feat",

@@ -3,18 +3,11 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { ThemeProvider } from "@openuidev/react-ui";
+import { ThemeProvider, createTheme } from "@openuidev/react-ui";
+import { MotionConfig } from "motion/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Sheet } from "@/components/apple/Sheet";
+import { useResolvedTheme } from "@/lib/theme/mode";
 
 // Extracted components
 import { ChatHeader } from "./components/ChatHeader";
@@ -25,7 +18,8 @@ import { ChatComposer } from "./components/ChatComposer";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import type { UserPlan } from "@/lib/theme/accent";
 import Link from "next/link";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
+import { GroupedRow, GroupedSection } from "@/components/apple/Grouped";
 
 /* ------------------------------------------------------------------ */
 /*  Session API helpers (module-level — no recreation on render)       */
@@ -57,8 +51,39 @@ async function renameSession(sessionId: string): Promise<ChatSession | null> {
   return (await res.json()) as ChatSession;
 }
 
-/** Matches the mobile drawer's `duration-200` close animation. */
-const DRAWER_CLOSE_MS = 200;
+/** Roughly the chats Sheet's exit animation (tw-animate's default 150ms). */
+const DRAWER_CLOSE_MS = 150;
+
+const ink = (pct: number) => `color-mix(in oklch, var(--tier-ink) ${pct}%, transparent)`;
+
+/**
+ * OpenUI cards (forecast, stats, cycle tables) on the plan palette. The
+ * variables are declared on .tier-app, so they resolve per plan and per mode.
+ */
+const OPENUI_THEME = createTheme({
+  background: "var(--tier-bg)",
+  foreground: "var(--tier-surface)",
+  popoverBackground: "var(--tier-surface)",
+  sunkLight: ink(2),
+  sunk: ink(4),
+  sunkDeep: ink(8),
+  elevated: ink(8),
+  highlightSubtle: ink(2),
+  highlight: ink(4),
+  textNeutralPrimary: "var(--tier-ink)",
+  textNeutralSecondary: "var(--label-secondary)",
+  textNeutralTertiary: "var(--label-tertiary)",
+  textNeutralLink: "var(--tint)",
+  textBrand: "var(--tint)",
+  textAccentPrimary: "var(--tier-surface)",
+  interactiveAccentDefault: "var(--tint)",
+  interactiveAccentHover: "color-mix(in oklch, var(--tint) 85%, var(--tier-surface))",
+  interactiveAccentPressed: "var(--tint)",
+  borderDefault: "var(--separator)",
+  borderInteractive: "var(--separator)",
+  borderInteractiveEmphasis: ink(30),
+  borderAccent: "color-mix(in oklch, var(--tint) 20%, transparent)",
+});
 
 function requestBody(sessionId: string | null) {
   return {
@@ -98,10 +123,21 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [isSessionsOpen, setIsSessionsOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const resolvedTheme = useResolvedTheme();
 
   // Track which session's messages are currently loaded
   // to prevent the "empty flash" on session switch
   const loadedSessionRef = useRef<string | null>(null);
+  // The session whose messages are on screen (set with them, so the date stamp never runs ahead)
+  const [shownSessionId, setShownSessionId] = useState<string | null>(null);
+  const showSession = useCallback(
+    (sessionId: string | null, sessionMessages: UIMessage[]) => {
+      loadedSessionRef.current = sessionId;
+      setShownSessionId(sessionId);
+      setMessages(sessionMessages);
+    },
+    [setMessages],
+  );
 
   /* ---------------------------------------------------------------- */
   /*  Auto-rename (only depends on status + activeSessionId)          */
@@ -160,7 +196,7 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
 
           const initialMessages = await loadSessionMessages(firstId);
           if (cancelled) return;
-          setMessages(initialMessages);
+          showSession(firstId, initialMessages);
         }
       } finally {
         if (!cancelled) setIsLoadingSessions(false);
@@ -172,7 +208,7 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
       cancelled = true;
       controller.abort();
     };
-  }, [setMessages]);
+  }, [showSession]);
 
   /* ---------------------------------------------------------------- */
   /*  Prompt submit (stable callback)                                 */
@@ -189,8 +225,7 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
           if (!created) return;
           setSessions((prev) => [created, ...prev]);
           setActiveSessionId(created.id);
-          loadedSessionRef.current = created.id;
-          setMessages([]);
+          showSession(created.id, []);
           sessionId = created.id;
         }
 
@@ -207,11 +242,21 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
         ];
 
         sendMessage({ role: "user", parts }, { body: requestBody(sessionId) });
+
+        // Like Notes: the chat just used moves to the top, under Today
+        const usedId = sessionId;
+        const now = new Date().toISOString();
+        setSessions((prev) => {
+          const used = prev.find((s) => s.id === usedId);
+          return used
+            ? [{ ...used, updatedAt: now }, ...prev.filter((s) => s.id !== usedId)]
+            : prev;
+        });
       } catch {
         // sendMessage errors are handled by useChat
       }
     },
-    [activeSessionId, isBusy, sendMessage, setMessages],
+    [activeSessionId, isBusy, sendMessage, showSession],
   );
 
   // Resends the last user message after a failed or interrupted reply
@@ -233,17 +278,16 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
       setIsSessionsOpen(false);
       clearError();
 
-      // Load new messages, then swap atomically. On phones, hold the swap
-      // until the drawer has finished its 200ms close so rendering a long
+      // Load new messages, then swap atomically. When the chats sheet is
+      // open, hold the swap until it has closed so rendering a long
       // conversation doesn't land mid-slide.
       const [sessionMessages] = await Promise.all([
         loadSessionMessages(sessionId),
         isSessionsOpen ? new Promise((done) => setTimeout(done, DRAWER_CLOSE_MS)) : null,
       ]);
-      loadedSessionRef.current = sessionId;
-      setMessages(sessionMessages);
+      showSession(sessionId, sessionMessages);
     },
-    [activeSessionId, isSessionsOpen, setMessages, clearError],
+    [activeSessionId, isSessionsOpen, showSession, clearError],
   );
 
   const handleNewSession = useCallback(async () => {
@@ -251,11 +295,10 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
     if (!created) return;
     setSessions((prev) => [created, ...prev]);
     setActiveSessionId(created.id);
-    loadedSessionRef.current = created.id;
-    setMessages([]);
+    showSession(created.id, []);
     clearError();
     setIsSessionsOpen(false);
-  }, [setMessages, clearError]);
+  }, [showSession, clearError]);
 
   const handleRenameSession = useCallback(async (sessionId: string) => {
     const updated = await renameSession(sessionId);
@@ -289,139 +332,133 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
         if (nextActiveId) {
           setActiveSessionId(nextActiveId);
           const nextMessages = await loadSessionMessages(nextActiveId);
-          loadedSessionRef.current = nextActiveId;
-          setMessages(nextMessages);
+          showSession(nextActiveId, nextMessages);
         } else {
           setActiveSessionId(null);
-          loadedSessionRef.current = null;
-          setMessages([]);
+          showSession(null, []);
         }
       }
     },
-    [activeSessionId, sessions, setMessages, clearError],
+    [activeSessionId, sessions, showSession, clearError],
   );
 
   /* ---------------------------------------------------------------- */
   /*  Render                                                          */
   /* ---------------------------------------------------------------- */
   return (
-    <ThemeProvider>
-      <TooltipProvider>
-        <div className="tier-app flex h-dvh overflow-hidden pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] font-sans selection:bg-[var(--tier-tint)] selection:text-[var(--tier-ink)]" data-plan={plan}>
-          {/* Desktop sidebar */}
-          {plan === "premium" && <ChatSidebar
-            sessions={sessions}
-            activeSessionId={activeSessionId}
-            isLoading={isLoadingSessions}
-            onSelectSession={handleSelectSession}
-            onNewSession={handleNewSession}
-            onRenameSession={handleRenameSession}
-            onDeleteSession={(id) => setDeleteTarget(id)}
-          />}
+    <ThemeProvider mode={resolvedTheme} lightTheme={OPENUI_THEME} cssSelector=".tier-app">
+      <MotionConfig reducedMotion="user">
+        <TooltipProvider>
+          <div className="tier-app flex h-dvh overflow-hidden pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] font-sans selection:bg-[var(--tier-tint)] selection:text-[var(--tier-ink)]" data-plan={plan}>
+            {/* Desktop sidebar */}
+            {plan === "premium" && <ChatSidebar
+              sessions={sessions}
+              activeSessionId={activeSessionId}
+              isLoading={isLoadingSessions}
+              onSelectSession={handleSelectSession}
+              onNewSession={handleNewSession}
+              onRenameSession={handleRenameSession}
+              onDeleteSession={(id) => setDeleteTarget(id)}
+            />}
 
-          {/* Main chat area */}
-          <div className="flex-1 flex flex-col min-w-0 min-h-0">
-            <ChatHeader onOpenSessions={() => setIsSessionsOpen(true)} showDesktopSessions={plan !== "premium"} plan={plan} />
+            {/* Main chat area */}
+            <div className="flex-1 flex flex-col min-w-0 min-h-0">
+              <ChatHeader onOpenSessions={() => setIsSessionsOpen(true)} showDesktopSessions={plan !== "premium"} />
+
+              {plan === "premium+" && cycleContext && (
+                <div className="shrink-0 px-3 pt-3 sm:px-4 xl:hidden">
+                  <details className="group grouped mx-auto max-w-2xl text-[15px]">
+                    <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 px-4 py-2 [&::-webkit-details-marker]:hidden">
+                      <span className="shrink-0 text-[var(--label-secondary)]">Next period</span>
+                      <span className="min-w-0 flex-1 truncate text-right font-medium tabular-nums text-[var(--tier-ink)]">{cycleContext.nextPeriod}</span>
+                      <ChevronRightIcon aria-hidden className="size-4 shrink-0 text-[var(--label-tertiary)] transition-transform duration-200 group-open:rotate-90" />
+                    </summary>
+                    <div className="px-4 pb-1">
+                      <p className="leading-snug text-[var(--label-secondary)]">{cycleContext.window ?? cycleContext.status}</p>
+                      <Link href="/dashboard" className="inline-flex min-h-11 items-center font-medium text-[var(--tint)] active:opacity-60">See calendar</Link>
+                    </div>
+                  </details>
+                </div>
+              )}
+
+              <MessageList
+                plan={plan}
+                messages={messages}
+                startedAt={sessions.find((s) => s.id === shownSessionId)?.createdAt}
+                isStreaming={isStreaming}
+                isBusy={isBusy}
+                isLoading={isLoadingSessions}
+                error={error}
+                onRetry={handleRetry}
+                onSuggestionClick={(text) =>
+                  handlePromptSubmit({ text, files: [] })
+                }
+              />
+
+              <ChatComposer
+                plan={plan}
+                onSubmit={handlePromptSubmit}
+                status={status}
+                onStop={stop}
+              />
+            </div>
 
             {plan === "premium+" && cycleContext && (
-              <div className="shrink-0 px-3 pt-3 sm:px-4 xl:hidden">
-                <details className="group mx-auto max-w-2xl rounded-2xl border border-[var(--tier-line)] bg-[var(--tier-surface)] text-sm text-[var(--tier-muted)]">
-                  <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-2xl px-4 py-2 [&::-webkit-details-marker]:hidden">
-                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.2em]">Next period</span>
-                    <span className="min-w-0 flex-1 truncate font-serif text-lg text-[var(--tier-ink)]">{cycleContext.nextPeriod}</span>
-                    <ChevronDownIcon aria-hidden className="size-4 shrink-0 transition-transform duration-200 group-open:rotate-180" />
-                  </summary>
-                  <div className="px-4 pb-3">
-                    <p className="leading-relaxed">{cycleContext.window ?? cycleContext.status}</p>
-                    <Link href="/dashboard" className="mt-1 inline-flex min-h-11 items-center font-medium text-[var(--tier-ink)] underline underline-offset-4">See calendar</Link>
-                  </div>
-                </details>
-              </div>
+              <aside className="hidden w-[300px] shrink-0 flex-col gap-3 border-l border-[var(--separator)] px-4 pt-6 xl:flex" aria-label="Cycle context">
+                <h2 className="px-4 font-display text-[22px] font-bold tracking-[-0.022em] text-[var(--tier-ink)]">Your rhythm</h2>
+                <GroupedSection
+                  header="Next period"
+                  footer="Luna’s calendar estimates are uncertain. Your logged dates stay in your dashboard."
+                >
+                  <GroupedRow label={cycleContext.nextPeriod} detail={cycleContext.window ?? cycleContext.status} />
+                  <GroupedRow href="/dashboard" label="See calendar" tone="accent" />
+                </GroupedSection>
+              </aside>
             )}
 
-            <MessageList
-              plan={plan}
-              messages={messages}
-              isStreaming={isStreaming}
-              isBusy={isBusy}
+            {/* Mobile sidebar overlay */}
+            <MobileSidebar
+              open={isSessionsOpen}
+              onClose={() => setIsSessionsOpen(false)}
+              sessions={sessions}
+              activeSessionId={activeSessionId}
               isLoading={isLoadingSessions}
-              error={error}
-              onRetry={handleRetry}
-              onSuggestionClick={(text) =>
-                handlePromptSubmit({ text, files: [] })
-              }
+              onSelectSession={handleSelectSession}
+              onNewSession={handleNewSession}
+              onRenameSession={handleRenameSession}
+              onDeleteSession={(id) => setDeleteTarget(id)}
             />
 
-            <ChatComposer
-              plan={plan}
-              onSubmit={handlePromptSubmit}
-              status={status}
-              onStop={stop}
-            />
+            {/* Delete confirmation: an in-place sheet, so it keeps the plan colours */}
+            <Sheet
+              open={deleteTarget !== null}
+              onOpenChange={(open) => !open && setDeleteTarget(null)}
+              title="Delete this chat?"
+              description="This chat will be deleted. You can’t undo this."
+            >
+              {/* Cancel comes first in the DOM so it takes focus; the column still shows Delete on top */}
+              <div className="flex flex-col-reverse gap-3 [&_:focus-visible]:outline-offset-[-3px]!">
+                <GroupedSection>
+                  <GroupedRow
+                    onClick={() => setDeleteTarget(null)}
+                    label={<span className="block text-center font-semibold text-[var(--tint)]">Cancel</span>}
+                  />
+                </GroupedSection>
+                <GroupedSection>
+                  <GroupedRow
+                    onClick={() => deleteTarget && handleDeleteSession(deleteTarget)}
+                    label={
+                      <span className="block text-center text-[color-mix(in_oklch,var(--destructive)_80%,var(--tier-ink))]">
+                        Delete chat
+                      </span>
+                    }
+                  />
+                </GroupedSection>
+              </div>
+            </Sheet>
           </div>
-
-          {plan === "premium+" && cycleContext && (
-            <aside className="hidden w-[280px] shrink-0 flex-col gap-6 border-l border-[var(--tier-line)] bg-[var(--tier-surface)] px-6 py-8 xl:flex" aria-label="Cycle context">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--tier-muted)]">Your rhythm</p>
-                <h2 className="mt-3 font-serif text-2xl text-[var(--tier-ink)]">A little context</h2>
-              </div>
-              <div className="border-t border-[var(--tier-line)] pt-5">
-                <h3 className="text-sm font-semibold text-[var(--tier-ink)]">Next period</h3>
-                <p className="mt-2 font-serif text-xl text-[var(--tier-ink)]">{cycleContext.nextPeriod}</p>
-                <p className="mt-2 text-sm leading-relaxed text-[var(--tier-muted)]">{cycleContext.window ?? cycleContext.status}</p>
-              </div>
-              <Link href="/dashboard" className="tier-primary-action self-start">See calendar</Link>
-              <p className="mt-auto text-xs leading-relaxed text-[var(--tier-muted)]">Luna&apos;s calendar estimates are uncertain. Your logged dates stay in your dashboard.</p>
-            </aside>
-          )}
-
-          {/* Mobile sidebar overlay */}
-          <MobileSidebar
-            open={isSessionsOpen}
-            onClose={() => setIsSessionsOpen(false)}
-            sessions={sessions}
-            activeSessionId={activeSessionId}
-            isLoading={isLoadingSessions}
-            onSelectSession={handleSelectSession}
-            onNewSession={handleNewSession}
-            onRenameSession={handleRenameSession}
-            onDeleteSession={(id) => setDeleteTarget(id)}
-          />
-
-          {/* Delete confirmation dialog */}
-          <Dialog
-            open={deleteTarget !== null}
-            onOpenChange={(open) => !open && setDeleteTarget(null)}
-          >
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Delete chat?</DialogTitle>
-                <DialogDescription>
-                  This cannot be undone. All messages in this chat will be
-                  permanently deleted.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="outline" className="min-h-11 rounded-full px-5">
-                    Cancel
-                  </Button>
-                </DialogClose>
-                <Button
-                  variant="destructive"
-                  className="min-h-11 rounded-full px-5"
-                  onClick={() =>
-                    deleteTarget && handleDeleteSession(deleteTarget)
-                  }
-                >
-                  Delete
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </TooltipProvider>
+        </TooltipProvider>
+      </MotionConfig>
     </ThemeProvider>
   );
 }

@@ -6,9 +6,12 @@ import { AssistantMessage } from "./AssistantMessage";
 import { UserMessage } from "./UserMessage";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { ArrowDownIcon, RotateCcwIcon } from "lucide-react";
+import { motion } from "motion/react";
+import { spring } from "@/lib/motion";
 import { Suggestions, Suggestion } from "@/components/ai-elements/suggestion";
 import Image from "next/image";
 import type { UserPlan } from "@/lib/theme/accent";
+import { dayLabel, timeLabel } from "./dates";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -20,7 +23,7 @@ const starterSuggestions = [
   "Log my period",
   "When is my next period?",
   "Show my cycle stats",
-  "I've been having cramps",
+  "I’ve been having cramps",
 ];
 
 const GREETING: Record<UserPlan, { title: string; body: string }> = {
@@ -98,25 +101,23 @@ const EmptyState = memo(function EmptyState({
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-2 py-8 text-center">
-      <div className="flex size-14 items-center justify-center rounded-full bg-[var(--tier-tint)]">
-        <Image
-          src="/luna.png"
-          alt=""
-          width={36}
-          height={36}
-          className="size-9 rounded-full"
-        />
-      </div>
+      <Image
+        src="/luna.png"
+        alt=""
+        width={64}
+        height={64}
+        className="size-16 rounded-full shadow-[var(--shadow-card)]"
+      />
       <p
         suppressHydrationWarning
-        className="mt-6 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--tier-muted)]"
+        className="mt-5 text-[13px] font-medium text-[var(--label-secondary)]"
       >
         {today}
       </p>
-      <h2 className="mt-2 max-w-sm text-balance font-serif text-[2rem] leading-tight text-[var(--tier-ink)] sm:text-4xl">
+      <h2 className="mt-1 max-w-sm text-balance font-serif text-[28px] leading-tight text-[var(--tier-ink)] sm:text-[34px]">
         {greeting.title}
       </h2>
-      <p className="mt-3 max-w-xs text-[0.95rem] leading-relaxed text-[var(--tier-muted)]">
+      <p className="mt-2 max-w-xs text-[17px] leading-snug text-[var(--label-secondary)]">
         {greeting.body}
       </p>
       <Suggestions className="mx-auto mt-8 max-w-md px-1">
@@ -125,7 +126,7 @@ const EmptyState = memo(function EmptyState({
             key={s}
             suggestion={s}
             onClick={onSuggestionClick}
-            className="h-auto min-h-11 whitespace-normal border-[var(--tier-line)] py-2 bg-[var(--tier-surface)] px-4 text-sm font-normal text-[var(--tier-ink)] hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)]"
+            className="h-auto min-h-11 whitespace-normal border-0 bg-[var(--tier-surface)] px-4 py-2 text-[15px] font-normal text-[var(--tier-ink)] shadow-[var(--shadow-card)] transition-[background-color,scale] duration-150 hover:bg-[color-mix(in_oklch,var(--tint)_8%,var(--tier-surface))] hover:text-[var(--tier-ink)] active:scale-[0.97]"
           />
         ))}
       </Suggestions>
@@ -140,6 +141,8 @@ const EmptyState = memo(function EmptyState({
 interface MessageListProps {
   plan: UserPlan;
   messages: UIMessage[];
+  /** When the open chat began, for the Messages-style stamp above the thread. */
+  startedAt?: string;
   isStreaming: boolean;
   isBusy: boolean;
   isLoading?: boolean;
@@ -151,6 +154,7 @@ interface MessageListProps {
 export const MessageList = memo(function MessageList({
   plan,
   messages,
+  startedAt,
   isStreaming,
   isBusy,
   isLoading = false,
@@ -232,6 +236,10 @@ export const MessageList = memo(function MessageList({
   const showThinking =
     messages.length > 0 && isBusy && !lastAssistantHasContent(messages);
 
+  // Sessions load after mount, so this never renders on the server
+  const started = startedAt ? new Date(startedAt) : null;
+  const stampDay = started ? dayLabel(started) : "";
+
   /* ---- Render ---- */
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -244,39 +252,51 @@ export const MessageList = memo(function MessageList({
       >
         <div
           ref={contentRef}
-          className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 px-4 py-6 md:px-6 md:py-8"
+          className="mx-auto flex min-h-full max-w-2xl flex-col gap-5 px-4 py-5 md:px-6 md:py-8"
         >
           {messages.length === 0 ? (
             isLoading ? (
               <div role="status" className="flex flex-1 items-center justify-center">
-                <Shimmer className="text-sm">Opening your chats...</Shimmer>
+                <Shimmer className="text-[15px]">Opening your chats…</Shimmer>
               </div>
             ) : (
               <EmptyState plan={plan} onSuggestionClick={onSuggestionClick} />
             )
           ) : (
-            messages.map((m) => (
-              <MessageItem key={m.id} message={m} isStreaming={isStreaming} />
-            ))
+            <>
+              {stampDay && started && (
+                <p className="-mb-1 text-center text-[12px] text-[var(--label-secondary)]">
+                  <span className="font-semibold">{stampDay}</span> {timeLabel(started)}
+                </p>
+              )}
+              {/* Only the reply being written is live; older ones stay settled */}
+              {messages.map((m, i) => (
+                <MessageItem
+                  key={m.id}
+                  message={m}
+                  isStreaming={isStreaming && i === messages.length - 1}
+                />
+              ))}
+            </>
           )}
 
-          {showThinking && <Shimmer className="text-sm">Thinking...</Shimmer>}
+          {showThinking && <Shimmer className="text-[15px]">Thinking…</Shimmer>}
 
           {error && !isBusy && (
             <div
               role="alert"
-              className="flex flex-col gap-3 rounded-2xl border border-[var(--tier-line)] bg-[var(--tier-surface)] p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="grouped flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
             >
-              <p className="text-sm leading-relaxed text-[var(--tier-ink)]">
+              <p className="text-[15px] leading-snug text-[var(--tier-ink)]">
                 {describeError(error)}
               </p>
               {onRetry && (
                 <button
                   type="button"
                   onClick={onRetry}
-                  className="tier-primary-action shrink-0 cursor-pointer self-start sm:self-auto"
+                  className="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 self-start rounded-full bg-[var(--tint)] px-4 text-[15px] font-semibold text-[var(--tier-surface)] transition-transform duration-150 active:scale-[0.97] sm:self-auto"
                 >
-                  <RotateCcwIcon className="size-4" />
+                  <RotateCcwIcon className="size-4" strokeWidth={2.25} />
                   Try again
                 </button>
               )}
@@ -292,17 +312,21 @@ export const MessageList = memo(function MessageList({
 
       {/* Always mounted so it fades instead of popping as the reader scrolls;
           inert keeps the hidden state out of the tab order and the a11y tree. */}
-      <button
+      <motion.button
         type="button"
         onClick={handleScrollToBottom}
         aria-label="Jump to latest message"
         inert={!showScrollButton}
-        className={`absolute bottom-3 left-1/2 z-20 flex size-11 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-[var(--tier-line)] bg-[var(--tier-surface)] text-[var(--tier-ink)] shadow-[0_8px_24px_-10px_oklch(0.4_0.04_355/0.35)] transition-[opacity,translate,scale,background-color] duration-150 ease-out hover:bg-[var(--tier-tint)] ${
-          showScrollButton ? "" : "pointer-events-none translate-y-2 scale-90 opacity-0"
+        initial={false}
+        animate={showScrollButton ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 8, scale: 0.9 }}
+        whileTap={{ scale: 0.95 }}
+        transition={spring.snappy}
+        className={`material absolute bottom-3 left-1/2 z-20 flex size-11 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full text-[var(--tint)] shadow-[var(--shadow-card)] ${
+          showScrollButton ? "" : "pointer-events-none"
         }`}
       >
-        <ArrowDownIcon className="size-4" />
-      </button>
+        <ArrowDownIcon className="size-[18px]" strokeWidth={2.25} />
+      </motion.button>
     </div>
   );
 });

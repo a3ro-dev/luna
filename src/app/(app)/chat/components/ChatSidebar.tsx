@@ -1,8 +1,7 @@
 "use client";
 
 import React, { memo } from "react";
-import { EllipsisIcon, PlusIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { EllipsisIcon, SquarePenIcon } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -14,6 +13,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { GroupedSection } from "@/components/apple/Grouped";
+import { SESSION_GROUPS, dayLabel, sessionGroup, timeLabel } from "./dates";
 
 export type ChatSession = {
   id: string;
@@ -32,14 +33,17 @@ interface ChatSidebarProps {
   onDeleteSession: (id: string) => void;
 }
 
-function formatEntryDate(iso: string) {
+/** Time for today and yesterday (the section says the day), otherwise the day. */
+function entryDate(iso: string) {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? ""
-    : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const group = sessionGroup(iso);
+  return group === "Today" || group === "Yesterday" ? timeLabel(date) : dayLabel(date);
 }
 
-/** One chat in a list, dated like a journal entry. Shared by the rail and the mobile drawer. */
+/**
+ * One chat as an inset grouped row, like a note in Notes. Rows after the first
+ * get a hairline inset to the label; it hides next to the selected row.
+ */
 export const SessionItem = memo(function SessionItem({
   session,
   isActive,
@@ -56,39 +60,42 @@ export const SessionItem = memo(function SessionItem({
   const title = session.title || "Untitled chat";
   return (
     <li
-      className={`flex items-center gap-1 rounded-2xl transition-colors duration-150 ${
+      className={`relative flex items-center transition-colors duration-150 not-first:before:absolute not-first:before:top-0 not-first:before:right-0 not-first:before:left-4 not-first:before:border-t not-first:before:border-[var(--separator)] not-first:before:content-[''] [.is-active+&]:before:hidden ${
         isActive
-          ? "bg-[var(--tier-tint)] text-[var(--tier-ink)]"
-          : "text-[var(--tier-muted)] hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)]"
+          ? "is-active bg-[color-mix(in_oklch,var(--tint)_12%,var(--tier-surface))] before:hidden"
+          : "hover:bg-[color-mix(in_oklch,var(--fill-tertiary)_60%,transparent)] active:bg-[var(--fill-tertiary)]"
       }`}
     >
       <button
         type="button"
         onClick={onSelect}
         aria-current={isActive ? "true" : undefined}
-        className="flex min-h-12 min-w-0 flex-1 cursor-pointer flex-col justify-center rounded-2xl py-2 pl-3 text-left"
+        className="flex min-h-11 min-w-0 flex-1 cursor-pointer flex-col justify-center py-2.5 pl-4 text-left"
       >
-        <span className={`truncate text-sm ${isActive ? "font-medium" : ""}`}>{title}</span>
-        <span className="text-xs tabular-nums text-[var(--tier-muted)]">
-          {formatEntryDate(session.updatedAt)}
+        <span
+          className={`truncate text-[17px] leading-snug tracking-[-0.01em] text-[var(--tier-ink)] ${isActive ? "font-semibold" : ""}`}
+        >
+          {title}
+        </span>
+        <span className="mt-0.5 text-[13px] leading-snug tabular-nums text-[var(--label-secondary)]">
+          {entryDate(session.updatedAt)}
         </span>
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
+            type="button"
             aria-label={`Options for ${title}`}
-            className="size-11 shrink-0 cursor-pointer rounded-xl text-[var(--tier-muted)] hover:bg-transparent hover:text-[var(--tier-ink)]"
+            className="mr-1 flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--label-secondary)] transition-colors duration-150 hover:text-[var(--tier-ink)] aria-expanded:text-[var(--tier-ink)]"
           >
-            <EllipsisIcon className="size-4" />
-          </Button>
+            <EllipsisIcon className="size-[18px]" />
+          </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
-          <DropdownMenuItem onClick={onRename} className="min-h-10">
-            Rename
+        <DropdownMenuContent align="end" className="w-44 rounded-xl">
+          <DropdownMenuItem onClick={onRename} className="min-h-11 text-[15px]">
+            Suggest a title
           </DropdownMenuItem>
-          <DropdownMenuItem variant="destructive" onClick={onDelete} className="min-h-10">
+          <DropdownMenuItem variant="destructive" onClick={onDelete} className="min-h-11 text-[15px]">
             Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -97,7 +104,7 @@ export const SessionItem = memo(function SessionItem({
   );
 });
 
-/** Loading, empty and filled states for a chat list. */
+/** Loading, empty and filled states, grouped by day like Notes. */
 export function SessionList({
   sessions,
   activeSessionId,
@@ -108,34 +115,46 @@ export function SessionList({
 }: Omit<ChatSidebarProps, "onNewSession">) {
   if (isLoading && sessions.length === 0) {
     return (
-      <p role="status" className="px-3 py-2 text-sm text-[var(--tier-muted)]">
-        Gathering your chats...
+      <p role="status" className="px-4 py-2 text-[15px] text-[var(--label-secondary)]">
+        Opening your chats…
       </p>
     );
   }
   if (sessions.length === 0) {
     return (
-      <p className="px-3 py-2 text-sm leading-relaxed text-[var(--tier-muted)]">
+      <p className="px-4 py-2 text-[15px] leading-snug text-[var(--label-secondary)]">
         No chats yet. Anything you start will be kept here.
       </p>
     );
   }
   return (
-    <ul className="space-y-1">
-      {sessions.map((session) => (
-        <SessionItem
-          key={session.id}
-          session={session}
-          isActive={session.id === activeSessionId}
-          onSelect={() => onSelectSession(session.id)}
-          onRename={() => onRenameSession(session.id)}
-          onDelete={() => onDeleteSession(session.id)}
-        />
-      ))}
-    </ul>
+    // Grouped surfaces clip overflow, so focus rings draw inside the rows
+    <div className="space-y-6 [&_:focus-visible]:outline-offset-[-3px]!">
+      {SESSION_GROUPS.map((group) => {
+        const inGroup = sessions.filter((s) => sessionGroup(s.updatedAt) === group);
+        if (inGroup.length === 0) return null;
+        return (
+          <GroupedSection key={group} header={group}>
+            <ul>
+              {inGroup.map((session) => (
+                <SessionItem
+                  key={session.id}
+                  session={session}
+                  isActive={session.id === activeSessionId}
+                  onSelect={() => onSelectSession(session.id)}
+                  onRename={() => onRenameSession(session.id)}
+                  onDelete={() => onDeleteSession(session.id)}
+                />
+              ))}
+            </ul>
+          </GroupedSection>
+        );
+      })}
+    </div>
   );
 }
 
+/** Tablet and desktop source list (Premium layout). */
 export const ChatSidebar = memo(function ChatSidebar({
   onNewSession,
   ...listProps
@@ -143,26 +162,27 @@ export const ChatSidebar = memo(function ChatSidebar({
   return (
     <aside
       aria-label="Chats"
-      className="hidden w-[272px] shrink-0 flex-col gap-5 border-r border-[var(--tier-line)] bg-[var(--tier-surface)] px-4 py-6 md:flex"
+      className="hidden w-[300px] shrink-0 flex-col border-r border-[var(--separator)] pt-[env(safe-area-inset-top)] md:flex"
     >
-      <div className="flex items-center justify-between pl-3">
-        <h2 className="font-serif text-2xl text-[var(--tier-ink)]">Chats</h2>
+      <div className="flex items-center justify-between px-5 pt-5 pb-3">
+        <h2 className="font-display text-[28px] font-bold leading-tight tracking-[-0.022em] text-[var(--tier-ink)]">
+          Chats
+        </h2>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
+              type="button"
               onClick={onNewSession}
               aria-label="New chat"
-              className="size-10 cursor-pointer rounded-full text-[var(--tier-muted)] hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)]"
+              className="-mr-2.5 flex size-11 cursor-pointer items-center justify-center rounded-full text-[var(--tint)] transition-[background-color,opacity] duration-150 hover:bg-[var(--fill-tertiary)] active:opacity-60"
             >
-              <PlusIcon className="size-4" />
-            </Button>
+              <SquarePenIcon className="size-[21px]" />
+            </button>
           </TooltipTrigger>
           <TooltipContent>New chat</TooltipContent>
         </Tooltip>
       </div>
-      <div className="-mx-1 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6">
         <SessionList {...listProps} />
       </div>
     </aside>

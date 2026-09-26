@@ -3,91 +3,73 @@
 import React, { memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { signOut, useSession } from "next-auth/react";
 import { MessagesSquareIcon, MoonIcon, SettingsIcon } from "lucide-react";
-import type { UserPlan } from "@/lib/theme/accent";
 
 interface ChatHeaderProps {
   onOpenSessions: () => void;
   showDesktopSessions: boolean;
-  plan: UserPlan;
 }
 
-const PLAN_LABEL: Record<UserPlan, string> = {
-  free: "Free",
-  premium: "Premium",
-  "premium+": "Premium+",
-};
+/** iOS bar button: tint glyph, no chrome until pressed or hovered. */
+const glyphButton =
+  "flex size-11 cursor-pointer items-center justify-center rounded-full text-[var(--tint)] transition-[background-color,opacity] duration-150 hover:bg-[var(--fill-tertiary)] active:opacity-60";
 
-const iconButton =
-  "flex size-11 cursor-pointer items-center justify-center rounded-full text-[var(--tier-muted)] transition-colors duration-150 hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)]";
-
-const pill =
-  "inline-flex min-h-11 cursor-pointer items-center rounded-full border border-[var(--tier-line)] px-4 text-xs font-medium text-[var(--tier-ink)] transition-colors duration-150 hover:bg-[var(--tier-tint)]";
+const textButton =
+  "inline-flex min-h-11 cursor-pointer items-center whitespace-nowrap rounded-full px-3 text-[17px] tracking-[-0.022em] text-[var(--tint)] transition-[background-color,opacity] duration-150 hover:bg-[var(--fill-tertiary)] active:opacity-60";
 
 /**
- * Chat keeps its own header instead of the shared bottom tab bar: the composer
- * owns the bottom edge on phones, so Today and Settings live up here.
+ * Compact iOS navigation bar: leading chat list, centred title, trailing
+ * destinations. Chat has no bottom tab bar (the composer owns that edge on
+ * phones), so Today and Settings live here; signing out lives in Settings.
+ * Solid, not material: the conversation scrolls beside the bar, never under it.
  */
 export const ChatHeader = memo(function ChatHeader({
   onOpenSessions,
   showDesktopSessions,
-  plan,
 }: ChatHeaderProps) {
-  const { status: authStatus } = useSession();
-
   return (
-    <header className="shrink-0 border-b border-[var(--tier-line)] bg-[var(--tier-surface)] pt-[env(safe-area-inset-top)]">
-      <div className="mx-auto flex h-14 max-w-2xl items-center gap-1 px-2 md:h-16 md:px-6">
-        <button
-          type="button"
-          onClick={onOpenSessions}
-          aria-label="Open chats"
-          className={`${iconButton} md:hidden`}
-        >
-          <MessagesSquareIcon className="size-5" />
-        </button>
-
-        <h1 className="flex min-w-0 items-center gap-2 font-serif text-2xl leading-none text-[var(--tier-ink)] md:text-[1.75rem]">
-          <Image src="/luna.png" alt="" width={28} height={28} className="size-7 rounded-full" />
-          Luna
-        </h1>
-        <span className="ml-1.5 mt-1 hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--tier-muted)] sm:inline">
-          {PLAN_LABEL[plan]}
-        </span>
-
-        {/* Phones: icon links, labelled for assistive tech */}
-        <nav aria-label="Luna" className="ml-auto flex items-center md:hidden">
-          <Link href="/dashboard" aria-label="Today" title="Today" className={iconButton}>
-            <MoonIcon className="size-5" />
-          </Link>
-          <Link href="/settings" aria-label="Settings" title="Settings" className={iconButton}>
-            <SettingsIcon className="size-5" />
-          </Link>
-        </nav>
-
-        {/* Tablet and up: text pills */}
-        <nav aria-label="Luna" className="ml-auto hidden items-center gap-2 md:flex">
+    <header className="hairline-b relative z-30 shrink-0 bg-[var(--tier-surface)] pt-[env(safe-area-inset-top)]">
+      {/* Equal side tracks keep the title centred even when one side is wider */}
+      <div className="grid h-12 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-1.5 md:h-[3.25rem] md:px-3">
+        <div className="flex min-w-0 items-center justify-start">
+          <button
+            type="button"
+            onClick={onOpenSessions}
+            aria-label="Chats"
+            className={`${glyphButton} md:hidden`}
+          >
+            <MessagesSquareIcon className="size-[22px]" strokeWidth={1.8} />
+          </button>
           {showDesktopSessions && (
-            <button type="button" onClick={onOpenSessions} className={pill}>
+            <button type="button" onClick={onOpenSessions} className={`${textButton} max-md:hidden`}>
               Chats
             </button>
           )}
-          <Link href="/dashboard" className={pill}>
+        </div>
+
+        <h1 className="flex items-center gap-1.5 font-serif text-[21px] leading-none text-[var(--tier-ink)]">
+          <Image src="/luna.png" alt="" width={22} height={22} className="size-[22px] rounded-full" />
+          Luna
+        </h1>
+
+        {/* Phones: glyphs, labelled for assistive tech */}
+        <nav aria-label="Luna" className="flex items-center justify-end md:hidden">
+          <Link href="/dashboard" aria-label="Today" title="Today" className={glyphButton}>
+            <MoonIcon className="size-[22px]" strokeWidth={1.8} />
+          </Link>
+          <Link href="/settings" aria-label="Settings" title="Settings" className={glyphButton}>
+            <SettingsIcon className="size-[22px]" strokeWidth={1.8} />
+          </Link>
+        </nav>
+
+        {/* Tablet and up: text bar buttons */}
+        <nav aria-label="Luna" className="hidden items-center justify-end md:flex">
+          <Link href="/dashboard" className={textButton}>
             Today
           </Link>
-          <Link href="/settings" className={pill}>
+          <Link href="/settings" className={textButton}>
             Settings
           </Link>
-          {authStatus === "authenticated" ? (
-            <button type="button" onClick={() => signOut({ callbackUrl: "/login" })} className={pill}>
-              Sign out
-            </button>
-          ) : (
-            <Link href="/login" className={pill}>
-              Log in
-            </Link>
-          )}
         </nav>
       </div>
     </header>

@@ -9,7 +9,7 @@ import {
   MessageAction,
   MessageResponse,
 } from "@/components/ai-elements/message";
-import { Tool, ToolHeader, ToolContent } from "@/components/ai-elements/tool";
+import { Tool, ToolHeader } from "@/components/ai-elements/tool";
 import {
   Sources,
   SourcesTrigger,
@@ -24,7 +24,7 @@ import {
 import { Renderer } from "@openuidev/react-lang";
 import { openuiChatLibrary } from "@openuidev/react-ui";
 import { looksLikeOpenUiLang } from "@/lib/chat/openui";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, CopyIcon } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /*  Stable helpers (module-level — never recreated)                    */
@@ -41,18 +41,27 @@ const TOOL_PAYLOAD_KEYS = new Set([
   "exportUrl",
 ]);
 
-function isLikelyToolPayloadText(text: string): boolean {
+/** Tool JSON the model echoed as its reply text, or null for a normal reply. */
+function parseToolPayload(text: string): Record<string, unknown> | unknown[] | null {
   const trimmed = text.trim();
-  if (!trimmed) return false;
-  if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) return false;
+  if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) return null;
   try {
-    const parsed = JSON.parse(trimmed) as Record<string, unknown> | unknown[];
-    if (Array.isArray(parsed)) return parsed.length > 0;
-    if (!parsed || typeof parsed !== "object") return false;
-    return Object.keys(parsed).some((key) => TOOL_PAYLOAD_KEYS.has(key));
+    const parsed: unknown = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) return parsed.length > 0 ? parsed : null;
+    if (!parsed || typeof parsed !== "object") return null;
+    return Object.keys(parsed).some((key) => TOOL_PAYLOAD_KEYS.has(key))
+      ? (parsed as Record<string, unknown>)
+      : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** The one sentence a tool payload carries for people, if any. Never raw JSON. */
+function payloadSentence(payload: ReturnType<typeof parseToolPayload>): string {
+  if (!payload || Array.isArray(payload)) return "";
+  const text = payload.message ?? payload.question;
+  return typeof text === "string" && text ? text[0].toUpperCase() + text.slice(1) : "";
 }
 
 function extractSourcesFromParts(
@@ -97,6 +106,10 @@ type ToolState =
 
 // hasReasoningParts is not needed — getReasoningText length check replaces it
 
+/** Streamdown defaults use shadcn tokens; pull links, headings and code onto the iOS scale. */
+const RESPONSE_CLASS =
+  "[&_a]:text-[var(--tint)] [&_a]:underline-offset-2 [&_h1]:text-[22px] [&_h1]:font-semibold [&_h1]:tracking-[-0.02em] [&_h2]:text-[20px] [&_h2]:font-semibold [&_h3]:text-[17px] [&_h3]:font-semibold [&_code]:text-[15px] [&_li]:my-1 [&_hr]:border-[var(--separator)]";
+
 function getReasoningText(parts: UIMessage["parts"]): string {
   if (!Array.isArray(parts)) return "";
   return parts
@@ -129,12 +142,14 @@ const OpenUIMessage = memo(function OpenUIMessage({
 
   if (!looksLikeOpenUiLang(trimmed) || fallbackToText) {
     return (
-      <MessageResponse isAnimating={isStreaming}>{content}</MessageResponse>
+      <MessageResponse className={RESPONSE_CLASS} isAnimating={isStreaming}>
+        {content}
+      </MessageResponse>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl">
+    <div className="overflow-x-auto rounded-[1.125rem]">
       <Renderer
         library={openuiChatLibrary}
         response={content}
@@ -163,7 +178,9 @@ export const AssistantMessage = memo(function AssistantMessage({
   isStreaming,
 }: AssistantMessageProps) {
   const content = getMessageText(message.parts);
-  const hasToolPayload = isLikelyToolPayloadText(content);
+  const toolPayload = parseToolPayload(content);
+  const hasToolPayload = toolPayload !== null;
+  const echoed = payloadSentence(toolPayload);
   const isOpenUi = looksLikeOpenUiLang(content);
 
   const reasoning = getReasoningText(message.parts);
@@ -193,7 +210,8 @@ export const AssistantMessage = memo(function AssistantMessage({
 
   return (
     <Message from="assistant" className="max-w-full">
-      <MessageContent className="w-full text-[0.95rem] leading-relaxed">
+      {/* Replies are calm full-width text, not bubbles */}
+      <MessageContent className="w-full text-[17px] leading-[1.5] tracking-[-0.01em] group-[.is-assistant]:text-[var(--tier-ink)]">
         <div className="space-y-3">
           {/* Reasoning */}
           {hasReasoning && (
@@ -206,70 +224,33 @@ export const AssistantMessage = memo(function AssistantMessage({
           {/* Tool calls */}
           {toolParts.length > 0 &&
             toolParts.map((part, i) => {
-              const toolPart = part as {
-                type: string;
-                state: string;
-                toolName?: string;
-                input?: unknown;
-                output?: unknown;
-                errorText?: string;
-              };
+              // Status only: Luna's reply explains the result in words
+              const toolPart = part as { type: string; state: string; toolName?: string };
               const toolId =
                 toolPart.toolName ?? toolPart.type.replace("tool-", "");
               return (
-                <Tool key={`tool-${i}`} defaultOpen={false}>
+                <Tool key={`tool-${i}`}>
                   <ToolHeader
                     type="dynamic-tool"
                     state={toolPart.state as ToolState}
                     toolName={toolId}
                     title={TOOL_LABELS[toolId]}
                   />
-                  <ToolContent>
-                    {Boolean(toolPart.input) && (
-                      <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs">
-                        {JSON.stringify(toolPart.input, null, 2)}
-                      </pre>
-                    )}
-                    {toolPart.state === "output-error" && toolPart.errorText && (
-                      <p className="text-xs">{toolPart.errorText}</p>
-                    )}
-                    {Boolean(toolPart.output) &&
-                      toolPart.state === "output-available" && (
-                        <div className="whitespace-pre-wrap break-words text-xs">
-                          {typeof toolPart.output === "string"
-                            ? toolPart.output
-                            : JSON.stringify(toolPart.output, null, 2)}
-                        </div>
-                      )}
-                  </ToolContent>
                 </Tool>
               );
             })}
 
           {/* Main content */}
-          {!hasToolPayload && isOpenUi ? (
+          {/* Echoed tool JSON shows only its sentence, never the data */}
+          {hasToolPayload ? (
+            echoed ? <MessageResponse className={RESPONSE_CLASS}>{echoed}</MessageResponse> : null
+          ) : isOpenUi ? (
             <OpenUIMessage content={content} isStreaming={isStreaming} />
-          ) : !hasToolPayload ? (
-            content ? (
-              <MessageResponse isAnimating={isStreaming}>
-                {content}
-              </MessageResponse>
-            ) : null
-          ) : (
-            <Tool defaultOpen={false}>
-              <ToolHeader
-                type="dynamic-tool"
-                state="output-available"
-                toolName="assistant-data"
-                title="Details"
-              />
-              <ToolContent>
-                <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-[var(--tier-bg)] p-3 text-xs">
-                  {content}
-                </pre>
-              </ToolContent>
-            </Tool>
-          )}
+          ) : content ? (
+            <MessageResponse className={RESPONSE_CLASS} isAnimating={isStreaming}>
+              {content}
+            </MessageResponse>
+          ) : null}
 
           {/* Sources from web search */}
           {sources.length > 0 && (
@@ -284,31 +265,16 @@ export const AssistantMessage = memo(function AssistantMessage({
           )}
         </div>
       </MessageContent>
-      {content.length > 0 && (
-        <MessageActions className="-mt-1 -ml-2.5 md:-ml-1">
+      {/* Cards and tool data would copy as code, so only prose replies offer Copy */}
+      {content.length > 0 && !isOpenUi && !hasToolPayload && (
+        <MessageActions className="-mt-1 -ml-3 md:-ml-2">
           <MessageAction
             tooltip={copied ? "Copied" : "Copy"}
             onClick={handleCopy}
-            className="size-11 text-[var(--tier-muted)] hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)] md:size-8"
+            variant={null}
+            className="size-11 rounded-full text-[var(--label-secondary)] hover:bg-[var(--fill-tertiary)] hover:text-[var(--tier-ink)] active:opacity-60"
           >
-            {copied ? (
-              <CheckIcon className="size-3.5" />
-            ) : (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-            </svg>
-            )}
+            {copied ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
           </MessageAction>
         </MessageActions>
       )}

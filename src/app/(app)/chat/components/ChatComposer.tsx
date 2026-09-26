@@ -5,11 +5,8 @@ import type { ChatStatus } from "ai";
 import { ImagePlusIcon } from "lucide-react";
 import {
   PromptInput,
-  PromptInputBody,
   PromptInputButton,
   PromptInputTextarea,
-  PromptInputFooter,
-  PromptInputTools,
   PromptInputSubmit,
   PromptInputHeader,
   usePromptInputAttachments,
@@ -28,7 +25,7 @@ import type { UserPlan } from "@/lib/theme/accent";
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 const PLACEHOLDERS: Record<UserPlan, string> = {
-  free: "Log a date or ask Luna...",
+  free: "Log a date or ask Luna…",
   premium: "How are you feeling today?",
   "premium+": "What’s on your mind?",
 };
@@ -53,13 +50,14 @@ function PendingAttachments() {
             key={file.id}
             data={file}
             onRemove={() => remove(file.id)}
-            className="h-11 cursor-default gap-2 rounded-xl border-[var(--tier-line)] bg-[var(--tier-bg)] pl-1.5 pr-0 text-[var(--tier-ink)] hover:bg-[var(--tier-bg)] hover:text-[var(--tier-ink)]"
+            className="h-11 cursor-default gap-2 rounded-[12px] border-0 bg-[var(--fill-tertiary)] pl-1.5 pr-0 text-[var(--tier-ink)] hover:bg-[var(--fill-tertiary)] hover:text-[var(--tier-ink)] dark:hover:bg-[var(--fill-tertiary)]"
           >
-            <AttachmentPreview className="size-8 rounded-lg" />
-            <AttachmentInfo className="max-w-[7rem] text-xs" />
+            <AttachmentPreview className="size-8 rounded-[8px]" />
+            <AttachmentInfo className="max-w-[7rem] text-[13px] font-normal" />
             <AttachmentRemove
               label="Remove photo"
-              className="size-11 rounded-xl opacity-100 [&>svg]:size-3.5"
+              variant={null}
+              className="size-11 rounded-full text-[var(--label-secondary)] opacity-100 hover:bg-transparent hover:text-[var(--tier-ink)] [&>svg]:size-3.5"
             />
           </Attachment>
         ))}
@@ -73,10 +71,11 @@ function AttachButton() {
   return (
     <PromptInputButton
       aria-label="Add a photo"
+      variant={null}
       onClick={openFileDialog}
-      className="size-11 rounded-full text-[var(--tier-muted)] hover:bg-[var(--tier-tint)] hover:text-[var(--tier-ink)] md:size-9"
+      className="size-11 shrink-0 rounded-full text-[var(--label-secondary)] hover:bg-transparent hover:text-[var(--tier-ink)] active:opacity-60"
     >
-      <ImagePlusIcon className="size-[1.125rem]" />
+      <ImagePlusIcon className="size-[21px]" strokeWidth={1.8} />
     </PromptInputButton>
   );
 }
@@ -111,7 +110,9 @@ export const ChatComposer = memo(function ChatComposer({
   );
 
   return (
-    <div className="shrink-0 border-t border-[var(--tier-line)] bg-[var(--tier-bg)] px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
+    // Pinned above the keyboard: page.tsx opts into interactive-widget=resizes-content (Android Chrome; iOS Safari ignores it)
+    // Solid, not material: messages scroll above the bar, never under it
+    <div className="hairline-t relative z-20 shrink-0 bg-[var(--tier-surface)] px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4">
       <div className="mx-auto max-w-2xl">
         <PromptInput
           onSubmit={handleSubmit}
@@ -120,33 +121,30 @@ export const ChatComposer = memo(function ChatComposer({
           maxFiles={4}
           maxFileSize={MAX_IMAGE_BYTES}
           onError={handleFileError}
-          className="rounded-[1.5rem] border border-[var(--tier-line)] bg-[var(--tier-surface)] shadow-[0_10px_30px_-18px_oklch(0.4_0.04_355/0.35)] transition-shadow duration-200 focus-within:border-[var(--tier-accent)] focus-within:ring-2 focus-within:ring-[var(--tier-accent)]"
+          className="rounded-[1.375rem] bg-[var(--tier-surface)] shadow-[inset_0_0_0_1px_var(--separator)] transition-shadow duration-200 focus-within:shadow-[inset_0_0_0_1.5px_var(--tint)]"
         >
           <PendingAttachments />
-          <PromptInputBody>
+          {/* One row like Messages: photo button, growing field, round send */}
+          <div className="flex w-full items-end">
+            <AttachButton />
             <PromptInputTextarea
               aria-label="Message Luna"
               enterKeyHint="send"
               placeholder={PLACEHOLDERS[plan]}
-              className="max-h-40 min-h-12 px-4 pt-3.5 pb-1 text-base leading-relaxed text-[var(--tier-ink)] placeholder:text-[var(--tier-muted)] focus-visible:outline-none! md:text-[0.95rem]"
+              className="max-h-40 min-h-11 px-1 py-[11px] text-[17px] leading-[22px] tracking-[-0.01em] text-[var(--tier-ink)] placeholder:text-[var(--label-tertiary)] focus-visible:outline-none! md:text-[17px]"
             />
-          </PromptInputBody>
-          <PromptInputFooter className="px-2 pb-2">
-            <PromptInputTools>
-              <AttachButton />
-            </PromptInputTools>
             <PromptInputSubmit
               status={status}
               onStop={onStop}
-              className="size-11 cursor-pointer rounded-full bg-[var(--tier-ink)] text-[var(--tier-surface)] hover:bg-[var(--tier-muted)] md:size-9"
+              className="relative isolate size-11 shrink-0 cursor-pointer rounded-full bg-transparent text-[var(--tier-surface)] hover:bg-transparent before:absolute before:inset-[6px] before:-z-10 before:rounded-full before:bg-[var(--tint)] before:transition-transform before:duration-150 active:before:scale-90 [&_svg]:stroke-[2.5]"
             />
-          </PromptInputFooter>
+          </div>
         </PromptInput>
-        <p role="status" className="px-2 pt-1.5 text-xs text-[var(--tier-ink)] empty:pt-0">
+        <p role="status" className="px-3 pt-1.5 text-[13px] text-[var(--tier-ink)] empty:pt-0">
           {notice}
         </p>
-        <p className="px-2 pt-1.5 text-center text-xs leading-relaxed text-[var(--tier-muted)]">
-          Luna can make mistakes. Verify important info.
+        <p className="px-3 pt-1 text-center text-[12px] leading-snug text-[var(--label-secondary)]">
+          Luna can get things wrong. Check anything important.
         </p>
       </div>
     </div>

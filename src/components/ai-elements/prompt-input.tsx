@@ -920,8 +920,10 @@ export const PromptInput = ({
         ref={formRef}
         {...props}
       >
-        {/* The form carries the visible surface; the group stays flat inside it */}
-        <InputGroup className="overflow-hidden border-0 bg-transparent shadow-none has-[[data-slot=input-group-control]:focus-visible]:ring-0">
+        {/* The form carries the visible surface; the group stays flat inside it.
+            h-auto lets callers wrap the textarea in their own row; no overflow
+            clipping, so focus rings on edge buttons stay whole. */}
+        <InputGroup className="h-auto border-0 bg-transparent shadow-none has-[[data-slot=input-group-control]:focus-visible]:ring-0">
           {children}
         </InputGroup>
       </form>
