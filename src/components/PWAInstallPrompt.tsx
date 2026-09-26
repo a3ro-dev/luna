@@ -398,11 +398,18 @@ export function useServiceWorker() {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator)) return;
 
+    // Dev chunk names are not content-hashed, so sw.js's cache-first static
+    // strategy would serve stale CSS/JS forever. Only run it in production.
+    if (process.env.NODE_ENV !== "production") {
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((regs) => regs.forEach((r) => r.unregister()))
+        .catch(() => undefined);
+      return;
+    }
+
     navigator.serviceWorker
       .register("/sw.js")
-      .then((reg) => {
-        console.log("[Luna] Service worker registered, scope:", reg.scope);
-      })
       .catch((err) => {
         console.warn("[Luna] Service worker registration failed:", err);
       });

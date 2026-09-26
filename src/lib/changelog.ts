@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.14.5",
+    date: "2026-09-26",
+    type: "fix",
+    title: "Development builds no longer serve stale styles",
+    description:
+      "The offline service worker is now only registered in production. In development it cached style and script files whose names never change, so edits could look like they had no effect until the worker was removed by hand. It also no longer logs to the console on every page load.",
+  },
+  {
     version: "0.14.4",
     date: "2026-09-26",
     type: "feat",

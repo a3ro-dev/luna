@@ -72,6 +72,7 @@ impeccable ~\.agents\skills\impeccable
 - `serverExternalPackages: ['@opentelemetry/api']` — prevents vendor chunk `MODULE_NOT_FOUND` crash
 - No `experimental.turbopack` (invalid configuration key)
 - If `.next` cache corrupts: delete `.next` and `node_modules/.cache`, restart dev server
+- Stale CSS/JS in dev was usually the PWA service worker (cache-first on non-hashed dev chunks); it is now registered in production only and unregisters itself in dev
 
 ## AI Tools (10 total)
 | Tool | Purpose |
