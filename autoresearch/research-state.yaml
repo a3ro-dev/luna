@@ -12,11 +12,17 @@ evaluation:
   baseline: {model: v2-bayes, macroMae: 5.527, is80: 34.036, calibErr: 0.052, within3: 0.592}
   caveat: synthetic generator is ours; winners must also not regress on the read-only real-data backtest (exploratory)
 hypotheses:
-  H1-robust-location: {status: planned}
-  H2-recency-weighting: {status: planned}
-  H3-student-t-predictive: {status: planned}
-  H4-missed-log-splitting: {status: planned}
-  H5-median-ensemble: {status: planned}
-  H6-prior-sensitivity: {status: planned}
-  H7-period-integer-median: {status: planned}
-direction: bootstrap -> inner loop round 1
+  H1-robust-location: {status: refuted, best: H1-huber-loc, delta_macroMae: -0.010}
+  H2-recency-weighting: {status: refuted, best: H2-hl8, delta_macroMae: +0.001}
+  H3-student-t-predictive: {status: refuted, note: noisy under-coverage is flat in n, not a tail problem}
+  H4-missed-log-splitting: {status: mixed, best: H4-one-reg (exploratory), delta_macroMae: -0.036}
+  H5-median-ensemble: {status: refuted, note: errors correlate 0.97-0.99 with v2}
+  H6-prior-sensitivity: {status: mixed, note: no global knob helps all scenarios; confirms prediction}
+  H7-period-integer-median: {status: mixed, note: period MAE 0.917->0.878 but production already rounds}
+  R2-1-personal-gate: {status: planned}
+  R2-2-adaptive-conformal: {status: planned}
+  R2-3-late-skip-mixture: {status: planned}
+  R2-4-age-prior: {status: deferred, needs: read-only real-data backtest}
+  R2-5-literature-scenario: {status: planned}
+production_promotions: none (round 1)
+direction: BROADEN -> harness v2 locked -> round 2
