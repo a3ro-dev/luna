@@ -10,52 +10,16 @@ import {
   type Variants,
 } from "motion/react";
 import Link from "next/link";
+import { spring } from "@/lib/motion";
+import { GroupedSection } from "@/components/apple/Grouped";
 
-const COMMON_TIMEZONES = [
-  "Asia/Kolkata",
-  "Asia/Dubai",
-  "Asia/Singapore",
-  "Asia/Tokyo",
-  "Asia/Shanghai",
-  "Asia/Seoul",
-  "Asia/Bangkok",
-  "Asia/Hong_Kong",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Toronto",
-  "America/Vancouver",
-  "America/Sao_Paulo",
-  "Europe/London",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "Europe/Moscow",
-  "Europe/Istanbul",
-  "Australia/Sydney",
-  "Australia/Melbourne",
-  "Pacific/Auckland",
-  "UTC",
-];
-
-// Every IANA zone the browser knows, so no one is stuck with a wrong local date
-const TIMEZONES = (() => {
-  try {
-    const all = Intl.supportedValuesOf("timeZone");
-    return all.includes("UTC") ? all : [...all, "UTC"];
-  } catch {
-    return COMMON_TIMEZONES;
-  }
-})();
-
+// The device's own zone. Onboarding doesn't ask; Settings can change it.
 function detectTimeZone() {
   try {
-    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (TIMEZONES.includes(detected)) return detected;
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
   } catch {
-    // fall through
+    return "Asia/Kolkata";
   }
-  return "Asia/Kolkata";
 }
 
 const localIsoDate = () => {
@@ -80,7 +44,7 @@ const CONDITIONS = [
 const STEP_NAMES = [
   "Welcome",
   "Your consent",
-  "Quick setup",
+  "Date of birth",
   "Your rhythm",
   "A starting point",
 ];
@@ -106,45 +70,50 @@ const CONSENT_POINTS = [
   },
 ];
 
-// Reduced motion is handled by <MotionConfig reducedMotion="user"> below,
-// which drops the movement without changing `initial` between server and
-// client. The exit is quicker than the enter: with mode="wait" the next step
-// waits for it.
-const stepMotion = {
-  initial: { opacity: 0, y: 12, filter: "blur(6px)" },
-  animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-  exit: {
-    opacity: 0,
-    y: -8,
-    filter: "blur(4px)",
-    transition: { type: "spring", duration: 0.2, bounce: 0 },
-  },
-  transition: { type: "spring", duration: 0.45, bounce: 0 },
-} as const;
-
-const stagger: Variants = {
-  animate: { transition: { staggerChildren: 0.06 } },
+// Steps push sideways like a navigation stack: forward arrives from the
+// trailing edge, Back from the leading edge. <MotionConfig reducedMotion="user">
+// below drops the movement and keeps the fade, with identical SSR markup. The
+// exit is quicker than the enter: with mode="wait" the next step waits for it.
+const stepVariants: Variants = {
+  enter: (dir: number) => ({ opacity: 0, x: 24 * dir }),
+  center: { opacity: 1, x: 0, transition: spring.smooth },
+  exit: (dir: number) => ({ opacity: 0, x: -24 * dir, transition: spring.snappy }),
 };
 
-// No blur here: up to nine filtered layers at once is heavy on phones.
-const childMotion: Variants = {
-  initial: { opacity: 0, y: 8 },
-  animate: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring", duration: 0.4, bounce: 0 },
-  },
-};
-
-const stepHeading =
-  "outline-none font-serif text-[2.25rem] leading-[1.08] text-[var(--tier-ink)] sm:text-[2.5rem]";
-const stepLede = "mt-3 text-base leading-relaxed text-[var(--tier-muted)]";
-const fieldLabel = "mb-2 block text-sm font-medium text-[var(--tier-ink)]";
-const hint = "mt-2 text-sm text-[var(--tier-muted)]";
-const field =
-  "block h-12 w-full min-w-0 rounded-2xl border border-[var(--tier-line)] bg-[var(--tier-surface)] px-4 text-base text-[var(--tier-ink)] transition-colors hover:border-[var(--tier-accent)] focus:border-[var(--tier-accent)] [&::-webkit-date-and-time-value]:text-left";
+// Inset grouped rows with a hairline inset to the label, like Settings. Focus
+// is an outline drawn inside the row, so it follows the rounded corners and
+// survives forced-colors mode (a box-shadow ring would not).
+const hairline =
+  "relative first:rounded-t-[1.125rem] last:rounded-b-[1.125rem] not-first:before:absolute not-first:before:top-0 not-first:before:right-0 not-first:before:left-4 not-first:before:border-t not-first:before:border-[var(--separator)]";
+const row = `${hairline} flex min-h-11 w-full items-center gap-3 px-4 text-left`;
+const pressableRow =
+  "cursor-pointer transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--fill-tertiary)_60%,transparent)] focus-visible:outline-2! focus-visible:-outline-offset-2! active:bg-[var(--fill-tertiary)]";
+// A row wrapping a field: the whole 44px row is the tap target and shows focus.
+const fieldRow = `${row} cursor-pointer has-[input:focus-visible]:outline-2 has-[input:focus-visible]:-outline-offset-2 has-[input:focus-visible]:outline-[var(--tint)]`;
+const rowLabel = "shrink-0 text-[17px] text-[var(--tier-ink)]";
+// A compact, pill-shaped value like UIKit's compact date picker. The min width
+// keeps an empty pill visible where the browser shows no placeholder (iOS).
+const datePill =
+  "ml-auto h-9 min-w-[7.5rem] cursor-pointer rounded-lg bg-[var(--fill-tertiary)] px-2.5 text-[17px] text-[var(--tier-ink)] outline-hidden! [&::-webkit-date-and-time-value]:text-right";
+const stepTitle =
+  "font-display text-[2.125rem] leading-[1.1] font-bold tracking-[-0.026em] text-balance text-[var(--tier-ink)] outline-none";
+const stepLede =
+  "mx-auto mt-3 max-w-sm text-[17px] leading-snug text-pretty text-[var(--label-secondary)]";
+// Links inside running text keep an underline: hue alone is under 3:1 here.
 const inlineLink =
-  "font-medium text-[var(--tier-ink)] underline decoration-[#FFB5C0] decoration-2 underline-offset-4 transition-colors hover:decoration-[var(--tier-ink)]";
+  "text-[var(--tint)] underline decoration-[color-mix(in_oklch,var(--tint)_45%,transparent)] underline-offset-2 hover:decoration-current";
+const primaryButton =
+  "inline-flex h-[50px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--tint)] px-5 text-[17px] font-semibold tracking-[-0.022em] text-[var(--tier-surface)] transition-[background-color,scale] duration-150 hover:bg-[color-mix(in_oklch,var(--tint)_85%,var(--tier-ink))] active:scale-[0.98] aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:active:scale-100";
+// The global focus outline uses --tier-accent (about 2:1); recolour it to
+// --tint so every control's focus reads at 3:1 or better.
+const page =
+  "tier-app flex flex-col font-sans selection:bg-[var(--tier-tint)] [&_:focus-visible]:outline-[var(--tint)]!";
+// Translucent bars pinned over the scrolling step on phones; plain on larger
+// screens, where nothing scrolls under them. `!` beats the unlayered .material.
+const barOnPhones =
+  "z-10 sm:static sm:border-0! sm:bg-transparent! sm:backdrop-filter-none!";
+const quietButton =
+  "inline-flex min-h-11 cursor-pointer items-center rounded-lg text-[17px] text-[var(--tint)] transition-opacity hover:opacity-70";
 
 /** A waxing moon lit from the right; fraction 0 is new, 1 is full. */
 function MoonPhase({
@@ -193,10 +162,12 @@ function Onboarding() {
   const router = useRouter();
 
   const [step, setStep] = useState(0);
+  // 1 moving forward, -1 for Back: which edge the next step slides in from
+  const [direction, setDirection] = useState(1);
   const [dateOfBirth, setDateOfBirth] = useState("");
   // Steps that show the timezone never render on the server, so a lazy
   // client-side default cannot cause a hydration mismatch.
-  const [timezone, setTimezone] = useState(detectTimeZone);
+  const [timezone] = useState(detectTimeZone);
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
   const [lastPeriodStart, setLastPeriodStart] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -219,7 +190,13 @@ function Onboarding() {
       el.focus();
     }
   }, []);
+  // A page change is in flight until the old step has finished leaving. A
+  // second press in that window would skip a page, or finish onboarding before
+  // the last page is seen, so presses are ignored until then.
+  const navigating = useRef(false);
+
   const setDeclined = (declined: boolean) => {
+    if (navigating.current) return;
     focusHeadingNext.current = true;
     setConsentDeclined(declined);
   };
@@ -295,7 +272,10 @@ function Onboarding() {
   };
 
   const goTo = (next: number) => {
+    if (navigating.current) return;
+    navigating.current = true;
     focusHeadingNext.current = true;
+    setDirection(next > step ? 1 : -1);
     setStep(next);
     window.scrollTo({ top: 0 });
   };
@@ -303,7 +283,8 @@ function Onboarding() {
   // Enter in a field moves forward, same as the primary button
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting || (step === 1 && !consentChecked)) return;
+    if (navigating.current || isSubmitting || (step === 1 && !consentChecked))
+      return;
     if (step < totalSteps - 1) goTo(step + 1);
     else void handleComplete();
   };
@@ -316,7 +297,7 @@ function Onboarding() {
       >
         <span
           aria-hidden
-          className="size-5 animate-spin rounded-full border-2 border-[#FFB5C0]/30 border-t-[#FFB5C0]"
+          className="size-6 animate-spin rounded-full border-2 border-[var(--separator)] border-t-[var(--tint)]"
         />
         <span className="sr-only">Loading</span>
       </div>
@@ -326,91 +307,161 @@ function Onboarding() {
   // ── Consent declined: exit screen ──────────────────
   if (consentDeclined) {
     return (
-      <main className="tier-app flex flex-col items-center justify-center px-6 pt-[calc(env(safe-area-inset-top)+2rem)] pb-[calc(env(safe-area-inset-bottom)+2rem)] font-sans selection:bg-[#FFDDE0]">
-        <motion.div {...stepMotion} className="w-full max-w-sm min-w-0">
-          <MoonPhase fraction={0.25} className="mb-8 size-14" />
-          <h1 ref={headingRef} tabIndex={-1} className={stepHeading}>
-            We understand.
+      <main className={`${page} sm:justify-center`}>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={spring.smooth}
+          className="mx-auto flex w-full max-w-md min-w-0 flex-1 flex-col justify-center px-5 pt-[calc(env(safe-area-inset-top)+2rem)] text-center sm:flex-none sm:pt-0"
+        >
+          <MoonPhase fraction={0.25} className="mx-auto mb-6 size-14" />
+          <h1 ref={headingRef} tabIndex={-1} className={stepTitle}>
+            We understand
           </h1>
           <p className={stepLede}>
             Luna requires your consent to process data and provide predictions.
             Without it, we can&apos;t offer the service safely. You&apos;re
             always welcome to change your mind.
           </p>
-          <div className="mt-10 flex flex-col items-center gap-2">
-            <Link href="/" className="tier-primary-action h-12 w-full">
-              Back to home
-            </Link>
+        </motion.div>
+        <div className="mx-auto w-full max-w-md px-5 pt-6 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:pt-10">
+          <Link href="/" className={primaryButton}>
+            Back to home
+          </Link>
+          <div className="flex justify-center pt-1">
             <button
               type="button"
               onClick={() => setDeclined(false)}
-              className="inline-flex min-h-11 items-center rounded-full px-4 text-sm text-[var(--tier-muted)] transition-colors hover:text-[var(--tier-ink)]"
+              className={`${quietButton} px-3`}
             >
               I changed my mind
             </button>
           </div>
-        </motion.div>
+        </div>
       </main>
     );
   }
 
   const isLastStep = step === totalSteps - 1;
+  const showAdaptNote =
+    selectedConditions.length > 0 &&
+    !selectedConditions.includes("none") &&
+    !selectedConditions.includes("perimenopause_early") &&
+    !selectedConditions.includes("perimenopause_late");
+
+  // A checkmark row, like picking from a list in Settings
+  const conditionRow = (c: (typeof CONDITIONS)[number]) => {
+    const isSelected = selectedConditions.includes(c.id);
+    return (
+      <button
+        key={c.id}
+        type="button"
+        aria-pressed={isSelected}
+        onClick={() => toggleCondition(c.id)}
+        className={`${row} ${pressableRow}`}
+      >
+        <span className="min-w-0 flex-1 py-2.5 text-[17px] leading-snug text-[var(--tier-ink)]">
+          {c.label}
+        </span>
+        <motion.svg
+          aria-hidden
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          initial={false}
+          animate={{ opacity: isSelected ? 1 : 0, scale: isSelected ? 1 : 0.6 }}
+          transition={spring.snappy}
+          className="size-[18px] shrink-0 text-[var(--tint)]"
+        >
+          <path d="M20 6 9 17l-5-5" />
+        </motion.svg>
+      </button>
+    );
+  };
 
   return (
-    <main className="tier-app flex flex-col overflow-x-clip font-sans selection:bg-[#FFDDE0] sm:justify-center">
+    // overflow-x-clip: the sideways step push must not make phones pan
+    <main className={`${page} overflow-x-clip sm:justify-center`}>
       <form onSubmit={handleSubmit} className="contents">
-        <div className="mx-auto flex w-full max-w-md min-w-0 flex-1 flex-col px-6 pt-[calc(env(safe-area-inset-top)+1.25rem)] sm:flex-none sm:pt-12">
-          {/* Progress: the moon waxes one phase per step and is full on the last */}
-          <div className="flex items-center gap-3">
-            <MoonPhase
-              fraction={(step + 1) / totalSteps}
-              className="size-8 shrink-0"
-            />
-            <p
-              aria-live="polite"
-              className="min-w-0 text-sm text-[var(--tier-muted)]"
-            >
-              <span className="font-medium tabular-nums text-[var(--tier-ink)]">
-                Step {step + 1} of {totalSteps}
-              </span>
-              <span aria-hidden> · </span>
-              {STEP_NAMES[step]}
-            </p>
+        {/* ── Navigation bar: Back, and a page control for progress ── */}
+        <div className={`sticky top-0 material hairline-b pt-[env(safe-area-inset-top)] ${barOnPhones}`}>
+          <div className="mx-auto grid h-11 w-full max-w-md grid-cols-[1fr_auto_1fr] items-center px-2">
+            <div>
+              {step > 0 && (
+                <button
+                  type="button"
+                  onClick={() => goTo(step - 1)}
+                  disabled={isSubmitting}
+                  className={`${quietButton} gap-1 px-2 disabled:cursor-not-allowed disabled:opacity-40`}
+                >
+                  <svg
+                    aria-hidden
+                    viewBox="0 0 10 18"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.25"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-[18px] w-2.5"
+                  >
+                    <path d="M8.5 1.5 1.5 9l7 7.5" />
+                  </svg>
+                  Back
+                </button>
+              )}
+            </div>
+            <div aria-hidden className="flex items-center gap-2">
+              {STEP_NAMES.map((name, i) => (
+                <span
+                  key={name}
+                  className={`size-[7px] rounded-full transition-colors duration-200 ${
+                    i === step
+                      ? "bg-[var(--tier-ink)]"
+                      : "bg-[color-mix(in_oklch,var(--tier-ink)_20%,transparent)]"
+                  }`}
+                />
+              ))}
+            </div>
           </div>
+          <p aria-live="polite" className="sr-only">
+            Step {step + 1} of {totalSteps}: {STEP_NAMES[step]}
+          </p>
+        </div>
 
-          <div className="flex flex-1 flex-col pt-10 pb-8 sm:min-h-[26rem] sm:flex-none">
-            <AnimatePresence mode="wait">
+        <div className="mx-auto flex w-full max-w-md min-w-0 flex-1 flex-col px-5 pt-6 pb-8 sm:min-h-[30rem] sm:flex-none sm:pt-10">
+          <AnimatePresence
+            mode="wait"
+            initial={false}
+            custom={direction}
+            onExitComplete={() => {
+              navigating.current = false;
+            }}
+          >
+            <motion.div
+              key={step}
+              custom={direction}
+              variants={stepVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className={`flex flex-col text-center ${step === 0 ? "flex-1 justify-center" : ""}`}
+            >
+              {/* The moon waxes one phase per step and is full on the last */}
+              <MoonPhase
+                fraction={(step + 1) / totalSteps}
+                className="mx-auto mb-6 size-14"
+              />
+
               {/* ── Step 0: Welcome ────────────────────────── */}
               {step === 0 && (
-                <motion.div
-                  key="welcome"
-                  {...stepMotion}
-                  className="flex flex-1 flex-col justify-center"
-                >
-                  {/* Breathing glow orb */}
-                  <div className="relative isolate mb-10 size-24">
-                    <motion.div
-                      aria-hidden
-                      className="grid size-24 place-items-center rounded-full bg-gradient-to-br from-[#FFDDE0] to-[#D6CBE3] text-4xl"
-                      animate={{ scale: [1, 1.05, 1] }}
-                      transition={{
-                        duration: 3,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      }}
-                    >
-                      ✨
-                    </motion.div>
-                    <div
-                      aria-hidden
-                      className="absolute inset-0 -z-10 rounded-full bg-gradient-to-br from-[#FFDDE0]/40 to-[#D6CBE3]/40 blur-xl"
-                    />
-                  </div>
-
+                <>
                   <h1
                     ref={headingRef}
                     tabIndex={-1}
-                    className="break-words font-serif outline-none text-[clamp(2.75rem,11vw,3.5rem)] leading-[1.02] text-[var(--tier-ink)]"
+                    className="font-serif text-[clamp(2.75rem,11vw,3.5rem)] leading-[1.02] break-words text-[var(--tier-ink)] outline-none"
                   >
                     Hey{" "}
                     {session?.user?.name
@@ -418,69 +469,56 @@ function Onboarding() {
                       : "there"}
                     .
                   </h1>
-                  <p className="mt-4 max-w-xs text-base leading-relaxed text-[var(--tier-muted)]">
+                  <p className={stepLede}>
                     Luna learns your rhythm so you don&apos;t have to think
                     about tracking. Let&apos;s make it yours.
                   </p>
-                  <p className="mt-8 border-t border-[var(--tier-line)] pt-4 text-sm leading-relaxed text-[var(--tier-muted)]">
+                  <p className="mx-auto mt-6 max-w-xs text-[15px] leading-snug text-pretty text-[var(--label-tertiary)]">
                     A few short questions, about a minute. Only consent is
                     required, and you can revisit everything from settings.
                   </p>
-                </motion.div>
+                </>
               )}
 
               {/* ── Step 1: Your consent ──────────────────── */}
               {step === 1 && (
-                <motion.div
-                  key="consent"
-                  {...stepMotion}
-                  className="flex flex-col"
-                >
-                  <h1 ref={headingRef} tabIndex={-1} className={stepHeading}>
-                    We take your privacy seriously.
+                <>
+                  <h1 ref={headingRef} tabIndex={-1} className={stepTitle}>
+                    We take your privacy seriously
                   </h1>
                   <p className={stepLede}>
                     Here&apos;s what you should know before using Luna.
                   </p>
 
-                  <motion.ul
-                    variants={stagger}
-                    initial="initial"
-                    animate="animate"
-                    className="mt-6 divide-y divide-[var(--tier-line)] rounded-3xl border border-[var(--tier-line)] bg-[var(--tier-surface)]"
-                  >
+                  <ul className="grouped mt-8 text-left">
                     {CONSENT_POINTS.map((point) => (
-                      <motion.li
-                        key={point.title}
-                        variants={childMotion}
-                        className="px-5 pt-4 pb-1"
-                      >
-                        <h2 className="text-sm font-semibold text-[var(--tier-ink)]">
+                      <li key={point.title} className={`${hairline} px-4 pt-3`}>
+                        <h2 className="text-[17px] leading-snug font-semibold tracking-[-0.022em] text-[var(--tier-ink)]">
                           {point.title}
                         </h2>
-                        <p className="mt-1 text-sm leading-relaxed text-[var(--tier-muted)]">
+                        <p className="mt-1 text-[15px] leading-snug text-[var(--label-secondary)]">
                           {point.body}
                         </p>
                         <Link
                           href={point.href}
                           target="_blank"
-                          className={`${inlineLink} inline-block py-3 text-sm`}
+                          className="inline-flex min-h-11 items-center rounded-lg text-[15px] text-[var(--tint)] underline-offset-4 hover:underline"
                         >
                           {point.link}
                           <span className="sr-only"> (opens in a new tab)</span>
                         </Link>
-                      </motion.li>
+                      </li>
                     ))}
-                  </motion.ul>
+                  </ul>
 
-                  <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--tier-line)] bg-[var(--tier-surface)] p-4 transition-colors has-[:checked]:border-[var(--tier-accent)] has-[:checked]:bg-[var(--tier-tint)]">
+                  <label className="grouped mt-6 flex cursor-pointer items-start gap-3 px-4 py-3.5 text-left">
                     <input
                       type="checkbox"
                       checked={consentChecked}
                       onChange={(e) => setConsentChecked(e.target.checked)}
-                      className="mt-0.5 size-5 shrink-0 cursor-pointer accent-[#B45A75]"
+                      className="mt-px size-[22px] shrink-0 cursor-pointer accent-[var(--tint)]"
                     />
-                    <span className="text-sm leading-relaxed text-[var(--tier-ink)]">
+                    <span className="text-[15px] leading-snug text-[var(--tier-ink)]">
                       I understand and agree to the{" "}
                       <Link
                         href="/terms"
@@ -500,31 +538,34 @@ function Onboarding() {
                       , and the limitations described above.
                     </span>
                   </label>
-                </motion.div>
+                </>
               )}
 
-              {/* ── Step 2: Quick setup ────────────────────── */}
+              {/* ── Step 2: Date of birth ──────────────────── */}
               {step === 2 && (
-                <motion.div
-                  key="setup"
-                  {...stepMotion}
-                  className="flex flex-col"
-                >
-                  <h1 ref={headingRef} tabIndex={-1} className={stepHeading}>
+                <>
+                  <h1 ref={headingRef} tabIndex={-1} className={stepTitle}>
                     When were you born?
                   </h1>
                   <p className={stepLede}>
                     This helps Luna calibrate to your body&apos;s stage.
                   </p>
 
-                  <div className="mt-8 space-y-6">
-                    <div>
-                      <label htmlFor="dob" className={fieldLabel}>
-                        Date of birth{" "}
-                        <span className="font-normal text-[var(--tier-muted)]">
-                          Optional
-                        </span>
-                      </label>
+                  <GroupedSection
+                    className="mt-8 text-left"
+                    footer={
+                      <>
+                        <span id="dob-hint">
+                          Optional. You can change this up to 2 times later.
+                        </span>{" "}
+                        Luna follows this device&apos;s time zone,{" "}
+                        {timezone.replace(/_/g, " ")}. You can pick another in
+                        Settings.
+                      </>
+                    }
+                  >
+                    <label className={fieldRow}>
+                      <span className={rowLabel}>Date of birth</span>
                       <input
                         id="dob"
                         name="bday"
@@ -535,65 +576,21 @@ function Onboarding() {
                         value={dateOfBirth}
                         onChange={(e) => setDateOfBirth(e.target.value)}
                         aria-describedby="dob-hint"
-                        className={field}
+                        className={datePill}
                       />
-                      <p id="dob-hint" className={hint}>
-                        You can change this up to 2 times later.
-                      </p>
-                    </div>
-
-                    <div>
-                      <label htmlFor="timezone" className={fieldLabel}>
-                        Timezone
-                      </label>
-                      <div className="relative">
-                        <select
-                          id="timezone"
-                          value={timezone}
-                          onChange={(e) => setTimezone(e.target.value)}
-                          aria-describedby="timezone-hint"
-                          className={`${field} cursor-pointer appearance-none truncate pr-11`}
-                        >
-                          {TIMEZONES.map((tz) => (
-                            <option key={tz} value={tz}>
-                              {tz}
-                            </option>
-                          ))}
-                        </select>
-                        <svg
-                          aria-hidden
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="pointer-events-none absolute top-1/2 right-4 size-4 -translate-y-1/2 text-[var(--tier-muted)]"
-                        >
-                          <path d="m6 9 6 6 6-6" />
-                        </svg>
-                      </div>
-                      <p id="timezone-hint" className={hint}>
-                        Set from this device, so Luna knows when your day
-                        begins.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
+                    </label>
+                  </GroupedSection>
+                </>
               )}
 
               {/* ── Step 3: Your rhythm ────────────────────── */}
               {step === 3 && (
-                <motion.div
-                  key="rhythm"
-                  {...stepMotion}
-                  className="flex flex-col"
-                >
+                <>
                   <h1
                     ref={headingRef}
                     tabIndex={-1}
                     id="rhythm-heading"
-                    className={stepHeading}
+                    className={stepTitle}
                   >
                     Anything Luna should know?
                   </h1>
@@ -601,83 +598,41 @@ function Onboarding() {
                     Pick what applies. This helps predictions adapt to you.
                   </p>
 
-                  <motion.div
+                  <div
                     role="group"
                     aria-labelledby="rhythm-heading"
-                    variants={stagger}
-                    initial="initial"
-                    animate="animate"
-                    className="mt-6 grid grid-cols-2 gap-2.5"
+                    className="mt-8 space-y-6 text-left"
                   >
-                    {CONDITIONS.map((c) => {
-                      const isSelected = selectedConditions.includes(c.id);
-                      return (
-                        <motion.button
-                          key={c.id}
-                          variants={childMotion}
-                          type="button"
-                          aria-pressed={isSelected}
-                          onClick={() => toggleCondition(c.id)}
-                          whileTap={{ scale: 0.98 }}
-                          className={`flex min-h-14 min-w-0 cursor-pointer items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-left text-sm transition-colors ${
-                            c.id === "none" ? "col-span-2" : ""
-                          } ${
-                            isSelected
-                              ? "border-[var(--tier-accent)] bg-[var(--tier-tint)] font-medium text-[var(--tier-ink)]"
-                              : "border-[var(--tier-line)] bg-[var(--tier-surface)] text-[var(--tier-muted)] hover:border-[var(--tier-accent)] hover:text-[var(--tier-ink)]"
-                          }`}
-                        >
-                          <span className="min-w-0">{c.label}</span>
-                          <span
-                            aria-hidden
-                            className={`grid size-5 shrink-0 place-items-center rounded-full border transition-colors ${
-                              isSelected
-                                ? "border-[#B45A75] bg-[#B45A75] text-white"
-                                : "border-[var(--tier-line)]"
-                            }`}
+                    <GroupedSection
+                      footer={
+                        showAdaptNote && (
+                          <motion.span
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={spring.smooth}
                           >
-                            {isSelected && (
-                              <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="3"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="size-3"
-                              >
-                                <path d="M20 6 9 17l-5-5" />
-                              </svg>
-                            )}
-                          </span>
-                        </motion.button>
-                      );
-                    })}
-                  </motion.div>
-
-                  {selectedConditions.length > 0 &&
-                    !selectedConditions.includes("none") &&
-                    !selectedConditions.includes("perimenopause_early") &&
-                    !selectedConditions.includes("perimenopause_late") && (
-                      <motion.p
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="mt-4 text-sm text-[var(--tier-muted)]"
-                      >
-                        Luna adapts to your unique rhythm over time.
-                      </motion.p>
-                    )}
-                </motion.div>
+                            Luna adapts to your unique rhythm over time.
+                          </motion.span>
+                        )
+                      }
+                    >
+                      {CONDITIONS.filter((c) => c.id !== "none").map(
+                        conditionRow,
+                      )}
+                    </GroupedSection>
+                    <GroupedSection>
+                      {CONDITIONS.filter((c) => c.id === "none").map(
+                        conditionRow,
+                      )}
+                    </GroupedSection>
+                  </div>
+                </>
               )}
 
               {/* ── Step 4: Last period ────────────────────── */}
               {step === 4 && (
-                <motion.div
-                  key="last-period"
-                  {...stepMotion}
-                  className="flex flex-col"
-                >
-                  <h1 ref={headingRef} tabIndex={-1} className={stepHeading}>
+                <>
+                  <h1 ref={headingRef} tabIndex={-1} className={stepTitle}>
                     When did your last period start?
                   </h1>
                   <p className={stepLede}>
@@ -685,40 +640,44 @@ function Onboarding() {
                     It gets more personal with every cycle you log.
                   </p>
 
-                  <div className="mt-8">
-                    <label htmlFor="last-period-start" className={fieldLabel}>
-                      First day of your last period{" "}
-                      <span className="font-normal text-[var(--tier-muted)]">
-                        Optional
+                  <GroupedSection
+                    className="mt-8 text-left"
+                    footer={
+                      <span id="last-period-hint">
+                        Optional. Not sure? Skip it and tell Luna in chat later.
                       </span>
+                    }
+                  >
+                    <label className={fieldRow}>
+                      <span className={rowLabel}>
+                        First day
+                        <span className="sr-only"> of your last period</span>
+                      </span>
+                      <input
+                        id="last-period-start"
+                        type="date"
+                        autoComplete="off"
+                        value={lastPeriodStart}
+                        max={localIsoDate()}
+                        onChange={(e) => setLastPeriodStart(e.target.value)}
+                        aria-describedby="last-period-hint"
+                        className={datePill}
+                      />
                     </label>
-                    <input
-                      id="last-period-start"
-                      type="date"
-                      autoComplete="off"
-                      value={lastPeriodStart}
-                      max={localIsoDate()}
-                      onChange={(e) => setLastPeriodStart(e.target.value)}
-                      aria-describedby="last-period-hint"
-                      className={field}
-                    />
-                    <p id="last-period-hint" className={hint}>
-                      Not sure? Skip it and tell Luna in chat later.
-                    </p>
-                  </div>
-                </motion.div>
+                  </GroupedSection>
+                </>
               )}
-            </AnimatePresence>
-          </div>
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {/* ── Actions: pinned within thumb reach on phones ── */}
-        <div className="sticky bottom-0 z-10 border-t border-[var(--tier-line)] bg-[var(--tier-bg)]/90 backdrop-blur-md sm:static sm:border-t-0 sm:bg-transparent sm:backdrop-blur-none">
-          <div className="mx-auto w-full max-w-md px-6 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pb-12">
+        <div className={`sticky bottom-0 material hairline-t ${barOnPhones}`}>
+          <div className="mx-auto w-full max-w-md px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:pb-12">
             {error && (
               <p
                 role="alert"
-                className="mb-4 rounded-2xl bg-[#FFB5C0]/15 px-4 py-3 text-sm text-[#B4485F]"
+                className="mb-3 text-center text-[15px] leading-snug text-[color-mix(in_oklch,var(--destructive)_70%,var(--tier-ink))]"
               >
                 {error}
               </p>
@@ -727,77 +686,41 @@ function Onboarding() {
               {isSubmitting ? "Saving your preferences" : ""}
             </p>
 
-            <div className="flex items-center gap-3">
-              {step > 0 && (
+            <button
+              type="submit"
+              // aria-disabled, not disabled: a disabled button drops focus to
+              // <body>. handleSubmit already ignores these presses.
+              aria-disabled={isSubmitting || (step === 1 && !consentChecked)}
+              className={primaryButton}
+            >
+              {isSubmitting ? (
+                <>
+                  <Spinner />
+                  Setting things up…
+                </>
+              ) : step === 0 ? (
+                "Let’s begin"
+              ) : step === 1 ? (
+                "I agree and continue"
+              ) : !isLastStep ? (
+                "Continue"
+              ) : (
+                "Start tracking"
+              )}
+            </button>
+
+            {/* The secondary slot keeps its height so the button never jumps */}
+            <div className="flex min-h-11 justify-center pt-1">
+              {step === 1 && (
                 <button
                   type="button"
-                  onClick={() => goTo(step - 1)}
-                  disabled={isSubmitting}
-                  aria-label="Back"
-                  className="grid size-12 shrink-0 cursor-pointer place-items-center rounded-full border border-[var(--tier-line)] bg-[var(--tier-surface)] text-[var(--tier-ink)] transition-colors hover:bg-[var(--tier-tint)] disabled:opacity-50"
+                  onClick={() => setDeclined(true)}
+                  className={`${quietButton} px-3`}
                 >
-                  <svg
-                    aria-hidden
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="size-4"
-                  >
-                    <path d="m15 18-6-6 6-6" />
-                  </svg>
+                  I do not agree
                 </button>
               )}
-              <button
-                type="submit"
-                // aria-disabled, not disabled: a disabled button drops focus to
-                // <body>. handleSubmit already ignores these presses.
-                aria-disabled={isSubmitting || (step === 1 && !consentChecked)}
-                className="tier-primary-action h-12 flex-1 cursor-pointer aria-disabled:cursor-not-allowed aria-disabled:opacity-50 sm:ml-auto sm:min-w-48 sm:flex-none"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Spinner />
-                    Setting things up
-                  </>
-                ) : step === 0 ? (
-                  "Let’s begin"
-                ) : step === 1 ? (
-                  "I agree and continue"
-                ) : !isLastStep ? (
-                  "Continue"
-                ) : (
-                  <>
-                    Start tracking
-                    <svg
-                      aria-hidden
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="size-3.5"
-                    >
-                      <path d="M5 12h14" />
-                      <path d="m12 5 7 7-7 7" />
-                    </svg>
-                  </>
-                )}
-              </button>
             </div>
-
-            {step === 1 && (
-              <button
-                type="button"
-                onClick={() => setDeclined(true)}
-                className="mx-auto mt-2 flex min-h-11 cursor-pointer items-center rounded-full px-4 text-sm text-[var(--tier-muted)] transition-colors hover:text-[var(--tier-ink)]"
-              >
-                I do not agree
-              </button>
-            )}
           </div>
         </div>
       </form>

@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.19.7",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Signing in and setting up, the Apple way",
+    description:
+      "Sign in, create account, password reset and setup now look and feel like Apple's own flows: one bold title, grouped fields with 44-point rows, a full-width button and calm inline messages that screen readers announce. Setup asks one question per page with clear Back and Continue, and uses your device's time zone (you can change it in Settings).",
+  },
+  {
     version: "0.19.6",
     date: "2026-09-26",
     type: "feat",
