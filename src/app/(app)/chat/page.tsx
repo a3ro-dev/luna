@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getUserPlan } from "@/lib/theme/server-plan";
 import { getUserForecast } from "@/lib/cycle-tools";
+import { listSessions, loadSessionMessages } from "@/lib/chat/store";
 
 // CSP nonces only work on dynamically rendered pages
 export const dynamic = "force-dynamic";
@@ -15,16 +16,35 @@ export const viewport: Viewport = { interactiveWidget: "resizes-content" };
 
 export default async function ChatPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  const userId = session?.user?.id;
+  if (!userId) redirect("/login");
 
-  const plan = await getUserPlan(session.user.id);
-  const cycleContext = plan === "premium+"
-    ? await getUserForecast(session.user.id).then(({ text }) => ({
-        nextPeriod: text.headline ?? "No estimate yet",
-        window: text.window,
-        status: text.status,
-      }))
-    : null;
+  // Chats arrive with the page, so the first paint needs no round trip from
+  // the browser. Two independent chains run side by side.
+  const [{ plan, cycleContext }, { sessions, messages }] = await Promise.all([
+    getUserPlan(userId).then(async (plan) => ({
+      plan,
+      cycleContext:
+        plan === "premium+"
+          ? await getUserForecast(userId).then(({ text }) => ({
+              nextPeriod: text.headline ?? "No estimate yet",
+              window: text.window,
+              status: text.status,
+            }))
+          : null,
+    })),
+    listSessions(userId).then(async (sessions) => ({
+      sessions,
+      messages: sessions[0] ? ((await loadSessionMessages(userId, sessions[0].id)) ?? []) : [],
+    })),
+  ]);
 
-  return <ChatPageClient plan={plan} cycleContext={cycleContext} />;
+  return (
+    <ChatPageClient
+      plan={plan}
+      cycleContext={cycleContext}
+      initialSessions={sessions}
+      initialMessages={messages}
+    />
+  );
 }

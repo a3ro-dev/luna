@@ -32,9 +32,12 @@ const PLACEHOLDERS: Record<UserPlan, string> = {
 
 interface ChatComposerProps {
   plan: UserPlan;
-  onSubmit: (message: PromptInputMessage) => void;
+  /** False keeps the text and photos in the box. */
+  onSubmit: (message: PromptInputMessage) => boolean;
   status: ChatStatus;
   onStop: () => void;
+  /** A calm line from the page, e.g. a chat that couldn't be deleted. */
+  notice?: string;
 }
 
 /** Selected photos, shown above the text so they can be removed before sending. */
@@ -80,13 +83,33 @@ function AttachButton() {
   );
 }
 
+/**
+ * While Luna replies the button is Stop; once there is something to send it
+ * turns back into Send, and what's sent waits for the reply to finish.
+ */
+function SendButton({ status, hasText, onStop }: { status: ChatStatus; hasText: boolean; onStop: () => void }) {
+  const { files } = usePromptInputAttachments();
+  const busy = status === "submitted" || status === "streaming";
+  const hasDraft = hasText || files.length > 0;
+  return (
+    <PromptInputSubmit
+      status={hasDraft ? "ready" : status}
+      onStop={onStop}
+      aria-label={busy ? (hasDraft ? "Send when Luna finishes" : "Stop reply") : "Send message"}
+      className="relative isolate size-11 shrink-0 cursor-pointer rounded-full bg-transparent text-[var(--tier-surface)] hover:bg-transparent before:absolute before:inset-[6px] before:-z-10 before:rounded-full before:bg-[var(--tint)] before:transition-transform before:duration-150 active:before:scale-90 [&_svg]:stroke-[2.5]"
+    />
+  );
+}
+
 export const ChatComposer = memo(function ChatComposer({
   plan,
   onSubmit,
   status,
   onStop,
+  notice: pageNotice,
 }: ChatComposerProps) {
   const [notice, setNotice] = useState("");
+  const [hasText, setHasText] = useState(false);
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
@@ -121,6 +144,11 @@ export const ChatComposer = memo(function ChatComposer({
           maxFiles={4}
           maxFileSize={MAX_IMAGE_BYTES}
           onError={handleFileError}
+          onInput={(event) => {
+            const { target } = event;
+            if (target instanceof HTMLTextAreaElement) setHasText(target.value.trim().length > 0);
+          }}
+          onReset={() => setHasText(false)}
           className="rounded-[1.375rem] bg-[var(--tier-surface)] shadow-[inset_0_0_0_1px_var(--separator)] transition-shadow duration-200 focus-within:shadow-[inset_0_0_0_1.5px_var(--tint)]"
         >
           <PendingAttachments />
@@ -133,15 +161,11 @@ export const ChatComposer = memo(function ChatComposer({
               placeholder={PLACEHOLDERS[plan]}
               className="max-h-40 min-h-11 px-1 py-[11px] text-[17px] leading-[22px] tracking-[-0.01em] text-[var(--tier-ink)] placeholder:text-[var(--label-tertiary)] focus-visible:outline-none! md:text-[17px]"
             />
-            <PromptInputSubmit
-              status={status}
-              onStop={onStop}
-              className="relative isolate size-11 shrink-0 cursor-pointer rounded-full bg-transparent text-[var(--tier-surface)] hover:bg-transparent before:absolute before:inset-[6px] before:-z-10 before:rounded-full before:bg-[var(--tint)] before:transition-transform before:duration-150 active:before:scale-90 [&_svg]:stroke-[2.5]"
-            />
+            <SendButton status={status} hasText={hasText} onStop={onStop} />
           </div>
         </PromptInput>
         <p role="status" className="px-3 pt-1.5 text-[13px] text-[var(--tier-ink)] empty:pt-0">
-          {notice}
+          {notice || pageNotice}
         </p>
         <p className="px-3 pt-1 text-center text-[12px] leading-snug text-[var(--label-secondary)]">
           Luna can get things wrong. Check anything important.

@@ -1,6 +1,5 @@
 import {
   convertToModelMessages,
-  consumeStream,
   streamText,
   tool,
   stepCountIs,
@@ -9,13 +8,7 @@ import {
 import { createOpenAI } from "@ai-sdk/openai";
 import { after } from "next/server";
 import { db } from "@/lib/db";
-import {
-  aiTraces,
-  chatMessages,
-  chatSessions,
-  chatSummaries,
-  users,
-} from "@/lib/db/schema";
+import { aiTraces, chatMessages, chatSummaries } from "@/lib/db/schema";
 import { auth } from "@/auth";
 import { and, count, desc, eq, ilike, or } from "drizzle-orm";
 import { z } from "zod";
@@ -33,12 +26,21 @@ import {
   logOvulationEntry,
   logPeriodEndEntry,
   logPeriodStartEntry,
-  resolveUserTimeZone,
   sanitizeTimeZone,
   type CycleProfile,
 } from "@/lib/cycle-tools";
 import { getModelConfig } from "@/lib/chat/models";
-import { externalizeImageParts, resolveImageParts } from "@/lib/chat/images";
+import { resolveImageParts } from "@/lib/chat/images";
+import {
+  dropRepliesAfter,
+  ensureSession,
+  getChatUser,
+  loadRecentMessages,
+  saveAssistantMessage,
+  saveUserMessage,
+  textOf,
+} from "@/lib/chat/store";
+import { beginStream, parseChatRequest, persistStream, type ChatRequest, type StreamRun } from "@/lib/chat/streams";
 import { rateLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
@@ -58,8 +60,15 @@ const hackClubAI = createOpenAI({
 // NOT cycle data (that's in our DB) and NOT chat messages (that's in our DB).
 // Recall reads the saved profile by user id only; no chat text is sent.
 
+// ponytail: per-instance cache, so each warm instance recalls a user at most every 5 min;
+// move it to Redis if cold instances still wait on Supermemory.
+const MEMORY_TTL_MS = 5 * 60_000;
+const memoryCache = new Map<string, { text: string; at: number }>();
+
 async function recallMemory(userId: string): Promise<string> {
   if (!process.env.SUPERMEMORY_API_KEY) return "";
+  const hit = memoryCache.get(userId);
+  if (hit && Date.now() - hit.at < MEMORY_TTL_MS) return hit.text;
   try {
     const res = await fetch("https://api.supermemory.ai/v4/profile", {
       headers: {
@@ -68,18 +77,22 @@ async function recallMemory(userId: string): Promise<string> {
       },
       body: JSON.stringify({ containerTag: userId }),
       method: "POST",
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(1200), // it runs alongside the DB reads; never let it hold up the reply
     });
     if (!res.ok) return "";
     const data = await res.json();
     // Docs show static/dynamic as string[] (schema) and as a single string (quickstart); accept both.
     const asList = (v: unknown): unknown[] => (Array.isArray(v) ? v : typeof v === "string" ? [v] : []);
     const facts = [...asList(data.profile?.static), ...asList(data.profile?.dynamic)];
-    return facts
+    const text = facts
       .filter((f): f is string => typeof f === "string" && f.trim().length > 0)
       .map((f) => f.trim())
       .slice(0, 20) // bounds prompt size; long-term (static) facts come first
       .join("\n");
+    memoryCache.delete(userId); // re-insert at the end so the size cap drops the oldest
+    memoryCache.set(userId, { text, at: Date.now() });
+    if (memoryCache.size > 1000) memoryCache.delete(memoryCache.keys().next().value!);
+    return text;
   } catch {
     return "";
   }
@@ -104,6 +117,7 @@ async function storeMemoryFact(
       method: "POST",
       signal: AbortSignal.timeout(3000),
     });
+    if (res.ok) memoryCache.delete(userId); // next turn recalls the new fact
     return res.ok;
   } catch (e) {
     console.error("Supermemory write failed", e);
@@ -115,83 +129,12 @@ const RECENT_MESSAGE_LIMIT = 20;
 const SUMMARY_TRIGGER_COUNT = 30;
 const SUMMARY_MIN_DELTA = 12;
 
-const getTextFromParts = (parts: UIMessage["parts"]): string => {
-  if (!Array.isArray(parts)) return "";
-  return parts
-    .filter((part) => part.type === "text")
-    .map((part) => part.text)
-    .join("");
-};
-
-const getOrCreateSession = async (userId: string) => {
-  const existing = await db
-    .select()
-    .from(chatSessions)
-    .where(eq(chatSessions.userId, userId))
-    .orderBy(desc(chatSessions.updatedAt))
-    .limit(1);
-
-  if (existing.length > 0) return existing[0];
-
-  const created = await db.insert(chatSessions).values({ userId }).returning();
-
-  return created[0];
-};
-
-const getSessionById = async (sessionId: string, userId: string) => {
-  const rows = await db
-    .select()
-    .from(chatSessions)
-    .where(and(eq(chatSessions.id, sessionId), eq(chatSessions.userId, userId)))
-    .limit(1);
-
-  return rows[0];
-};
-
-const getRecentMessages = async (sessionId: string) => {
-  const rows = await db
-    .select()
-    .from(chatMessages)
-    .where(eq(chatMessages.sessionId, sessionId))
-    .orderBy(desc(chatMessages.createdAt))
-    .limit(RECENT_MESSAGE_LIMIT);
-
-  return rows
-    .slice()
-    .reverse()
-    .map((row) => ({
-      id: row.id,
-      role: row.role as UIMessage["role"],
-      parts: Array.isArray(row.parts) ? (row.parts as UIMessage["parts"]) : [],
-    }));
-};
-
-/**
- * "Try again" resends the last user turn, which a failed attempt may already have saved.
- * True when the newest stored turn is that user text; a partial reply after it is dropped.
- */
-const reuseSavedUserTurn = async (sessionId: string, userText: string) => {
-  const [newest, previous] = await db
-    .select({ id: chatMessages.id, role: chatMessages.role, textContent: chatMessages.textContent })
-    .from(chatMessages)
-    .where(eq(chatMessages.sessionId, sessionId))
-    .orderBy(desc(chatMessages.createdAt))
-    .limit(2);
-  if (newest?.role === "user") return (newest.textContent ?? "") === userText;
-  if (newest?.role === "assistant" && previous?.role === "user" && (previous.textContent ?? "") === userText) {
-    await db
-      .delete(chatMessages)
-      .where(and(eq(chatMessages.id, newest.id), eq(chatMessages.sessionId, sessionId)));
-    return true;
-  }
-  return false;
-};
-
-const getLatestSummary = async (sessionId: string) => {
+// userId filters: these run before ownership is confirmed (in parallel with it)
+const getLatestSummary = async (sessionId: string, userId: string) => {
   const rows = await db
     .select()
     .from(chatSummaries)
-    .where(eq(chatSummaries.sessionId, sessionId))
+    .where(and(eq(chatSummaries.sessionId, sessionId), eq(chatSummaries.userId, userId)))
     .orderBy(desc(chatSummaries.createdAt))
     .limit(1);
 
@@ -240,7 +183,7 @@ const extractKeywords = (text: string) => {
   ).slice(0, 6);
 };
 
-const getContextSnippets = async (sessionId: string, queryText: string) => {
+const getContextSnippets = async (sessionId: string, userId: string, queryText: string) => {
   const keywords = extractKeywords(queryText);
   if (keywords.length === 0) return [];
 
@@ -251,7 +194,7 @@ const getContextSnippets = async (sessionId: string, queryText: string) => {
   const rows = await db
     .select()
     .from(chatMessages)
-    .where(and(eq(chatMessages.sessionId, sessionId), or(...conditions)))
+    .where(and(eq(chatMessages.sessionId, sessionId), eq(chatMessages.userId, userId), or(...conditions)))
     .orderBy(desc(chatMessages.createdAt))
     .limit(6);
 
@@ -585,7 +528,7 @@ const maybeSummarizeSession = async (
   modelName: string,
 ) => {
   const [summaryRow, [{ value: messageCount }]] = await Promise.all([
-    getLatestSummary(sessionId),
+    getLatestSummary(sessionId, userId),
     db.select({ value: count() }).from(chatMessages).where(eq(chatMessages.sessionId, sessionId)),
   ]);
   const lastSummaryCount = summaryRow?.messageCount ?? 0;
@@ -627,6 +570,26 @@ const maybeSummarizeSession = async (
   });
 };
 
+/**
+ * Ownership check (creating the session on its first message), then this turn
+ * saved once per message id, then the model context read back including it.
+ * null when the session belongs to someone else.
+ */
+async function saveTurn(
+  userId: string,
+  { sessionId, message, trigger }: ChatRequest,
+  onOwned: () => void,
+): Promise<UIMessage[] | null> {
+  if ((await ensureSession(userId, sessionId)) === "forbidden") return null;
+  onOwned();
+  // Independent: an unknown id makes the drop a no-op, a known one makes the save a no-op
+  await Promise.all([
+    trigger === "regenerate-message" ? dropRepliesAfter(sessionId, message.id) : null,
+    saveUserMessage(userId, sessionId, message),
+  ]);
+  return resolveImageParts(userId, await loadRecentMessages(sessionId, RECENT_MESSAGE_LIMIT));
+}
+
 export async function POST(req: Request) {
   const authSession = await auth();
   const userId = authSession?.user?.id;
@@ -636,11 +599,10 @@ export async function POST(req: Request) {
   }
 
   // Rate limit: 30 messages per minute per user
-  const chatRateResult = await rateLimit(
-    `chat:${userId}`,
-    CHAT_RATE_LIMIT,
-    CHAT_RATE_WINDOW_MS,
-  );
+  const [chatRateResult, body] = await Promise.all([
+    rateLimit(`chat:${userId}`, CHAT_RATE_LIMIT, CHAT_RATE_WINDOW_MS),
+    req.json().catch(() => null),
+  ]);
   if (!chatRateResult.success) {
     return new Response(
       JSON.stringify({ error: "Too many messages. Please slow down." }),
@@ -648,144 +610,122 @@ export async function POST(req: Request) {
     );
   }
 
-  const body = await req.json().catch(() => null);
-  if (!body || typeof body !== "object") {
+  const request = parseChatRequest(body);
+  if (!request) {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
-  const { messages, sessionId: requestSessionId, timezone: clientTimeZone, trigger } = body;
-  const userMessages = (Array.isArray(messages) ? messages : []) as UIMessage[];
-  const userTimeZone = await resolveUserTimeZone(
-    userId,
-    sanitizeTimeZone(clientTimeZone),
-  );
+  const { sessionId, message } = request;
 
-  const resolvedSession = requestSessionId
-    ? await getSessionById(requestSessionId, userId)
-    : undefined;
-  const chatSession = resolvedSession ?? (await getOrCreateSession(userId));
-  const sessionId = chatSession.id;
-
-  const lastIncoming = userMessages[userMessages.length - 1];
-  const alreadySaved =
-    trigger === "regenerate-message" &&
-    lastIncoming?.role === "user" &&
-    (await reuseSavedUserTurn(sessionId, getTextFromParts(lastIncoming.parts ?? [])));
-  if (lastIncoming && lastIncoming.role === "user" && !alreadySaved) {
-    // Images move to uploaded_images (7-day retention); history keeps a reference
-    const parts = await externalizeImageParts(userId, Array.isArray(lastIncoming.parts) ? lastIncoming.parts : []);
-    await db.batch([
-      db.insert(chatMessages).values({
-        sessionId,
-        userId,
-        role: "user",
-        parts,
-        textContent: getTextFromParts(parts),
-      }),
-      db.update(chatSessions).set({ updatedAt: new Date() }).where(eq(chatSessions.id, sessionId)),
-    ]);
-  }
-
-  // --- Plan tier + one read-only forecast snapshot for grounding ---
-  // Independent reads run together to keep time-to-first-token low
-  const lastUserText = getTextFromParts(lastIncoming?.parts ?? []);
-  const [userRow, { forecast: currentForecast, profile, today }, memoryContext, storedMessages, latestSummary, contextSnippets] =
-    await Promise.all([
-      db.query.users.findFirst({ where: eq(users.id, userId), columns: { plan: true } }),
-      getUserForecast(userId, userTimeZone),
-      recallMemory(userId),
-      getRecentMessages(sessionId),
-      getLatestSummary(sessionId),
-      getContextSnippets(sessionId, lastUserText),
-    ]);
-  const modelConfig = getModelConfig(userRow?.plan);
-  const recentMessages = await resolveImageParts(userId, storedMessages);
-
-  const systemPrompt =
-    buildSystemPrompt({
-      memoryContext,
-      latestSummary: latestSummary?.summary,
-      contextSnippets,
-      timeZone: userTimeZone,
-      today,
-      profile,
-      cycleSnapshot: forecastForModel(currentForecast),
-    }) +
-    "\n\n" +
-    modelConfig.personaPrompt;
-
-  const startTime = Date.now();
-  const modelName = modelConfig.modelId;
-  const tools = createChatTools({ userId, timeZone: userTimeZone });
-
-  const result = await streamText({
-    model: hackClubAI.chat(modelName),
-    system: systemPrompt,
-    messages: await convertToModelMessages(recentMessages, { ignoreIncompleteToolCalls: true }),
-    tools,
-    stopWhen: stepCountIs(modelConfig.maxSteps),
-    abortSignal: req.signal,
-    onFinish: async ({ usage, steps }) => {
-      const latencyMs = Date.now() - startTime;
-
-      // Grok-4.3 pricing: $1.25 per 1M input tokens, $2.50 per 1M output tokens
-      const costUsd =
-        (usage.inputTokens ?? 0) * (1.25 / 1_000_000) +
-        (usage.outputTokens ?? 0) * (2.5 / 1_000_000);
-
-      // Track AI usage
-      await db.insert(aiTraces).values({
-        userId,
-        model: modelName,
-        inputTokens: usage.inputTokens ?? 0,
-        outputTokens: usage.outputTokens ?? 0,
-        costUsd,
-        latencyMs,
-        feature: "chat",
-        hasImages: userMessages.some(
-          (m) =>
-            Array.isArray(m.parts) && m.parts.some((p) => p.type === "file"),
-        ),
-        hadWebSearch:
-          steps?.some((step) =>
-            step.toolResults?.some(
-              (tr: { toolName?: string }) => tr.toolName === "searchWeb",
-            ),
-          ) ?? false,
-      });
-    },
-  });
-
-  // The summary is a full LLM call: run it after the response closes, not inside the stream.
-  let summarize!: (run: boolean) => void;
-  const shouldSummarize = new Promise<boolean>((resolve) => (summarize = resolve));
-  after(async () => {
-    if (await shouldSummarize) {
-      await maybeSummarizeSession(sessionId, userId, modelName).catch((e) => logError("chat-summary", e));
+  // Everything independent runs at once; only save -> read-back is sequential.
+  // The run registers as soon as ownership is known, so Stop works during setup too.
+  let run: StreamRun | undefined;
+  const turn = saveTurn(userId, request, () => (run = beginStream(userId, sessionId)));
+  try {
+    const [recentMessages, chatUser, { forecast: currentForecast, profile, today }, memoryContext, latestSummary, contextSnippets] =
+      await Promise.all([
+        turn,
+        getChatUser(userId),
+        // The profile read resolves the timezone (saved one, else the browser's): no separate users read
+        getUserForecast(userId, sanitizeTimeZone(request.timeZone)),
+        recallMemory(userId),
+        getLatestSummary(sessionId, userId),
+        getContextSnippets(sessionId, userId, textOf(message.parts)),
+      ]);
+    if (!recentMessages || !run) {
+      return new Response("Not found", { status: 404 });
     }
-  });
+    const reply = run;
+    const userTimeZone = profile.timeZone;
+    const modelConfig = getModelConfig(chatUser?.plan);
 
-  return result.toUIMessageStreamResponse({
-    originalMessages: recentMessages,
-    consumeSseStream: consumeStream,
-    onFinish: async ({ messages: completedMessages, isAborted }) => {
-      try {
-        const assistant = completedMessages.at(-1);
-        if (assistant?.role === "assistant" && assistant.parts.length > 0) {
-          await db.insert(chatMessages).values({
-            sessionId,
-            userId,
-            role: "assistant",
-            parts: assistant.parts,
-            textContent: getTextFromParts(assistant.parts),
-          });
-          await db
-            .update(chatSessions)
-            .set({ updatedAt: new Date() })
-            .where(and(eq(chatSessions.id, sessionId), eq(chatSessions.userId, userId)));
-        }
-      } finally {
-        summarize(!isAborted);
+    const systemPrompt =
+      buildSystemPrompt({
+        memoryContext,
+        latestSummary: latestSummary?.summary,
+        contextSnippets,
+        timeZone: userTimeZone,
+        today,
+        profile,
+        cycleSnapshot: forecastForModel(currentForecast),
+      }) +
+      "\n\n" +
+      modelConfig.personaPrompt;
+
+    const startTime = Date.now();
+    const modelName = modelConfig.modelId;
+    const tools = createChatTools({ userId, timeZone: userTimeZone });
+
+    const result = streamText({
+      model: hackClubAI.chat(modelName),
+      system: systemPrompt,
+      messages: await convertToModelMessages(recentMessages, { ignoreIncompleteToolCalls: true }),
+      tools,
+      stopWhen: stepCountIs(modelConfig.maxSteps),
+      // Only Stop aborts: a dropped connection (phone locks, reload) no longer cuts the reply
+      abortSignal: reply.signal,
+      onFinish: async ({ usage, steps }) => {
+        const latencyMs = Date.now() - startTime;
+
+        // Grok-4.3 pricing: $1.25 per 1M input tokens, $2.50 per 1M output tokens
+        const costUsd =
+          (usage.inputTokens ?? 0) * (1.25 / 1_000_000) +
+          (usage.outputTokens ?? 0) * (2.5 / 1_000_000);
+
+        // Track AI usage
+        await db.insert(aiTraces).values({
+          userId,
+          model: modelName,
+          inputTokens: usage.inputTokens ?? 0,
+          outputTokens: usage.outputTokens ?? 0,
+          costUsd,
+          latencyMs,
+          feature: "chat",
+          hasImages: recentMessages.some(
+            (m) => Array.isArray(m.parts) && m.parts.some((p) => p.type === "file"),
+          ),
+          hadWebSearch:
+            steps?.some((step) =>
+              step.toolResults?.some(
+                (tr: { toolName?: string }) => tr.toolName === "searchWeb",
+              ),
+            ) ?? false,
+        });
+      },
+    });
+
+    // The summary is a full LLM call: run it after the response closes, not inside the stream.
+    let summarize!: (run: boolean) => void;
+    const shouldSummarize = new Promise<boolean>((resolve) => (summarize = resolve));
+    after(async () => {
+      if (await shouldSummarize) {
+        await maybeSummarizeSession(sessionId, userId, modelName).catch((e) => logError("chat-summary", e));
       }
-    },
-  });
+    });
+
+    return result.toUIMessageStreamResponse({
+      // The streamed id is the chat_messages row id. The SDK only uses generateMessageId
+      // when originalMessages is set; an empty list also means a reply never "continues" an old row.
+      originalMessages: [],
+      generateMessageId: () => crypto.randomUUID(),
+      // Reads the reply to the end even if the browser leaves; resumable when Redis is up
+      consumeSseStream: ({ stream }) => persistStream(reply, stream),
+      onFinish: async ({ responseMessage, isAborted }) => {
+        try {
+          // Stop saves what was said so far
+          if (responseMessage.role === "assistant" && responseMessage.parts.length > 0) {
+            await saveAssistantMessage(userId, sessionId, responseMessage);
+          }
+        } catch (e) {
+          logError("chat-save-reply", e);
+        } finally {
+          reply.end();
+          summarize(!isAborted);
+        }
+      },
+    });
+  } catch (e) {
+    await turn.catch(() => null); // another read can fail before the run registers
+    run?.end();
+    throw e;
+  }
 }

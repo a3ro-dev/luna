@@ -9,6 +9,7 @@ import {
   jsonb,
   real,
   unique,
+  index,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -70,22 +71,26 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
-export const cycles = pgTable("cycles", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  mStart: pgDate("m_start").notNull(),
-  mEnd: pgDate("m_end"),
-  ovulationDate: pgDate("ovulation_date"),
-  cycleLength: integer("cycle_length"), // derived: this.mStart - prev.mStart
-  periodLength: integer("period_length"), // derived inclusive: mEnd - mStart + 1
-  follicularLength: integer("follicular_length"), // derived: ovulation - mEnd
-  lutealLength: integer("luteal_length"), // derived: nextStart - ovulation
-  isAnomaly: boolean("is_anomaly").default(false), // flagged by skip gate
-  notes: jsonb("notes").default({}),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+export const cycles = pgTable(
+  "cycles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    mStart: pgDate("m_start").notNull(),
+    mEnd: pgDate("m_end"),
+    ovulationDate: pgDate("ovulation_date"),
+    cycleLength: integer("cycle_length"), // derived: this.mStart - prev.mStart
+    periodLength: integer("period_length"), // derived inclusive: mEnd - mStart + 1
+    follicularLength: integer("follicular_length"), // derived: ovulation - mEnd
+    lutealLength: integer("luteal_length"), // derived: nextStart - ovulation
+    isAnomaly: boolean("is_anomaly").default(false), // flagged by skip gate
+    notes: jsonb("notes").default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [index("cycles_user_id_m_start_idx").on(t.userId, t.mStart)],
+);
 
 export const predictionParams = pgTable(
   "prediction_params",
@@ -105,71 +110,107 @@ export const predictionParams = pgTable(
   }),
 );
 
-export const aiTraces = pgTable("ai_traces", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  model: text("model").notNull(),
-  inputTokens: integer("input_tokens"),
-  outputTokens: integer("output_tokens"),
-  costUsd: real("cost_usd"),
-  latencyMs: integer("latency_ms"),
-  feature: text("feature").notNull(), // "chat" | "predict" | "log_parse" | "web_search"
-  hasImages: boolean("has_images").default(false),
-  hadWebSearch: boolean("had_web_search").default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+export const aiTraces = pgTable(
+  "ai_traces",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    costUsd: real("cost_usd"),
+    latencyMs: integer("latency_ms"),
+    feature: text("feature").notNull(), // "chat" | "predict" | "log_parse" | "web_search"
+    hasImages: boolean("has_images").default(false),
+    hadWebSearch: boolean("had_web_search").default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [index("ai_traces_user_id_created_at_idx").on(t.userId, t.createdAt)],
+);
 
-export const chatSessions = pgTable("chat_sessions", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  title: text("title"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-});
+export const chatSessions = pgTable(
+  "chat_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    index("chat_sessions_user_id_updated_at_idx").on(t.userId, t.updatedAt),
+  ],
+);
 
-export const chatMessages = pgTable("chat_messages", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  sessionId: uuid("session_id")
-    .notNull()
-    .references(() => chatSessions.id, { onDelete: "cascade" }),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  role: text("role").notNull(),
-  parts: jsonb("parts").notNull(),
-  textContent: text("text_content"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => chatSessions.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    parts: jsonb("parts").notNull(),
+    textContent: text("text_content"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    index("chat_messages_session_id_created_at_idx").on(
+      t.sessionId,
+      t.createdAt,
+    ),
+  ],
+);
 
-export const chatSummaries = pgTable("chat_summaries", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  sessionId: uuid("session_id")
-    .notNull()
-    .references(() => chatSessions.id, { onDelete: "cascade" }),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  summary: text("summary").notNull(),
-  messageCount: integer("message_count").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+export const chatSummaries = pgTable(
+  "chat_summaries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => chatSessions.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    summary: text("summary").notNull(),
+    messageCount: integer("message_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    index("chat_summaries_session_id_created_at_idx").on(
+      t.sessionId,
+      t.createdAt,
+    ),
+  ],
+);
 
 // NOTE: Images are stored as base64 in PostgreSQL. This works for low volume
 // but becomes a performance bottleneck at scale. Consider migrating to
 // object storage (e.g., Vercel Blob, Cloudflare R2, S3) for production use.
-export const uploadedImages = pgTable("uploaded_images", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  messageId: uuid("message_id"),
-  imageData: text("image_data").notNull(), // base64 data URL
-  mediaType: text("media_type").notNull(), // e.g. "image/jpeg"
-  filename: text("filename"),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+export const uploadedImages = pgTable(
+  "uploaded_images",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    messageId: uuid("message_id"),
+    imageData: text("image_data").notNull(), // base64 data URL
+    mediaType: text("media_type").notNull(), // e.g. "image/jpeg"
+    filename: text("filename"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    index("uploaded_images_user_id_idx").on(t.userId),
+    // the cleanup cron deletes by expires_at
+    index("uploaded_images_expires_at_idx").on(t.expiresAt),
+  ],
+);

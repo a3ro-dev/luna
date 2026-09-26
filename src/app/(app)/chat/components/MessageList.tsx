@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo, useRef, useEffect, useCallback, useState } from "react";
+import React, { memo, useRef, useEffect, useCallback, useState, useSyncExternalStore } from "react";
 import type { UIMessage } from "ai";
 import { AssistantMessage } from "./AssistantMessage";
 import { UserMessage } from "./UserMessage";
@@ -18,6 +18,8 @@ import { dayLabel, timeLabel } from "./dates";
 /* ------------------------------------------------------------------ */
 
 const STICK_THRESHOLD_PX = 80;
+
+const noop = () => () => {};
 
 const starterSuggestions = [
   "Log my period",
@@ -149,6 +151,8 @@ interface MessageListProps {
   error?: Error;
   onRetry?: () => void;
   onSuggestionClick: (text: string) => void;
+  /** Sent while Luna was replying; goes out when the reply ends. */
+  queued?: UIMessage;
 }
 
 export const MessageList = memo(function MessageList({
@@ -161,6 +165,7 @@ export const MessageList = memo(function MessageList({
   error,
   onRetry,
   onSuggestionClick,
+  queued,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -212,7 +217,7 @@ export const MessageList = memo(function MessageList({
   /* ---- Re-anchor to the bottom when a session loads or the user sends ---- */
   const firstId = messages[0]?.id;
   const last = messages[messages.length - 1];
-  const pendingUserId = last?.role === "user" ? last.id : undefined;
+  const pendingUserId = last?.role === "user" ? last.id : queued?.id;
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || (!firstId && !pendingUserId)) return;
@@ -236,8 +241,9 @@ export const MessageList = memo(function MessageList({
   const showThinking =
     messages.length > 0 && isBusy && !lastAssistantHasContent(messages);
 
-  // Sessions load after mount, so this never renders on the server
-  const started = startedAt ? new Date(startedAt) : null;
+  // The stamp follows this device's clock, so it draws once hydrated
+  const hydrated = useSyncExternalStore(noop, () => true, () => false);
+  const started = startedAt && hydrated ? new Date(startedAt) : null;
   const stampDay = started ? dayLabel(started) : "";
 
   /* ---- Render ---- */
@@ -281,6 +287,15 @@ export const MessageList = memo(function MessageList({
           )}
 
           {showThinking && <Shimmer className="text-[15px]">Thinking…</Shimmer>}
+
+          {queued && (
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex w-full justify-end opacity-70">
+                <UserMessage message={queued} />
+              </div>
+              <p className="text-[13px] text-[var(--label-secondary)]">Sends when Luna finishes</p>
+            </div>
+          )}
 
           {error && !isBusy && (
             <div

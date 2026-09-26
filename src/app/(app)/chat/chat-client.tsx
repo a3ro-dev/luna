@@ -1,8 +1,14 @@
 "use client";
 
-import React, { useRef, useState, useEffect, useCallback } from "react";
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import React, { useRef, useState, useEffect, useCallback, useMemo } from "react";
+import { Chat, useChat } from "@ai-sdk/react";
+import {
+  DefaultChatTransport,
+  type ChatOnFinishCallback,
+  type ChatStatus,
+  type FileUIPart,
+  type UIMessage,
+} from "ai";
 import { ThemeProvider, createTheme } from "@openuidev/react-ui";
 import { MotionConfig } from "motion/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,38 +27,12 @@ import Link from "next/link";
 import { ChevronRightIcon } from "lucide-react";
 import { GroupedRow, GroupedSection } from "@/components/apple/Grouped";
 
-/* ------------------------------------------------------------------ */
-/*  Session API helpers (module-level — no recreation on render)       */
-/* ------------------------------------------------------------------ */
-
-async function loadSessions(): Promise<ChatSession[]> {
-  const res = await fetch("/api/chat/sessions");
-  if (!res.ok) return [];
-  return (await res.json()) as ChatSession[];
-}
-
-async function loadSessionMessages(sessionId: string): Promise<UIMessage[]> {
-  const res = await fetch(`/api/chat/sessions/${sessionId}/messages`);
-  if (!res.ok) return [];
-  return await res.json();
-}
-
-async function createSession(): Promise<ChatSession | null> {
-  const res = await fetch("/api/chat/sessions", { method: "POST" });
-  if (!res.ok) return null;
-  return (await res.json()) as ChatSession;
-}
-
-async function renameSession(sessionId: string): Promise<ChatSession | null> {
-  const res = await fetch(`/api/chat/sessions/${sessionId}/rename`, {
-    method: "POST",
-  });
-  if (!res.ok) return null;
-  return (await res.json()) as ChatSession;
-}
-
 /** Roughly the chats Sheet's exit animation (tw-animate's default 150ms). */
 const DRAWER_CLOSE_MS = 150;
+/** After a stop or a dropped reply: by then the server has saved its copy. */
+const RESYNC_AFTER_MS = 1500;
+/** A pointer resting on a chat this long starts loading it. */
+const PREFETCH_DELAY_MS = 120;
 
 const ink = (pct: number) => `color-mix(in oklch, var(--tier-ink) ${pct}%, transparent)`;
 
@@ -85,18 +65,95 @@ const OPENUI_THEME = createTheme({
   borderAccent: "color-mix(in oklch, var(--tint) 20%, transparent)",
 });
 
-function requestBody(sessionId: string | null) {
-  return {
-    sessionId,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  };
+/* ------------------------------------------------------------------ */
+/*  Chats                                                              */
+/* ------------------------------------------------------------------ */
+
+/** crypto.randomUUID needs a secure context, which a phone on the LAN dev server isn't. */
+function uuid(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
+    (Number(c) ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (Number(c) / 4)))).toString(16),
+  );
 }
 
-async function deleteSessionApi(sessionId: string): Promise<boolean> {
-  const res = await fetch(`/api/chat/sessions/${sessionId}`, {
-    method: "DELETE",
-  });
-  return res.ok;
+// Only the newest message goes up: the server already has the rest (and the
+// photos). Reconnects use the default GET /api/chat/{id}/stream.
+const transport = new DefaultChatTransport<UIMessage>({
+  api: "/api/chat",
+  prepareSendMessagesRequest: ({ id, messages, trigger }) => ({
+    body: {
+      id,
+      message: messages.at(-1),
+      trigger,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    },
+  }),
+});
+
+type FinishInfo = Parameters<ChatOnFinishCallback<UIMessage>>[0];
+/** What was sent while Luna was still replying. */
+type Draft = { text: string; files: FileUIPart[] };
+
+const isBusy = (status: ChatStatus) => status === "submitted" || status === "streaming";
+const toParts = ({ text, files }: Draft): UIMessage["parts"] => [
+  ...files,
+  ...(text ? [{ type: "text" as const, text }] : []),
+];
+
+/**
+ * One Chat per conversation opened on this page. A reply streams into the
+ * Chat it was asked in, whichever chat is on screen, and going back to a chat
+ * shows it as it is now, without a round trip.
+ */
+class ChatCache {
+  private chats = new Map<string, Chat<UIMessage>>();
+  private resuming = new Set<string>();
+  private onFinish: (id: string, info: FinishInfo) => void = () => {};
+
+  /** Where every Chat reports a finished reply, on screen or not. */
+  setFinishHandler(onFinish: (id: string, info: FinishInfo) => void) {
+    this.onFinish = onFinish;
+  }
+
+  get(id: string) {
+    return this.chats.get(id);
+  }
+
+  open(id: string, messages: UIMessage[] = []) {
+    let chat = this.chats.get(id);
+    if (!chat) {
+      chat = new Chat<UIMessage>({
+        id,
+        messages,
+        transport,
+        generateId: uuid,
+        onFinish: (info) => this.onFinish(id, info),
+      });
+      this.chats.set(id, chat);
+    }
+    return chat;
+  }
+
+  delete(id: string) {
+    this.chats.delete(id);
+  }
+
+  isResuming(id: string) {
+    return this.resuming.has(id);
+  }
+
+  /** Picks up a reply the server is still writing (after a reload or a dropped connection). */
+  async resume(id: string) {
+    const chat = this.chats.get(id);
+    if (!chat || this.resuming.has(id) || isBusy(chat.status)) return;
+    this.resuming.add(id);
+    try {
+      await chat.resumeStream();
+    } finally {
+      this.resuming.delete(id);
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -106,240 +163,314 @@ async function deleteSessionApi(sessionId: string): Promise<boolean> {
 interface ChatPageClientProps {
   plan: UserPlan;
   cycleContext: { nextPeriod: string; window: string | null; status: string } | null;
+  /** Newest first, loaded with the page. */
+  initialSessions: ChatSession[];
+  /** The newest chat's messages (none when there are no chats yet). */
+  initialMessages: UIMessage[];
 }
 
-export default function ChatPageClient({ plan, cycleContext }: ChatPageClientProps) {
-  const { messages, sendMessage, status, setMessages, stop, error, regenerate, clearError } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
+export default function ChatPageClient({
+  plan,
+  cycleContext,
+  initialSessions,
+  initialMessages,
+}: ChatPageClientProps) {
+  const [cache] = useState(() => new ChatCache());
+  // The newest chat, or a fresh one that gets a database row with its first message
+  const [active, setActive] = useState(() => {
+    const id = initialSessions[0]?.id ?? uuid();
+    return { id, chat: cache.open(id, initialSessions[0] ? initialMessages : []) };
   });
+  const { messages, status, error } = useChat({ chat: active.chat, experimental_throttle: 50 });
+  const busy = isBusy(status);
 
-  const isBusy = status === "streaming" || status === "submitted";
-  const isStreaming = status === "streaming";
+  const [sessions, setSessions] = useState<ChatSession[]>(initialSessions);
+  const sessionsRef = useRef(sessions);
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
 
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const hasRequestedRename = useRef<Set<string>>(new Set());
-  const prevStatusRef = useRef(status);
-  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const [loadingIds, setLoadingIds] = useState<string[]>([]);
+  const [queued, setQueued] = useState<Record<string, Draft>>({});
+  const queueRef = useRef(queued);
+  const [notice, setNotice] = useState("");
   const [isSessionsOpen, setIsSessionsOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const hasRequestedRename = useRef<Set<string>>(new Set());
+  const prefetchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const resolvedTheme = useResolvedTheme();
 
-  // Track which session's messages are currently loaded
-  // to prevent the "empty flash" on session switch
-  const loadedSessionRef = useRef<string | null>(null);
-  // The session whose messages are on screen (set with them, so the date stamp never runs ahead)
-  const [shownSessionId, setShownSessionId] = useState<string | null>(null);
-  const showSession = useCallback(
-    (sessionId: string | null, sessionMessages: UIMessage[]) => {
-      loadedSessionRef.current = sessionId;
-      setShownSessionId(sessionId);
-      setMessages(sessionMessages);
+  const setQueue = useCallback((id: string, draft?: Draft) => {
+    const next = { ...queueRef.current };
+    if (draft) next[id] = draft;
+    else delete next[id];
+    queueRef.current = next;
+    setQueued(next);
+  }, []);
+
+  const showNotice = useCallback((text: string) => {
+    setNotice(text);
+    setTimeout(() => setNotice((current) => (current === text ? "" : current)), 6000);
+  }, []);
+
+  /* ---------------------------------------------------------------- */
+  /*  Server sync                                                     */
+  /* ---------------------------------------------------------------- */
+
+  /** Refreshes a chat from the server. False when the server couldn't be reached. */
+  const resync = useCallback(
+    async (id: string) => {
+      let saved: UIMessage[];
+      try {
+        const res = await fetch(`/api/chat/sessions/${id}/messages`);
+        // 404: nothing saved for this chat yet, so what's on screen stands
+        if (!res.ok) return res.status === 404;
+        saved = (await res.json()) as UIMessage[];
+      } catch {
+        return false;
+      }
+      const chat = cache.get(id);
+      if (!chat) return true;
+      // The server's copy wins; what it hasn't saved yet (a reply still
+      // being written, a send that failed) stays after it
+      const savedIds = new Set(saved.map((m) => m.id));
+      const next = [...saved, ...chat.messages.filter((m) => !savedIds.has(m.id))];
+      if (JSON.stringify(next) !== JSON.stringify(chat.messages)) chat.messages = next;
+      // The reply was saved after all: the connection dropped, not Luna
+      const last = next.at(-1);
+      if (chat.status === "error" && last?.role === "assistant" && savedIds.has(last.id)) {
+        chat.clearError();
+      }
+      return true;
     },
-    [setMessages],
+    [cache],
   );
 
-  /* ---------------------------------------------------------------- */
-  /*  Auto-rename (only depends on status + activeSessionId)          */
-  /* ---------------------------------------------------------------- */
-  useEffect(() => {
-    const wasBusy =
-      prevStatusRef.current === "streaming" ||
-      prevStatusRef.current === "submitted";
-    prevStatusRef.current = status;
-
-    if (wasBusy && !isBusy && activeSessionId) {
-      if (hasRequestedRename.current.has(activeSessionId)) return;
-      // Find the session without depending on sessions array
-      setSessions((current) => {
-        const session = current.find((s) => s.id === activeSessionId);
-        if (session && !session.title) {
-          hasRequestedRename.current.add(activeSessionId);
-          renameSession(activeSessionId).then((updated) => {
-            if (updated) {
-              setSessions((prev) =>
-                prev.map((s) => (s.id === updated.id ? updated : s)),
-              );
-            }
-          });
+  /** First open of a chat this page hasn't seen: its Chat exists at once, the history follows. */
+  const load = useCallback(
+    (id: string) => {
+      if (cache.get(id)) return;
+      cache.open(id);
+      setLoadingIds((ids) => [...ids, id]);
+      void resync(id).then((ok) => {
+        setLoadingIds((ids) => ids.filter((x) => x !== id));
+        const chat = cache.get(id);
+        // Unreachable: forget it so the next open tries again
+        if (!ok && chat && chat.messages.length === 0 && !isBusy(chat.status)) {
+          cache.delete(id);
+          showNotice("Couldn’t open that chat. Check your connection and try again.");
         }
-        return current;
       });
+    },
+    [cache, resync, showNotice],
+  );
+
+  const renameSession = useCallback(async (sessionId: string) => {
+    try {
+      const res = await fetch(`/api/chat/sessions/${sessionId}/rename`, { method: "POST" });
+      if (!res.ok) return;
+      const { title } = (await res.json()) as ChatSession;
+      setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, title } : s)));
+    } catch {
+      // The chat keeps its current title
     }
-  }, [status, isBusy, activeSessionId]);
+  }, []);
 
   /* ---------------------------------------------------------------- */
-  /*  Bootstrap (with cleanup)                                        */
+  /*  Sending                                                         */
   /* ---------------------------------------------------------------- */
-  useEffect(() => {
-    const controller = new AbortController();
-    let cancelled = false;
 
-    const bootstrap = async () => {
-      setIsLoadingSessions(true);
-      try {
-        const loadedSessions = await loadSessions();
-        if (cancelled) return;
+  const send = useCallback((id: string, chat: Chat<UIMessage>, draft: Draft) => {
+    void chat.sendMessage({ role: "user", parts: toParts(draft) });
+    // Like Notes: the chat just used moves to the top, under Today. A new
+    // chat joins the list here, with its first message.
+    const now = new Date().toISOString();
+    setSessions((prev) => {
+      const used = prev.find((s) => s.id === id) ?? { id, title: null, createdAt: now, updatedAt: now };
+      return [{ ...used, updatedAt: now }, ...prev.filter((s) => s.id !== id)];
+    });
+  }, []);
 
-        let nextSessions = loadedSessions;
-        if (loadedSessions.length === 0) {
-          const created = await createSession();
-          if (cancelled) return;
-          nextSessions = created ? [created] : [];
+  const stopReply = useCallback((id: string, chat: Chat<UIMessage>) => {
+    void chat.stop();
+    // The server keeps writing after the page lets go; this is what stops it
+    void fetch(`/api/chat/${id}/stop`, { method: "POST", keepalive: true }).catch(() => {});
+  }, []);
+
+  const handleFinish = useCallback(
+    async (id: string, { message, isAbort, isError }: FinishInfo) => {
+      const chat = cache.get(id);
+      if (!chat) return;
+      const wasResume = cache.isResuming(id);
+      // Called inside the SDK's request; let it wrap up before starting another
+      await new Promise((done) => setTimeout(done, 0));
+
+      if (isError && !wasResume) {
+        // A dropped connection (phone locked, network blip) doesn't stop Luna
+        // on the server: pick the reply back up. It replays from the start,
+        // so the partial copy steps aside unless there is nothing to replay.
+        const partial = chat.lastMessage?.id === message.id ? chat.lastMessage : undefined;
+        if (partial) chat.messages = chat.messages.slice(0, -1);
+        await cache.resume(id);
+        if (partial && !chat.messages.some((m) => m.id === partial.id)) {
+          chat.messages = [...chat.messages, partial];
         }
-
-        setSessions(nextSessions);
-        if (nextSessions.length > 0) {
-          const firstId = nextSessions[0].id;
-          setActiveSessionId(firstId);
-          loadedSessionRef.current = firstId;
-
-          const initialMessages = await loadSessionMessages(firstId);
-          if (cancelled) return;
-          showSession(firstId, initialMessages);
-        }
-      } finally {
-        if (!cancelled) setIsLoadingSessions(false);
       }
-    };
+      if (isBusy(chat.status)) return;
 
-    bootstrap();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [showSession]);
-
-  /* ---------------------------------------------------------------- */
-  /*  Prompt submit (stable callback)                                 */
-  /* ---------------------------------------------------------------- */
-  const handlePromptSubmit = useCallback(
-    async ({ text, files }: PromptInputMessage) => {
-      if (isBusy) return;
-      if (text.trim().length === 0 && files.length === 0) return;
-
-      try {
-        let sessionId = activeSessionId;
-        if (!sessionId) {
-          const created = await createSession();
-          if (!created) return;
-          setSessions((prev) => [created, ...prev]);
-          setActiveSessionId(created.id);
-          showSession(created.id, []);
-          sessionId = created.id;
+      const draft = queueRef.current[id];
+      if (draft) {
+        setQueue(id);
+        send(id, chat, draft);
+      }
+      if (isAbort || isError || wasResume) {
+        setTimeout(() => void resync(id), RESYNC_AFTER_MS);
+      } else if (!hasRequestedRename.current.has(id)) {
+        const session = sessionsRef.current.find((s) => s.id === id);
+        if (session && !session.title) {
+          hasRequestedRename.current.add(id);
+          void renameSession(id);
         }
-
-        const parts: UIMessage["parts"] = [
-          ...files.map((f) => ({
-            type: "file" as const,
-            mediaType: f.mediaType,
-            url: f.url,
-            filename: f.filename,
-          })),
-          ...(text.trim().length > 0
-            ? [{ type: "text" as const, text: text.trim() }]
-            : []),
-        ];
-
-        sendMessage({ role: "user", parts }, { body: requestBody(sessionId) });
-
-        // Like Notes: the chat just used moves to the top, under Today
-        const usedId = sessionId;
-        const now = new Date().toISOString();
-        setSessions((prev) => {
-          const used = prev.find((s) => s.id === usedId);
-          return used
-            ? [{ ...used, updatedAt: now }, ...prev.filter((s) => s.id !== usedId)]
-            : prev;
-        });
-      } catch {
-        // sendMessage errors are handled by useChat
       }
     },
-    [activeSessionId, isBusy, sendMessage, showSession],
+    [cache, resync, renameSession, send, setQueue],
+  );
+  useEffect(() => {
+    cache.setFinishHandler(handleFinish);
+  }, [cache, handleFinish]);
+
+  // A reply may still be streaming from before a reload
+  const firstId = initialSessions[0]?.id;
+  useEffect(() => {
+    if (firstId) void cache.resume(firstId);
+  }, [cache, firstId]);
+
+  const handlePromptSubmit = useCallback(
+    ({ text, files }: PromptInputMessage): boolean => {
+      const draft = { text: text.trim(), files };
+      if (!draft.text && draft.files.length === 0) return false;
+      setNotice("");
+      const { id, chat } = active;
+      if (isBusy(chat.status)) {
+        // Sent while Luna replies: it waits, then goes out as one message
+        const waiting = queueRef.current[id];
+        setQueue(
+          id,
+          waiting
+            ? {
+                text: [waiting.text, draft.text].filter(Boolean).join("\n\n"),
+                files: [...waiting.files, ...draft.files],
+              }
+            : draft,
+        );
+      } else {
+        send(id, chat, draft);
+      }
+      return true;
+    },
+    [active, send, setQueue],
   );
 
   // Resends the last user message after a failed or interrupted reply
   const handleRetry = useCallback(() => {
-    regenerate({ body: requestBody(activeSessionId) });
-  }, [activeSessionId, regenerate]);
+    void active.chat.regenerate();
+  }, [active]);
+
+  const handleStop = useCallback(() => stopReply(active.id, active.chat), [active, stopReply]);
 
   /* ---------------------------------------------------------------- */
-  /*  Session switching — NO empty flash                              */
+  /*  Switch, new, delete: instant on screen, the server catches up   */
   /* ---------------------------------------------------------------- */
-  const handleSelectSession = useCallback(
-    async (sessionId: string) => {
-      if (sessionId === activeSessionId || sessionId === loadedSessionRef.current) {
-        setIsSessionsOpen(false);
-        return;
-      }
 
-      setActiveSessionId(sessionId);
-      setIsSessionsOpen(false);
-      clearError();
-
-      // Load new messages, then swap atomically. When the chats sheet is
-      // open, hold the swap until it has closed so rendering a long
-      // conversation doesn't land mid-slide.
-      const [sessionMessages] = await Promise.all([
-        loadSessionMessages(sessionId),
-        isSessionsOpen ? new Promise((done) => setTimeout(done, DRAWER_CLOSE_MS)) : null,
-      ]);
-      showSession(sessionId, sessionMessages);
+  /** Loads a chat's history, or refreshes it in the background when it's already here. */
+  const prepare = useCallback(
+    (id: string) => {
+      if (!cache.get(id)) load(id);
+      else if (!loadingIds.includes(id)) void resync(id);
     },
-    [activeSessionId, isSessionsOpen, showSession, clearError],
+    [cache, load, loadingIds, resync],
   );
 
-  const handleNewSession = useCallback(async () => {
-    const created = await createSession();
-    if (!created) return;
-    setSessions((prev) => [created, ...prev]);
-    setActiveSessionId(created.id);
-    showSession(created.id, []);
-    clearError();
+  const show = useCallback(
+    (id: string) => {
+      prepare(id);
+      setActive({ id, chat: cache.open(id) });
+    },
+    [cache, prepare],
+  );
+
+  const handleSelectSession = useCallback(
+    (sessionId: string) => {
+      setIsSessionsOpen(false);
+      if (sessionId === active.id) return;
+      if (!isSessionsOpen) return show(sessionId);
+      // From the chats sheet: load now, swap once the sheet has closed so
+      // rendering a long conversation doesn't land mid-slide
+      prepare(sessionId);
+      setTimeout(() => setActive({ id: sessionId, chat: cache.open(sessionId) }), DRAWER_CLOSE_MS);
+    },
+    [active.id, cache, isSessionsOpen, prepare, show],
+  );
+
+  const handlePrefetchSession = useCallback(
+    (sessionId: string) => {
+      clearTimeout(prefetchTimer.current);
+      prefetchTimer.current = setTimeout(() => load(sessionId), PREFETCH_DELAY_MS);
+    },
+    [load],
+  );
+
+  const handleNewSession = useCallback(() => {
     setIsSessionsOpen(false);
-  }, [showSession, clearError]);
-
-  const handleRenameSession = useCallback(async (sessionId: string) => {
-    const updated = await renameSession(sessionId);
-    if (!updated) return;
-    setSessions((prev) =>
-      prev.map((session) => (session.id === updated.id ? updated : session)),
-    );
-  }, []);
-
-  const deletingRef = useRef<Set<string>>(new Set());
+    // Already on a blank new chat
+    if (active.chat.messages.length === 0 && !sessions.some((s) => s.id === active.id)) return;
+    const id = uuid();
+    setActive({ id, chat: cache.open(id) });
+  }, [active, cache, sessions]);
 
   const handleDeleteSession = useCallback(
-    async (sessionId: string) => {
-      // Prevent double-delete race
-      if (deletingRef.current.has(sessionId)) return;
-      deletingRef.current.add(sessionId);
-
-      const ok = await deleteSessionApi(sessionId);
-      deletingRef.current.delete(sessionId);
-      if (!ok) return;
-
-      // Close the dialog first; loading the next chat can take a moment.
+    (sessionId: string) => {
       setDeleteTarget(null);
-      setSessions((prev) => prev.filter((session) => session.id !== sessionId));
+      const index = sessions.findIndex((s) => s.id === sessionId);
+      const removed = sessions[index];
+      if (!removed) return;
 
-      if (activeSessionId === sessionId) {
-        // Read from the rendered list: a setState updater may not have run yet here
-        const nextActiveId =
-          sessions.find((session) => session.id !== sessionId)?.id ?? null;
-        clearError();
-        if (nextActiveId) {
-          setActiveSessionId(nextActiveId);
-          const nextMessages = await loadSessionMessages(nextActiveId);
-          showSession(nextActiveId, nextMessages);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      const chat = cache.get(sessionId);
+      if (chat && isBusy(chat.status)) stopReply(sessionId, chat);
+      if (active.id === sessionId) {
+        // Like Notes: the next chat down opens, or a new one when none is left
+        const next = sessions[index + 1] ?? sessions[index - 1];
+        if (next) {
+          show(next.id);
         } else {
-          setActiveSessionId(null);
-          showSession(null, []);
+          const id = uuid();
+          setActive({ id, chat: cache.open(id) });
         }
       }
+
+      void fetch(`/api/chat/sessions/${sessionId}`, { method: "DELETE" })
+        .then((res) => {
+          if (!res.ok && res.status !== 404) throw new Error(`Delete failed: ${res.status}`);
+          cache.delete(sessionId);
+          setQueue(sessionId);
+        })
+        .catch(() => {
+          setSessions((prev) =>
+            prev.some((s) => s.id === sessionId)
+              ? prev
+              : [...prev, removed].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+          );
+          showNotice("Couldn’t delete that chat. It’s back in your list.");
+        });
     },
-    [activeSessionId, sessions, showSession, clearError],
+    [active.id, cache, sessions, setQueue, show, showNotice, stopReply],
+  );
+
+  const waiting = queued[active.id];
+  const queuedMessage = useMemo<UIMessage | undefined>(
+    () => (waiting ? { id: "queued", role: "user", parts: toParts(waiting) } : undefined),
+    [waiting],
   );
 
   /* ---------------------------------------------------------------- */
@@ -353,12 +484,12 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
             {/* Desktop sidebar */}
             {plan === "premium" && <ChatSidebar
               sessions={sessions}
-              activeSessionId={activeSessionId}
-              isLoading={isLoadingSessions}
+              activeSessionId={active.id}
               onSelectSession={handleSelectSession}
+              onPrefetchSession={handlePrefetchSession}
               onNewSession={handleNewSession}
-              onRenameSession={handleRenameSession}
-              onDeleteSession={(id) => setDeleteTarget(id)}
+              onRenameSession={renameSession}
+              onDeleteSession={setDeleteTarget}
             />}
 
             {/* Main chat area */}
@@ -384,22 +515,22 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
               <MessageList
                 plan={plan}
                 messages={messages}
-                startedAt={sessions.find((s) => s.id === shownSessionId)?.createdAt}
-                isStreaming={isStreaming}
-                isBusy={isBusy}
-                isLoading={isLoadingSessions}
+                startedAt={sessions.find((s) => s.id === active.id)?.createdAt}
+                isStreaming={status === "streaming"}
+                isBusy={busy}
+                isLoading={loadingIds.includes(active.id)}
                 error={error}
                 onRetry={handleRetry}
-                onSuggestionClick={(text) =>
-                  handlePromptSubmit({ text, files: [] })
-                }
+                onSuggestionClick={(text) => handlePromptSubmit({ text, files: [] })}
+                queued={queuedMessage}
               />
 
               <ChatComposer
                 plan={plan}
                 onSubmit={handlePromptSubmit}
                 status={status}
-                onStop={stop}
+                onStop={handleStop}
+                notice={notice}
               />
             </div>
 
@@ -421,12 +552,12 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
               open={isSessionsOpen}
               onClose={() => setIsSessionsOpen(false)}
               sessions={sessions}
-              activeSessionId={activeSessionId}
-              isLoading={isLoadingSessions}
+              activeSessionId={active.id}
               onSelectSession={handleSelectSession}
+              onPrefetchSession={handlePrefetchSession}
               onNewSession={handleNewSession}
-              onRenameSession={handleRenameSession}
-              onDeleteSession={(id) => setDeleteTarget(id)}
+              onRenameSession={renameSession}
+              onDeleteSession={setDeleteTarget}
             />
 
             {/* Delete confirmation: an in-place sheet, so it keeps the plan colours */}

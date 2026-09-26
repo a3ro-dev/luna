@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.21.0",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Chat that keeps up, and keeps everything",
+    description:
+      "Chat was rebuilt underneath. Each conversation keeps its own reply, so switching chats mid-answer never mixes them up. Replies finish and are saved even if you lock your phone or lose signal, and reopening the chat picks the answer back up. Stop really stops and keeps what was said. Anything you type while Luna is replying waits and sends when she's done, instead of disappearing. New chat and delete are instant, the first chat appears without a loading step, and each message now sends only itself instead of the whole conversation.",
+  },
+  {
     version: "0.20.2",
     date: "2026-09-26",
     type: "feat",

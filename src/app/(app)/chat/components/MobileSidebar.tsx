@@ -12,8 +12,8 @@ interface MobileSidebarProps {
   onClose: () => void;
   sessions: ChatSession[];
   activeSessionId: string | null;
-  isLoading: boolean;
   onSelectSession: (id: string) => void;
+  onPrefetchSession: (id: string) => void;
   onNewSession: () => void;
   onRenameSession: (id: string) => void;
   onDeleteSession: (id: string) => void;

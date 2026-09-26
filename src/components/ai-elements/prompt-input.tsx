@@ -504,10 +504,11 @@ export type PromptInputProps = Omit<
     code: "max_files" | "max_file_size" | "accept";
     message: string;
   }) => void;
+  /** Return (or resolve) false, or throw, to keep the text and photos in the box. */
   onSubmit: (
     message: PromptInputMessage,
     event: FormEvent<HTMLFormElement>
-  ) => void | Promise<void>;
+  ) => void | boolean | Promise<void | boolean>;
 };
 
 export const PromptInput = ({
@@ -845,18 +846,31 @@ export const PromptInput = ({
       event.preventDefault();
 
       const form = event.currentTarget;
+      const field = form.elements.namedItem("message");
+      const textarea = field instanceof HTMLTextAreaElement ? field : null;
       const text = usingProvider
         ? controller.textInput.value
-        : (() => {
-            const formData = new FormData(form);
-            return (formData.get("message") as string) || "";
-          })();
+        : (textarea?.value ?? "");
 
-      // Reset form immediately after capturing text to avoid race condition
-      // where user input during async blob conversion would be lost
-      if (!usingProvider) {
-        form.reset();
-      }
+      // Nothing clears until onSubmit has accepted the message, so a refused
+      // or failed send never loses what was typed
+      const accepted = () => {
+        clear();
+        if (usingProvider) {
+          controller.textInput.clear();
+        } else if (textarea) {
+          if (textarea.value === text) {
+            form.reset();
+          } else if (textarea.value.startsWith(text)) {
+            // Typed more while photos were converting: keep only the new part
+            textarea.value = textarea.value.slice(text.length).trimStart();
+          }
+        }
+        // Tapping Send moves focus to the button; keep typing in the box
+        if (form.contains(document.activeElement)) {
+          textarea?.focus();
+        }
+      };
 
       try {
         // Convert blob URLs to data URLs asynchronously
@@ -874,25 +888,8 @@ export const PromptInput = ({
           })
         );
 
-        const result = onSubmit({ files: convertedFiles, text }, event);
-
-        // Handle both sync and async onSubmit
-        if (result instanceof Promise) {
-          try {
-            await result;
-            clear();
-            if (usingProvider) {
-              controller.textInput.clear();
-            }
-          } catch {
-            // Don't clear on error - user may want to retry
-          }
-        } else {
-          // Sync function completed without throwing, clear inputs
-          clear();
-          if (usingProvider) {
-            controller.textInput.clear();
-          }
+        if ((await onSubmit({ files: convertedFiles, text }, event)) !== false) {
+          accepted();
         }
       } catch {
         // Don't clear on error - user may want to retry
@@ -986,19 +983,9 @@ export const PromptInputTextarea = ({
           return;
         }
         e.preventDefault();
-
-        // No enabled submit button means a reply is still generating (the
-        // button has become Stop). Submitting now would reset the form and
-        // drop what the user typed, so keep the draft instead.
-        const { form } = e.currentTarget;
-        const submitButton = form?.querySelector(
-          'button[type="submit"]'
-        ) as HTMLButtonElement | null;
-        if (!submitButton || submitButton.disabled) {
-          return;
-        }
-
-        form?.requestSubmit();
+        // Safe even while a reply is generating (the button is Stop then):
+        // the form only clears once onSubmit accepts the message
+        e.currentTarget.form?.requestSubmit();
       }
 
       // Remove last attachment when Backspace is pressed and textarea is empty

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo } from "react";
+import React, { memo, useSyncExternalStore } from "react";
 import { EllipsisIcon, SquarePenIcon } from "lucide-react";
 import {
   Tooltip,
@@ -26,8 +26,9 @@ export type ChatSession = {
 interface ChatSidebarProps {
   sessions: ChatSession[];
   activeSessionId: string | null;
-  isLoading: boolean;
   onSelectSession: (id: string) => void;
+  /** Hover or focus on a row: start loading that chat before the tap lands. */
+  onPrefetchSession: (id: string) => void;
   onNewSession: () => void;
   onRenameSession: (id: string) => void;
   onDeleteSession: (id: string) => void;
@@ -48,12 +49,14 @@ export const SessionItem = memo(function SessionItem({
   session,
   isActive,
   onSelect,
+  onPrefetch,
   onRename,
   onDelete,
 }: {
   session: ChatSession;
   isActive: boolean;
   onSelect: () => void;
+  onPrefetch: () => void;
   onRename: () => void;
   onDelete: () => void;
 }) {
@@ -69,6 +72,8 @@ export const SessionItem = memo(function SessionItem({
       <button
         type="button"
         onClick={onSelect}
+        onPointerEnter={onPrefetch}
+        onFocus={onPrefetch}
         aria-current={isActive ? "true" : undefined}
         className="flex min-h-11 min-w-0 flex-1 cursor-pointer flex-col justify-center py-2.5 pl-4 text-left"
       >
@@ -104,22 +109,20 @@ export const SessionItem = memo(function SessionItem({
   );
 });
 
-/** Loading, empty and filled states, grouped by day like Notes. */
+const noop = () => () => {};
+
+/** Empty and filled states, grouped by day like Notes. */
 export function SessionList({
   sessions,
   activeSessionId,
-  isLoading,
   onSelectSession,
+  onPrefetchSession,
   onRenameSession,
   onDeleteSession,
 }: Omit<ChatSidebarProps, "onNewSession">) {
-  if (isLoading && sessions.length === 0) {
-    return (
-      <p role="status" className="px-4 py-2 text-[15px] text-[var(--label-secondary)]">
-        Opening your chats…
-      </p>
-    );
-  }
+  // Day groups and times follow this device's clock, which the server can't
+  // know: the list arrives with the page but draws once hydrated
+  const hydrated = useSyncExternalStore(noop, () => true, () => false);
   if (sessions.length === 0) {
     return (
       <p className="px-4 py-2 text-[15px] leading-snug text-[var(--label-secondary)]">
@@ -127,6 +130,7 @@ export function SessionList({
       </p>
     );
   }
+  if (!hydrated) return null;
   return (
     // Grouped surfaces clip overflow, so focus rings draw inside the rows
     <div className="space-y-6 [&_:focus-visible]:outline-offset-[-3px]!">
@@ -142,6 +146,7 @@ export function SessionList({
                   session={session}
                   isActive={session.id === activeSessionId}
                   onSelect={() => onSelectSession(session.id)}
+                  onPrefetch={() => onPrefetchSession(session.id)}
                   onRename={() => onRenameSession(session.id)}
                   onDelete={() => onDeleteSession(session.id)}
                 />

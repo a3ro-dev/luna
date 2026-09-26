@@ -19,49 +19,16 @@ type FilePart = { type: "file"; mediaType?: string; url?: string; filename?: str
 const isImagePart = (part: Parts[number]): part is Parts[number] & FilePart =>
   part.type === "file" && Boolean((part as FilePart).mediaType?.startsWith("image/"));
 
-/**
- * Store an uploaded image in the database.
- * Returns the stored record ID.
- * Images are automatically expired after 7 days.
- */
-export async function storeImage({
-  userId,
-  messageId,
-  imageData,
-  mediaType,
-  filename,
-}: {
-  userId: string;
-  messageId?: string;
-  imageData: string;
-  mediaType: string;
-  filename?: string;
-}): Promise<string> {
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + IMAGE_RETENTION_DAYS);
-
-  const [row] = await db
-    .insert(uploadedImages)
-    .values({
-      userId,
-      messageId: messageId || null,
-      imageData,
-      mediaType,
-      filename: filename || null,
-      expiresAt,
-    })
-    .returning({ id: uploadedImages.id });
-
-  return row.id;
-}
+/** An inline image moved out of a message, ready for uploaded_images. */
+export type NewImage = { id: string; image_data: string; media_type: string; filename: string | null };
 
 /**
- * Move inline image data out of message parts into uploaded_images, leaving a
- * reference behind, so the 7-day purge also covers chat history. Oversized or
- * unsupported images are dropped rather than stored.
+ * Pure part of externalizing: swap inline image data for references and return
+ * the images to store. Oversized or unsupported images are dropped.
  */
-export async function externalizeImageParts(userId: string, parts: Parts): Promise<Parts> {
+export function prepareImageParts(parts: Parts, newId: () => string = () => crypto.randomUUID()): { parts: Parts; images: NewImage[] } {
   const out: Parts = [];
+  const images: NewImage[] = [];
   for (const part of parts) {
     // An already-stored image sent back by the client (e.g. Retry after a reload)
     if (isImagePart(part) && part.url?.startsWith(IMAGE_URL)) {
@@ -76,10 +43,37 @@ export async function externalizeImageParts(userId: string, parts: Parts): Promi
     if (part.url.length > MAX_IMAGE_SIZE_BYTES * 1.37 || !ALLOWED_MEDIA_TYPES.includes(part.mediaType!)) {
       continue;
     }
-    const id = await storeImage({ userId, imageData: part.url, mediaType: part.mediaType!, filename: part.filename });
+    const id = newId();
+    images.push({ id, image_data: part.url, media_type: part.mediaType!, filename: part.filename ?? null });
     out.push({ ...part, url: `${IMAGE_REF}${id}` } as Parts[number]);
   }
-  return out;
+  return { parts: out, images };
+}
+
+/**
+ * One statement that stores a message's images unless that message is already
+ * saved (a retry re-sends the same message id), so retries do not duplicate them.
+ * Run it in the same db.batch, before the message insert.
+ */
+export function insertImagesForMessage(userId: string, messageId: string, images: NewImage[]) {
+  return db.execute(sql`
+    insert into ${uploadedImages} (id, user_id, message_id, image_data, media_type, filename, expires_at)
+    select i.id, ${userId}, ${messageId}::uuid, i.image_data, i.media_type, i.filename,
+      now() + make_interval(days => ${IMAGE_RETENTION_DAYS}::int)
+    from jsonb_to_recordset(${JSON.stringify(images)}::jsonb) as i(id uuid, image_data text, media_type text, filename text)
+    where not exists (select 1 from ${chatMessages} where id = ${messageId}::uuid)`);
+}
+
+/** @deprecated use saveUserMessage (src/lib/chat/store.ts); kept until the chat route stops importing it. */
+export async function externalizeImageParts(userId: string, parts: Parts): Promise<Parts> {
+  const prepared = prepareImageParts(parts);
+  if (prepared.images.length > 0) {
+    const expiresAt = new Date(Date.now() + IMAGE_RETENTION_DAYS * 86_400_000);
+    await db.insert(uploadedImages).values(
+      prepared.images.map((i) => ({ id: i.id, userId, imageData: i.image_data, mediaType: i.media_type, filename: i.filename, expiresAt })),
+    );
+  }
+  return prepared.parts;
 }
 
 /**
@@ -142,14 +136,13 @@ export async function cleanupExpiredImages(): Promise<number> {
       )
       .limit(100);
     if (rows.length === 0) break;
-    await Promise.all(
-      rows.map((row) => {
-        const parts = (Array.isArray(row.parts) ? (row.parts as Parts) : []).map((p) =>
-          isImagePart(p) && p.url?.startsWith("data:") ? { type: "text" as const, text: EXPIRED_NOTE } : p,
-        );
-        return db.update(chatMessages).set({ parts }).where(eq(chatMessages.id, row.id));
-      }),
-    );
+    const [first, ...rest] = rows.map((row) => {
+      const parts = (Array.isArray(row.parts) ? (row.parts as Parts) : []).map((p) =>
+        isImagePart(p) && p.url?.startsWith("data:") ? { type: "text" as const, text: EXPIRED_NOTE } : p,
+      );
+      return db.update(chatMessages).set({ parts }).where(eq(chatMessages.id, row.id));
+    });
+    await db.batch([first, ...rest]); // one round trip for the whole batch
   }
 
   return deleted.length;
