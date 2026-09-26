@@ -40,7 +40,7 @@ export const MobileSidebar = memo(function MobileSidebar({
       />
       <DialogPrimitive.Content
         aria-describedby={undefined}
-        className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,86vw)] flex-col gap-5 border-r border-[var(--tier-line)] bg-[var(--tier-surface)] pt-[max(1.25rem,env(safe-area-inset-top))] pr-3 pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] shadow-[0_30px_60px_oklch(0.4_0.04_355/0.18)] outline-none duration-200 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:animate-in data-[state=open]:slide-in-from-left"
+        className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,86vw)] flex-col gap-5 border-r border-[var(--tier-line)] bg-[var(--tier-surface)] pt-[max(1.25rem,env(safe-area-inset-top))] pr-3 pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] shadow-[0_30px_60px_oklch(0.4_0.04_355/0.18)] outline-none duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:animate-in data-[state=open]:slide-in-from-left"
       >
         <div className="flex items-center justify-between pl-3">
           <DialogPrimitive.Title className="font-serif text-2xl text-[var(--tier-ink)]">

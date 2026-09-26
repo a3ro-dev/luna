@@ -147,21 +147,6 @@
 }
 
 /* Mobile sidebar slide-in (replaces Framer Motion) */
-@keyframes slide-in-right {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-.animate-slide-in-right {
-    animation: slide-in-right 0.25s ease-out;
-}
-
 /* User message bubble: visible tint instead of near-white */
 .group-is-user-bg {
     background-color: #ffeef1;
@@ -262,10 +247,11 @@
     background-color: var(--tier-tint);
 }
 
+/* Global, so dialogs and popovers portalled outside .tier-app respect it too. */
 @media (prefers-reduced-motion: reduce) {
-    .tier-app *,
-    .tier-app *::before,
-    .tier-app *::after {
+    *,
+    *::before,
+    *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         scroll-behavior: auto !important;

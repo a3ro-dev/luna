@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { MotionConfig, motion, useReducedMotion } from "framer-motion";
+import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import SignOutButton from "@/components/SignOutButton";
 import AppTabBar from "@/components/AppTabBar";
 import type { UserPlan } from "@/lib/theme/accent";
@@ -80,14 +80,16 @@ const longDate = (iso: string, opts: Intl.DateTimeFormatOptions = { month: "long
   new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { ...opts, timeZone: "UTC" });
 
 /*
- * Enter: opacity + rise + blur. `initial` must match on server and client, so
- * reduced motion is handled by <MotionConfig reducedMotion="user"> at the root,
- * which drops the rise at animation time without touching SSR markup.
+ * Enter: opacity + rise. No blur: filter on a stack of full-width cards is
+ * paint-heavy on phones and this page opens daily. `initial` must match on
+ * server and client, so reduced motion is handled by <MotionConfig
+ * reducedMotion="user"> at the root, which drops the rise at animation time
+ * without touching SSR markup.
  */
 function useEnter(delay = 0) {
   return {
-    initial: { opacity: 0, y: 12, filter: "blur(6px)" },
-    animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+    initial: { opacity: 0, y: 12 },
+    animate: { opacity: 1, y: 0 },
     transition: { type: "spring" as const, duration: 0.45, bounce: 0, delay },
   };
 }
@@ -106,17 +108,16 @@ const keyframes = `
 
 /* ─── Sub-components ─── */
 
+/* Navigation is chrome: it stays put on every visit instead of entering. */
 function Nav({ plan, vertical = false }: { plan: UserPlan; vertical?: boolean }) {
-  const enter = useEnter();
   return (
-    <motion.nav
+    <nav
       aria-label="Main navigation"
       className={
         vertical
           ? "flex min-w-0 flex-col gap-4 lg:sticky lg:top-10 lg:self-start"
           : "flex min-w-0 flex-wrap items-center justify-between gap-3"
       }
-      {...enter}
     >
       <Link
         href="/dashboard"
@@ -146,7 +147,7 @@ function Nav({ plan, vertical = false }: { plan: UserPlan; vertical?: boolean })
         </Link>
         <SignOutButton className={`${pillIdle} cursor-pointer`} />
       </div>
-    </motion.nav>
+    </nav>
   );
 }
 
@@ -591,7 +592,12 @@ export default function DashboardClient(props: DashboardClientProps) {
   const todayCard = (
     <TodayCard ring={ring} headline={nextPeriodDate} window={nextPeriodWindow} status={forecastStatus} />
   );
-  const quickLog = <QuickLog today={today} openPeriod={openPeriod} />;
+  // Enters in sequence with the cards around it instead of appearing first.
+  const quickLog = (
+    <motion.div {...useEnter(0.13)}>
+      <QuickLog today={today} openPeriod={openPeriod} />
+    </motion.div>
+  );
   const ovulation = <OvulationCard window={nextOvulationWindow} note={ovulationNote} />;
   const ask = <AskLunaCard />;
   const calendar = <Calendar months={calendarMonths} today={today} />;

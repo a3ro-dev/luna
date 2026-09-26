@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.16.1",
+    date: "2026-09-26",
+    type: "fix",
+    title: "Calmer, lighter motion across Luna",
+    description:
+      "Dashboard cards, onboarding options and landing-page reveals no longer blur while they appear, which was heavy on phones. Onboarding steps change faster, the quick-log card changes shape smoothly, the chat 'jump to latest' button fades instead of flickering, and switching or deleting chats no longer stalls behind an animation. The phone tab bar is solid instead of frosted. Reduced-motion settings now also apply to pop-up dialogs, and one animation library replaces two.",
+  },
+  {
     version: "0.16.0",
     date: "2026-09-26",
     type: "feat",

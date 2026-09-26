@@ -34,13 +34,15 @@ const TABS = [
  * Bottom navigation for phones (hidden from md up, where each page shows its
  * own top or side nav). Pages that render it need bottom padding of about
  * `pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0` so content is not hidden.
+ * Solid rather than frosted: a backdrop blur is recomputed on every scroll
+ * frame on phones.
  */
 export default function AppTabBar() {
   const pathname = usePathname();
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--tier-line)] bg-[color-mix(in_oklch,var(--tier-surface)_88%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--tier-line)] bg-[var(--tier-surface)] pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <ul className="mx-auto grid max-w-md grid-cols-3">
         {TABS.map((tab) => {

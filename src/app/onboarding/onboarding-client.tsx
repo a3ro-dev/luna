@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import {
   motion,
   AnimatePresence,
-  useReducedMotion,
+  MotionConfig,
   type Variants,
-} from "framer-motion";
+} from "motion/react";
 import Link from "next/link";
 
 const COMMON_TIMEZONES = [
@@ -106,38 +106,34 @@ const CONSENT_POINTS = [
   },
 ];
 
-const enter = {
+// Reduced motion is handled by <MotionConfig reducedMotion="user"> below,
+// which drops the movement without changing `initial` between server and
+// client. The exit is quicker than the enter: with mode="wait" the next step
+// waits for it.
+const stepMotion = {
   initial: { opacity: 0, y: 12, filter: "blur(6px)" },
   animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-  exit: { opacity: 0, y: -8, filter: "blur(4px)" },
+  exit: {
+    opacity: 0,
+    y: -8,
+    filter: "blur(4px)",
+    transition: { type: "spring", duration: 0.2, bounce: 0 },
+  },
   transition: { type: "spring", duration: 0.45, bounce: 0 },
-} as const;
-
-// Reduced motion: opacity only, no movement or blur
-const fade = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  exit: { opacity: 0 },
-  transition: { duration: 0.2 },
 } as const;
 
 const stagger: Variants = {
   animate: { transition: { staggerChildren: 0.06 } },
 };
 
-const staggerChild: Variants = {
-  initial: { opacity: 0, y: 8, filter: "blur(4px)" },
+// No blur here: up to nine filtered layers at once is heavy on phones.
+const childMotion: Variants = {
+  initial: { opacity: 0, y: 8 },
   animate: {
     opacity: 1,
     y: 0,
-    filter: "blur(0px)",
     transition: { type: "spring", duration: 0.4, bounce: 0 },
   },
-};
-
-const fadeChild: Variants = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
 };
 
 const stepHeading =
@@ -182,12 +178,19 @@ const Spinner = () => (
   />
 );
 
+// "user": follow prefers-reduced-motion. Movement and scale become instant,
+// fades stay, and SSR markup is identical either way.
 export default function OnboardingPageClient() {
+  return (
+    <MotionConfig reducedMotion="user">
+      <Onboarding />
+    </MotionConfig>
+  );
+}
+
+function Onboarding() {
   const { data: session, status: authStatus, update } = useSession();
   const router = useRouter();
-  const reduceMotion = useReducedMotion();
-  const stepMotion = reduceMotion ? fade : enter;
-  const childMotion = reduceMotion ? fadeChild : staggerChild;
 
   const [step, setStep] = useState(0);
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -389,9 +392,7 @@ export default function OnboardingPageClient() {
                     <motion.div
                       aria-hidden
                       className="grid size-24 place-items-center rounded-full bg-gradient-to-br from-[#FFDDE0] to-[#D6CBE3] text-4xl"
-                      animate={
-                        reduceMotion ? undefined : { scale: [1, 1.05, 1] }
-                      }
+                      animate={{ scale: [1, 1.05, 1] }}
                       transition={{
                         duration: 3,
                         repeat: Infinity,
@@ -617,7 +618,8 @@ export default function OnboardingPageClient() {
                           type="button"
                           aria-pressed={isSelected}
                           onClick={() => toggleCondition(c.id)}
-                          className={`flex min-h-14 min-w-0 cursor-pointer items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-left text-sm transition-colors active:scale-[0.98] ${
+                          whileTap={{ scale: 0.98 }}
+                          className={`flex min-h-14 min-w-0 cursor-pointer items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-left text-sm transition-colors ${
                             c.id === "none" ? "col-span-2" : ""
                           } ${
                             isSelected

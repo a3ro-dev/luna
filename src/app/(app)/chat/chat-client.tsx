@@ -57,6 +57,9 @@ async function renameSession(sessionId: string): Promise<ChatSession | null> {
   return (await res.json()) as ChatSession;
 }
 
+/** Matches the mobile drawer's `duration-200` close animation. */
+const DRAWER_CLOSE_MS = 200;
+
 function requestBody(sessionId: string | null) {
   return {
     sessionId,
@@ -230,12 +233,17 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
       setIsSessionsOpen(false);
       clearError();
 
-      // Load new messages, then swap atomically
-      const sessionMessages = await loadSessionMessages(sessionId);
+      // Load new messages, then swap atomically. On phones, hold the swap
+      // until the drawer has finished its 200ms close so rendering a long
+      // conversation doesn't land mid-slide.
+      const [sessionMessages] = await Promise.all([
+        loadSessionMessages(sessionId),
+        isSessionsOpen ? new Promise((done) => setTimeout(done, DRAWER_CLOSE_MS)) : null,
+      ]);
       loadedSessionRef.current = sessionId;
       setMessages(sessionMessages);
     },
-    [activeSessionId, setMessages, clearError],
+    [activeSessionId, isSessionsOpen, setMessages, clearError],
   );
 
   const handleNewSession = useCallback(async () => {
@@ -269,6 +277,8 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
       deletingRef.current.delete(sessionId);
       if (!ok) return;
 
+      // Close the dialog first; loading the next chat can take a moment.
+      setDeleteTarget(null);
       setSessions((prev) => prev.filter((session) => session.id !== sessionId));
 
       if (activeSessionId === sessionId) {
@@ -287,7 +297,6 @@ export default function ChatPageClient({ plan, cycleContext }: ChatPageClientPro
           setMessages([]);
         }
       }
-      setDeleteTarget(null);
     },
     [activeSessionId, sessions, setMessages, clearError],
   );

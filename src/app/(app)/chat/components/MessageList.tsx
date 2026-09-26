@@ -290,16 +290,19 @@ export const MessageList = memo(function MessageList({
         {isBusy ? "Luna is replying" : ""}
       </p>
 
-      {showScrollButton && (
-        <button
-          type="button"
-          onClick={handleScrollToBottom}
-          aria-label="Jump to latest message"
-          className="absolute bottom-3 left-1/2 z-20 flex size-11 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-[var(--tier-line)] bg-[var(--tier-surface)] text-[var(--tier-ink)] shadow-[0_8px_24px_-10px_oklch(0.4_0.04_355/0.35)] transition-colors duration-150 hover:bg-[var(--tier-tint)]"
-        >
-          <ArrowDownIcon className="size-4" />
-        </button>
-      )}
+      {/* Always mounted so it fades instead of popping as the reader scrolls;
+          inert keeps the hidden state out of the tab order and the a11y tree. */}
+      <button
+        type="button"
+        onClick={handleScrollToBottom}
+        aria-label="Jump to latest message"
+        inert={!showScrollButton}
+        className={`absolute bottom-3 left-1/2 z-20 flex size-11 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-[var(--tier-line)] bg-[var(--tier-surface)] text-[var(--tier-ink)] shadow-[0_8px_24px_-10px_oklch(0.4_0.04_355/0.35)] transition-[opacity,translate,scale,background-color] duration-150 ease-out hover:bg-[var(--tier-tint)] ${
+          showScrollButton ? "" : "pointer-events-none translate-y-2 scale-90 opacity-0"
+        }`}
+      >
+        <ArrowDownIcon className="size-4" />
+      </button>
     </div>
   );
 });

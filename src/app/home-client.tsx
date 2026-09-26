@@ -258,10 +258,11 @@ export default function HomeClient() {
           },
         });
 
+        // No blur: the phone holds a playing video under a backdrop blur, and
+        // filtering it during first paint is costly on phones.
         gsap.from([heroCopyRef.current, heroPhoneRef.current], {
           opacity: 0,
           y: 16,
-          filter: "blur(6px)",
           duration: 0.8,
           stagger: 0.12,
           ease: "power3.out",
@@ -289,13 +290,13 @@ export default function HomeClient() {
           },
         });
 
+        // Transform and opacity only: blurring a full-width section is paint-heavy.
         gsap.fromTo(
           ctaRef.current,
-          { opacity: 0, y: 24, filter: "blur(8px)" },
+          { opacity: 0, y: 24 },
           {
             opacity: 1,
             y: 0,
-            filter: "blur(0px)",
             duration: 0.9,
             ease: "power3.out",
             scrollTrigger: {
