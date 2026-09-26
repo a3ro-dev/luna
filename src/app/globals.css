@@ -4,6 +4,8 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Side-by-side hero: wide enough and landscape. CycleScene.tsx mirrors this test. */
+@custom-variant wide (@media (min-width: 48rem) and (orientation: landscape));
 
 @theme inline {
     --color-background: var(--background);

@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.17.5",
+    date: "2026-09-26",
+    type: "fix",
+    title: "The moon and the words no longer overlap",
+    description:
+      "On wider screens the front page now keeps the moon on the left and the wordmark, tagline and Start free button on the right, and the four chapters play on the right while the moon and its ring of days stay on the left. On phones the moon sits above the words instead of behind them.",
+  },
+  {
     version: "0.17.4",
     date: "2026-09-26",
     type: "feat",

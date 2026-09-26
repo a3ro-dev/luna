@@ -123,16 +123,14 @@ export default function CycleHero({ intro, finale }: { intro: ReactNode; finale:
 function StaticHero({ intro, finale }: { intro: ReactNode; finale: ReactNode }) {
   return (
     <>
-      <section className="relative flex min-h-dvh items-center overflow-hidden px-5 pb-16 pt-[calc(6.5rem+env(safe-area-inset-top))] md:px-12 md:pb-24 md:pt-32">
-        <div
-          aria-hidden
-          className="absolute left-1/2 top-[calc(3.25rem+env(safe-area-inset-top))] aspect-square w-[min(112vw,30rem)] -translate-x-1/2 md:left-[max(-2rem,calc(50%-35rem))] md:top-[6%] md:w-[min(44vw,38rem)] md:translate-x-0"
-        >
-          <div className="absolute inset-[9%]">
+      <section className="relative flex min-h-dvh items-center overflow-hidden px-5 pb-16 pt-[calc(5rem+env(safe-area-inset-top))] md:px-12 wide:pb-24 wide:pt-32">
+        {/* Normal flow: moon above the text on phones, beside it (left) when wide. Never on top of it. */}
+        <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-10 wide:flex-row wide:justify-between wide:gap-12">
+          <div aria-hidden className="relative aspect-square w-[min(56vw,15rem)] shrink-0 wide:w-[min(38vw,30rem)]">
             <StaticMoon />
           </div>
+          <div className="relative z-10 min-w-0">{intro}</div>
         </div>
-        <div className="relative z-10 mx-auto w-full max-w-5xl">{intro}</div>
       </section>
       <section aria-label="How Luna works" className="relative bg-[#FFF9F9] px-5 py-16 md:px-12 md:py-28">
         <ol className="mx-auto grid max-w-5xl gap-14 md:grid-cols-2 md:gap-x-16 md:gap-y-20">
@@ -240,7 +238,7 @@ function PinnedHero({ intro, finale }: { intro: ReactNode; finale: ReactNode }) 
       <div aria-hidden className="pointer-events-none absolute inset-0 z-0">
         <div
           ref={halo}
-          className="absolute left-1/2 top-[38%] aspect-square w-[min(120vw,56rem)] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-50 md:left-[62%]"
+          className="absolute left-1/2 top-[24%] aspect-square w-[min(120vw,56rem)] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-50 wide:left-1/4 wide:top-[52%]"
           style={{
             background:
               "radial-gradient(circle, rgba(255,221,224,0.85) 0%, rgba(255,221,224,0.3) 40%, rgba(214,203,227,0.16) 58%, transparent 72%)",
@@ -263,34 +261,34 @@ function PinnedHero({ intro, finale }: { intro: ReactNode; finale: ReactNode }) 
         </motion.div>
       </div>
 
-      {/* Intro: same composition as the static hero */}
+      {/* Intro: text below the moon on phones, on the right when wide (the scene keeps the moon left) */}
       <div
         ref={introRef}
-        className="absolute inset-0 z-10 flex items-center px-5 pb-16 pt-[calc(6.5rem+env(safe-area-inset-top))] md:px-12 md:pb-24 md:pt-32"
+        className="absolute inset-0 z-10 flex items-end px-5 pb-[calc(2.5rem+env(safe-area-inset-bottom))] md:px-12 wide:items-center wide:pb-24 wide:pt-32"
       >
-        <div className="mx-auto w-full max-w-5xl">{intro}</div>
+        <div className="mx-auto w-full max-w-5xl wide:flex wide:justify-end">{intro}</div>
       </div>
 
       {/* Readability scrim for chapters on phones, where text sits over the scene */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-[55%] bg-gradient-to-t from-[#FFF9F9] via-[#FFF9F9]/85 to-transparent md:hidden" />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-[55%] bg-gradient-to-t from-[#FFF9F9] via-[#FFF9F9]/85 to-transparent wide:hidden" />
 
       <p
         ref={dayReadout}
         aria-hidden
-        className="absolute left-1/2 top-[calc(4.75rem+env(safe-area-inset-top))] z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/70 bg-white/70 px-3.5 py-1.5 text-xs font-medium tabular-nums text-[#6D5A60] opacity-0 backdrop-blur-md md:left-auto md:right-[max(1.5rem,calc(50%-34rem))] md:top-auto md:bottom-10 md:translate-x-0"
+        className="absolute left-1/2 top-[calc(4.75rem+env(safe-area-inset-top))] z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/70 bg-white/70 px-3.5 py-1.5 text-xs font-medium tabular-nums text-[#6D5A60] opacity-0 backdrop-blur-md wide:left-1/4 wide:top-auto wide:bottom-10"
       >
         Day <span ref={dayNum}>1</span> · <span ref={dayPhase}>Period</span>
         <span className="text-[#8A6F77]"> · example cycle</span>
       </p>
 
-      <ol className="absolute inset-x-0 bottom-0 z-10 px-5 pb-[calc(2.25rem+env(safe-area-inset-bottom))] md:bottom-auto md:left-[max(1.5rem,calc(50%-34rem))] md:right-auto md:top-1/2 md:w-[26rem] md:-translate-y-1/2 md:px-0 md:pb-0">
+      <ol className="absolute inset-x-0 bottom-0 z-10 px-5 pb-[calc(2.25rem+env(safe-area-inset-bottom))] wide:bottom-auto wide:left-auto wide:right-[max(1.5rem,calc(50%-34rem))] wide:top-1/2 wide:w-[26rem] wide:-translate-y-1/2 wide:px-0 wide:pb-0">
         {CHAPTER_CONTENT.map((c, i) => (
           <li
             key={c.label}
             ref={(el) => {
               chapters.current[i] = el;
             }}
-            className="pointer-events-none absolute inset-x-5 bottom-[calc(2.25rem+env(safe-area-inset-bottom))] opacity-0 data-[active]:pointer-events-auto md:inset-x-0 md:bottom-auto md:top-1/2 md:-translate-y-1/2"
+            className="pointer-events-none absolute inset-x-5 bottom-[calc(2.25rem+env(safe-area-inset-bottom))] opacity-0 data-[active]:pointer-events-auto wide:inset-x-0 wide:bottom-auto wide:top-1/2 wide:-translate-y-1/2"
           >
             <ChapterText c={c} i={i} />
             {c.proof ?? <div className="mt-6">{finale}</div>}

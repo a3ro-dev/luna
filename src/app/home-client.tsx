@@ -321,7 +321,7 @@ export default function HomeClient() {
       {/* ── Hero: a cycle, told by the moon (pinned 3D story; a plain page with reduced motion) ── */}
       <CycleHero
         intro={
-          <div className="flex min-w-0 max-w-xl flex-col items-center text-center md:items-start md:text-left">
+          <div className="flex min-w-0 max-w-xl flex-col items-center text-center wide:max-w-md wide:items-start wide:text-left">
             <p className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/70 px-3.5 py-1.5 text-[13px] font-medium text-[#A34E68] shadow-[0_1px_2px_rgba(109,90,96,0.06)]">
               <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#FFB5C0]" />
               Cycle tracking, softened
@@ -332,7 +332,7 @@ export default function HomeClient() {
             <p className="mt-5 max-w-[20ch] font-display text-[clamp(1.4rem,2.6vw,1.85rem)] font-semibold leading-[1.15] tracking-[-0.022em] text-[#6D5A60] md:max-w-md">
               A calm cycle tracker you can simply talk to.
             </p>
-            <div className="mt-9 flex w-full flex-col items-center gap-2 md:items-start">
+            <div className="mt-9 flex w-full flex-col items-center gap-2 wide:items-start">
               <Link href={primaryHref} className={cn(primaryButton, "h-[3.25rem] w-full max-w-xs px-8")}>
                 {isAuthenticated ? "Open Luna" : "Start free"}
                 <ArrowRight className="h-4 w-4" aria-hidden />
@@ -349,7 +349,7 @@ export default function HomeClient() {
                 </p>
               )}
             </div>
-            <p aria-hidden className="mt-10 hidden text-[13px] text-[#8A6F77] md:block">Scroll to watch a cycle go by</p>
+            <p aria-hidden className="mt-10 hidden text-[13px] text-[#8A6F77] wide:block">Scroll to watch a cycle go by</p>
           </div>
         }
         finale={

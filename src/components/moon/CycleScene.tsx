@@ -15,7 +15,7 @@ import {
  * "A cycle, told by the moon": the landing hero's pinned 3D scene.
  *
  * One spring-smoothed scroll progress drives everything, so the pieces never
- * drift apart: the moon glides from behind the wordmark to centre stage, a ring
+ * drift apart: the moon settles beside the wordmark and makes room, a ring
  * of 28 day-beads (coloured by cycle phase) fades in around it, a glowing marker
  * walks the ring, and the moon runs its own phases in step. Rendering is on
  * demand: frames are drawn only while the springs are moving.
@@ -83,6 +83,7 @@ function glowTexture() {
 
 function Scene({ progress, pointer }: CycleInputs) {
   const viewport = useThree((s) => s.viewport);
+  const size = useThree((s) => s.size);
   const group = useRef<THREE.Group>(null);
   const moon = useRef<THREE.Mesh>(null);
   const ring = useRef<THREE.Group>(null);
@@ -128,13 +129,18 @@ function Scene({ progress, pointer }: CycleInputs) {
     // Layout in world units, so the composition adapts to any aspect ratio.
     const w = viewport.width;
     const h = viewport.height;
-    const narrow = w / h < 0.85;
-    const intro = narrow
-      ? { x: 0, y: h * 0.19, s: Math.min(1.25, w * 0.62) }
-      : { x: -w * 0.27, y: h * 0.1, s: Math.min(1.35, h * 0.34) };
-    const stage = narrow
-      ? { x: 0, y: h * 0.16, s: Math.min(0.9, w * 0.25) }
-      : { x: w * 0.235, y: -h * 0.02, s: Math.min(0.85, h * 0.2) };
+    const px = h / size.height; // world units per CSS pixel
+    // Must match the `wide` variant in globals.css (>= 768px and landscape).
+    const wide = size.width >= 768 && size.width >= size.height;
+    // Wide: the moon keeps the left half for the whole story and the text sits
+    // on the right. Narrow: the moon sits above the text, never behind it.
+    const introD = Math.min(size.width * 0.56, size.height * 0.3) * px;
+    const intro = wide
+      ? { x: -w * 0.25, y: -h * 0.02, s: Math.min(1.35, h * 0.3, w * 0.2) }
+      : { x: 0, y: h / 2 - 76 * px - introD / 2, s: introD / 2 };
+    const stage = wide
+      ? { x: -w * 0.25, y: -h * 0.02, s: Math.min(0.85, h * 0.18, w * 0.12) }
+      : { x: 0, y: h * 0.16, s: Math.min(0.9, w * 0.25) };
 
     const glide = smooth(0, GLIDE_END, pr);
     g.position.set(lerp(intro.x, stage.x, glide), lerp(intro.y, stage.y, glide), 0);
