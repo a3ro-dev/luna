@@ -1,0 +1,22 @@
+project: luna-forecast-autoresearch
+question: >
+  Can Luna's next-period forecast (forecast-v2, log-scale conjugate normal with a
+  population prior) get more accurate and better calibrated on messy self-tracked
+  histories without losing interval coverage?
+started: 2026-09-26
+evaluation:
+  harness: autoresearch/src/eval.mts
+  primary: cycle macro MAE (nPast>=1), mean over 7 simulator runs (lower better)
+  constraints: every run cov80 in [0.72, 0.90]; mean |cov80-0.80| <= 0.062
+  improvement_rule: macroMAE -0.05 d, or IS80 -2% with macroMAE +0.02 d at most
+  baseline: {model: v2-bayes, macroMae: 5.527, is80: 34.036, calibErr: 0.052, within3: 0.592}
+  caveat: synthetic generator is ours; winners must also not regress on the read-only real-data backtest (exploratory)
+hypotheses:
+  H1-robust-location: {status: planned}
+  H2-recency-weighting: {status: planned}
+  H3-student-t-predictive: {status: planned}
+  H4-missed-log-splitting: {status: planned}
+  H5-median-ensemble: {status: planned}
+  H6-prior-sensitivity: {status: planned}
+  H7-period-integer-median: {status: planned}
+direction: bootstrap -> inner loop round 1
