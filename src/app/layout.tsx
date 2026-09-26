@@ -1,26 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Serif, DM_Sans, Figtree } from "next/font/google";
+import { Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import AppSessionProvider from "@/components/SessionProvider";
 import PWAProvider from "@/components/PWAProvider";
 import CookieConsent from "@/components/CookieConsent";
 import { cn } from "@/lib/utils";
 
-const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
-
+// UI type is the platform's own (SF Pro on Apple devices), so nothing to download.
+// The serif is Apple's New York where available; Instrument Serif is the fallback.
 const instrumentSerif = Instrument_Serif({
   weight: "400",
   variable: "--font-instrument-serif",
   subsets: ["latin"],
 });
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
-});
-
 export const viewport: Viewport = {
-  themeColor: "#FFDDE0",
+  themeColor: "#FBF6F7",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -64,9 +59,7 @@ export default function RootLayout({
         "h-full",
         "antialiased",
         instrumentSerif.variable,
-        dmSans.variable,
         "font-sans",
-        figtree.variable,
       )}
     >
       <body className="min-h-full flex flex-col font-sans bg-[#FCFBFB]">

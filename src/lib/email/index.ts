@@ -64,10 +64,10 @@ function emailShell(bodyHtml: string, footerText: string = "") {
             <td style="padding:28px 44px 0 44px; text-align:center;">
               ${
                 footerText
-                  ? `<p style="font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:12px; line-height:1.6; color:#8E7D82; opacity:0.55; margin:0 0 8px 0;">${footerText}</p>`
+                  ? `<p style="font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Helvetica,Arial,sans-serif; font-size:12px; line-height:1.6; color:#8E7D82; opacity:0.55; margin:0 0 8px 0;">${footerText}</p>`
                   : ""
               }
-              <p style="font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:10px; letter-spacing:0.25em; text-transform:uppercase; color:#8E7D82; opacity:0.35; margin:0;">
+              <p style="font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Helvetica,Arial,sans-serif; font-size:10px; letter-spacing:0.25em; text-transform:uppercase; color:#8E7D82; opacity:0.35; margin:0;">
                 Luna &mdash; your caring cycle companion
               </p>
             </td>
@@ -86,7 +86,7 @@ function emailShell(bodyHtml: string, footerText: string = "") {
    ────────────────────────────────────────────────────────────── */
 
 const paragraph = (text: string) =>
-  `<p style="font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:15px; line-height:1.75; color:#8E7D82; margin:0 0 20px 0;">${text}</p>`;
+  `<p style="font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Helvetica,Arial,sans-serif; font-size:15px; line-height:1.75; color:#8E7D82; margin:0 0 20px 0;">${text}</p>`;
 
 const heading = (text: string) =>
   `<h2 style="font-family:Georgia,'Times New Roman',serif; font-weight:300; font-size:24px; color:#6D5A60; margin:0 0 20px 0; line-height:1.3;">${text}</h2>`;
@@ -95,7 +95,7 @@ const ctaButton = (label: string, url: string) =>
   `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 28px 0;">
     <tr>
       <td style="background:#6D5A60; border-radius:999px;">
-        <a href="${url}" target="_blank" style="display:inline-block; padding:15px 36px; font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:11px; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:#ffffff; text-decoration:none;">${label}</a>
+        <a href="${url}" target="_blank" style="display:inline-block; padding:15px 36px; font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Helvetica,Arial,sans-serif; font-size:11px; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:#ffffff; text-decoration:none;">${label}</a>
       </td>
     </tr>
   </table>`;
@@ -105,12 +105,12 @@ const softDivider = () =>
 
 const infoRow = (label: string, value: string) =>
   `<tr>
-    <td style="font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:#FFB5C0; padding:6px 16px 6px 0; white-space:nowrap; vertical-align:top;">${label}</td>
-    <td style="font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:14px; color:#6D5A60; padding:6px 0; vertical-align:top;">${esc(value)}</td>
+    <td style="font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Helvetica,Arial,sans-serif; font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:#FFB5C0; padding:6px 16px 6px 0; white-space:nowrap; vertical-align:top;">${label}</td>
+    <td style="font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Helvetica,Arial,sans-serif; font-size:14px; color:#6D5A60; padding:6px 0; vertical-align:top;">${esc(value)}</td>
   </tr>`;
 
 const smallMuted = (text: string) =>
-  `<p style="font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:12px; line-height:1.6; color:#8E7D82; opacity:0.6; margin:8px 0 0 0;">${text}</p>`;
+  `<p style="font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Helvetica,Arial,sans-serif; font-size:12px; line-height:1.6; color:#8E7D82; opacity:0.6; margin:8px 0 0 0;">${text}</p>`;
 
 /* ──────────────────────────────────────────────────────────────
    1. Welcome email — sent on signup
@@ -138,7 +138,7 @@ export async function sendWelcomeEmail({
         <td style="padding:8px 0; vertical-align:top;">
           <span style="display:inline-block; width:28px; height:28px; line-height:28px; text-align:center; background:#FFDDE0; border-radius:50%; font-family:Georgia,serif; font-size:13px; color:#6D5A60; margin-right:14px;">1</span>
         </td>
-        <td style="padding:8px 0; font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:14px; color:#6D5A60; line-height:1.6;">
+        <td style="padding:8px 0; font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Helvetica,Arial,sans-serif; font-size:14px; color:#6D5A60; line-height:1.6;">
           <strong>Complete onboarding</strong> — tell us your birthday, timezone, and a bit about your health so we can personalize predictions.
         </td>
       </tr>
@@ -146,7 +146,7 @@ export async function sendWelcomeEmail({
         <td style="padding:8px 0; vertical-align:top;">
           <span style="display:inline-block; width:28px; height:28px; line-height:28px; text-align:center; background:#D6CBE3; border-radius:50%; font-family:Georgia,serif; font-size:13px; color:#6D5A60; margin-right:14px;">2</span>
         </td>
-        <td style="padding:8px 0; font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:14px; color:#6D5A60; line-height:1.6;">
+        <td style="padding:8px 0; font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Helvetica,Arial,sans-serif; font-size:14px; color:#6D5A60; line-height:1.6;">
           <strong>Log your period</strong> — type naturally in chat or tap the button on your dashboard.
         </td>
       </tr>
@@ -154,7 +154,7 @@ export async function sendWelcomeEmail({
         <td style="padding:8px 0; vertical-align:top;">
           <span style="display:inline-block; width:28px; height:28px; line-height:28px; text-align:center; background:#FBE6B6; border-radius:50%; font-family:Georgia,serif; font-size:13px; color:#6D5A60; margin-right:14px;">3</span>
         </td>
-        <td style="padding:8px 0; font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:14px; color:#6D5A60; line-height:1.6;">
+        <td style="padding:8px 0; font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Helvetica,Arial,sans-serif; font-size:14px; color:#6D5A60; line-height:1.6;">
           <strong>Let Luna learn</strong> — predictions improve with every cycle you log. The more you share, the softer and smarter it gets.
         </td>
       </tr>
@@ -318,7 +318,7 @@ export async function sendOtpEmail({ to, otp, userName }: SendOtpEmailParams) {
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:12px 0 28px 0;">
       <tr>
         <td style="background:linear-gradient(135deg,#FFDDE0 0%,#D6CBE3 100%); border-radius:20px; padding:20px 40px; text-align:center;">
-          <span style="font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:36px; font-weight:600; letter-spacing:0.35em; color:#6D5A60;">${otp}</span>
+          <span style="font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Helvetica,Arial,sans-serif; font-size:36px; font-weight:600; letter-spacing:0.35em; color:#6D5A60;">${otp}</span>
         </td>
       </tr>
     </table>

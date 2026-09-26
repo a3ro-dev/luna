@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.17.0",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Apple-grade calm: new type, materials and controls",
+    description:
+      "Luna now uses your device's own interface font (SF Pro on iPhone and Mac) with Apple's New York serif for the wordmark, which also means two fewer web fonts to download. Bars and sheets use translucent materials that turn solid when Reduce Transparency is on. The phone tab bar looks and behaves like iOS, with filled icons for the selected tab. New shared building blocks (large titles, grouped lists, segmented controls, bottom sheets) and spring presets give every screen the same calm feel. Secondary text keeps readable contrast.",
+  },
+  {
     version: "0.16.1",
     date: "2026-09-26",
     type: "fix",

@@ -26,8 +26,8 @@ color:
 
 typography:
   fonts:
-    serif: "Instrument Serif"
-    sans: "DM Sans"
+    sans: "System SF stack: -apple-system, BlinkMacSystemFont, SF Pro Text (UI); SF Pro Display for titles"
+    serif: "ui-serif (Apple New York), falling back to Instrument Serif; wordmark and display moments only"
   scale:
     xs: "0.625rem"
     sm: "0.75rem"
@@ -172,17 +172,30 @@ components:
 bans:
   - "Side-stripe borders (border-left/right > 1px as colored accent)"
   - "Gradient text (background-clip: text with gradient)"
-  - "Glassmorphism as default decoration"
+  - "Glassmorphism as decoration (translucent .material is reserved for bars, sheets and overlays that float over scrolling content, as on iOS)"
   - "Hero-metric template (big number, small label, gradient)"
   - "Identical card grids (same-sized cards repeated endlessly)"
   - "Modal as first thought (exhaust inline alternatives first)"
   - "Decorative motion that doesn't convey state"
   - "Display fonts in UI labels, buttons, or data"
   - "Generic emojis as UI elements (the sparkle orb is the only brand emoji)"
-  - "Bounce animations in product UI (bounce: 0 always)"
+  - "Ad hoc animation timings (use the presets in src/lib/motion.ts: smooth, snappy, bouncy; bouncy only for moments of delight)"
 ---
 
 # Design overview
+
+## Direction: Apple-grade calm (September 2026)
+
+Luna should feel like a first-party Apple app: intentionally premium, soothing and quiet. Concretely:
+
+- **Type.** The platform's own UI face (SF Pro on Apple devices) for everything functional. Large titles are SF Pro Display, bold, tight tracking (34px, -0.026em), collapsing into a compact translucent bar on scroll (`src/components/apple/LargeTitle.tsx`). Apple's New York serif (`font-serif`) is kept for the Luna wordmark and a few emotional display moments.
+- **Surfaces.** Inset grouped lists (`GroupedSection` / `GroupedRow`) on a tinted background, like Settings and Health: rounded surfaces, hairline separators inset to the label, 44px rows, chevrons for navigation. Cards use the soft `--shadow-card` instead of borders.
+- **Materials.** Bars, sheets and overlays that float over content use `.material` (translucent, saturate + blur). It turns solid when the user enables Reduce Transparency.
+- **Colour.** Each plan keeps its hue; `--tint` is the plan's iOS tint colour for links, selected states and primary text accents. `--label-secondary` and `--label-tertiary` give a subtle hierarchy that still meets 4.5:1.
+- **Controls.** Segmented controls (`Segmented`) for mode switches, bottom sheets (`Sheet`) for short focused tasks on phones, and an iOS tab bar with filled-when-selected icons.
+- **Motion.** Springs only, from `src/lib/motion.ts`: `smooth` for most state changes, `snappy` for small feedback, `bouncy` only for moments of delight such as a logged period. Product surfaces do not choreograph page loads; the landing page may.
+
+The sections below describe the earlier soft-glass language. Where they conflict with this direction, this direction wins.
 
 Luna is soft, airy, and calming. The UI leans into blush and warm neutrals with gentle contrast -- never harsh white or black. Surfaces feel like frosted glass on a pale background, with subtle shadows and large rounded corners. Typography is delicate but readable: a serif display for emotion, a light sans-serif for body.
 
@@ -212,7 +225,7 @@ Plan color tokens live in `.tier-app` in `src/app/globals.css`. Shared controls 
 
 ## Typography
 
-Serif (Instrument Serif) for headings and emotional moments. Sans (DM Sans) for body, labels, buttons, and data. One family per role, no mixing within a single element. Scale ratio is tight (1.125-1.2) for product UI consistency. Tabular nums for any numerical data that aligns.
+System SF Pro for UI, labels, buttons and data; SF Pro Display for large titles. Serif (Apple New York via ui-serif, Instrument Serif as fallback) for the wordmark and emotional display moments only. One family per role, no mixing within a single element. Scale ratio is tight (1.125-1.2) for product UI consistency. Tabular nums for any numerical data that aligns.
 
 ## Shadows over borders
 
