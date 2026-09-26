@@ -11,6 +11,21 @@ import { rateLimit } from "./lib/rate-limit";
 // Precomputed cost-12 hash so unknown emails still pay for one bcrypt compare.
 const DUMMY_HASH = "$2b$12$dk32SVT8sHueZRIXwbdV8uFBPD98ECb6hULYSfvc2jXJeNfbkrzW6";
 
+/*
+ * Every request runs the jwt callback twice (proxy, then the route), and each
+ * run looked the user up again. Only a fully valid result (user exists,
+ * password version matches, consent given) is remembered, so sign-in, consent
+ * and a new password take effect at once; only revoking an already-valid
+ * session can lag, by at most VALID_CHECK_TTL_MS.
+ * ponytail: per-instance memory; a shared cache (Redis) if instances multiply.
+ */
+const VALID_CHECK_TTL_MS = 30_000;
+const validChecks = new Map<string, { pwv: string; at: number }>();
+function rememberValidCheck(id: string, pwv: string) {
+  if (validChecks.size > 5_000) validChecks.clear(); // bounded; a miss only costs one query
+  validChecks.set(id, { pwv, at: Date.now() });
+}
+
 /** Session version: changes whenever the password hash changes, without putting hash material in the token. */
 const passwordVersion = (hash: string | null | undefined) =>
   hash ? createHash("sha256").update(hash).digest("base64url").slice(0, 16) : undefined;
@@ -64,10 +79,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       // Verify user still exists and password hasn't changed on every token refresh
       if (token.id) {
+        const id = token.id as string;
+        // A recent fully-valid check is trusted for a few seconds (see VALID_CHECK_TTL_MS).
+        const recent = validChecks.get(id);
+        if (recent && recent.pwv === token.pwv && Date.now() - recent.at < VALID_CHECK_TTL_MS) {
+          token.consentGiven = true;
+          return token;
+        }
         let userExists;
         try {
           userExists = await db.query.users.findFirst({
-            where: eq(users.id, token.id as string),
+            where: eq(users.id, id),
             columns: { id: true, consentGiven: true, passwordHash: true },
           });
         } catch (err) {
@@ -76,8 +98,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return token;
         }
         if (!userExists) return null; // confirmed gone: Auth.js clears the cookie
-        if (passwordVersion(userExists.passwordHash) !== token.pwv) return null; // password changed/reset
+        if (passwordVersion(userExists.passwordHash) !== token.pwv) {
+          validChecks.delete(id);
+          return null; // password changed/reset
+        }
         token.consentGiven = userExists.consentGiven;
+        if (userExists.consentGiven) rememberValidCheck(id, token.pwv as string);
+        else validChecks.delete(id);
       }
       return token;
     },

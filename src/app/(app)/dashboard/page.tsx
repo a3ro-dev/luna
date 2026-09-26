@@ -12,8 +12,11 @@ export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const { forecast, profile, rows, today } = await getUserForecast(session.user.id);
-  const plan = await getUserPlan(session.user.id);
+  // Independent reads, one round trip.
+  const [{ forecast, profile, rows, today }, plan] = await Promise.all([
+    getUserForecast(session.user.id),
+    getUserPlan(session.user.id),
+  ]);
 
   return (
     <DashboardClient

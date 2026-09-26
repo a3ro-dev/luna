@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.20.1",
+    date: "2026-09-26",
+    type: "fix",
+    title: "Faster everywhere you wait on Luna",
+    description:
+      "Every screen now spends fewer round trips talking to the database. Signing-in checks are no longer repeated twice per page, logging a period no longer reloads your whole history to refresh the forecast, and the dashboard loads your forecast and plan at the same time. On slower connections this is the difference between a snappy tap and a visible pause.",
+  },
+  {
     version: "0.20.0",
     date: "2026-09-26",
     type: "feat",

@@ -1,6 +1,6 @@
 {
   "name": "luna",
-  "version": "0.20.0",
+  "version": "0.20.1",
   "private": true,
   "description": "A soft, supportive menstrual cycle companion — log, predict, and chat about your cycle",
   "author": "Akshat Singh Kushwaha <akshatsingh14372@outlook.com> (https://a3ro.dev)",
@@ -54,7 +54,9 @@
     "radix-ui": "^1.4.3",
     "react": "19.0.0",
     "react-dom": "19.0.0",
+    "redis": "^6.2.1",
     "resend": "^6.12.2",
+    "resumable-stream": "^2.2.13",
     "shadcn": "^4.6.0",
     "shiki": "^4.0.2",
     "streamdown": "^2.5.0",

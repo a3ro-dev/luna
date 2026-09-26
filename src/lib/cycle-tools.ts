@@ -456,11 +456,13 @@ export function validateCycleDraft(draft: CycleDraft, others: CycleDraft[], toda
 
 type WriteResult =
   | { ok: true; cycle: CycleSummary; forecast: Forecast; missedLog: MissedLogSuggestion | null }
-  | { ok: false; error: string };
+  | { ok: false; error: string; closeStart?: string };
 
 async function afterWrite(userId: string, id: string): Promise<WriteResult> {
-  const { cycles: rows } = await refreshCycleAnalytics(userId);
-  const { forecast: f } = await getUserForecast(userId);
+  // The refresh already read the profile and every row: forecast from those instead of reading again.
+  const { cycles: rows, profile } = await refreshCycleAnalytics(userId);
+  const today = getCurrentIsoDate(profile.timeZone);
+  const f = forecast(rows, { conditions: profile.conditions, perimenoStage: profile.perimenoStage, today });
   const index = rows.findIndex((r) => r.id === id);
   if (index < 0) return { ok: false, error: "the log could not be found after saving." };
   const row = rows[index];
@@ -470,15 +472,22 @@ async function afterWrite(userId: string, id: string): Promise<WriteResult> {
   return { ok: true, cycle: summarizeCycle(row), forecast: f, missedLog };
 }
 
-/** An existing start within CLOSE_START_DAYS of `iso`: probably the same period, spotting or a corrected date. */
-export async function closeStartFor(userId: string, iso: string): Promise<string | null> {
-  return findCloseStart(await loadCycles(userId), iso)?.mStart ?? null;
-}
-
-export async function createCycle(userId: string, draft: CycleDraft, notes: CycleNotes = {}): Promise<WriteResult> {
+/**
+ * Validated insert. With `askIfClose`, a start within CLOSE_START_DAYS of another
+ * one is not saved; the result carries `closeStart` so the caller can ask
+ * "same period?" (the rows are already loaded here, so the check is free).
+ */
+export async function createCycle(
+  userId: string,
+  draft: CycleDraft,
+  notes: CycleNotes = {},
+  { askIfClose = false } = {},
+): Promise<WriteResult> {
   const [profile, rows] = await Promise.all([loadCycleProfile(userId), loadCycles(userId)]);
   const error = validateCycleDraft(draft, rows, getCurrentIsoDate(profile.timeZone));
   if (error) return { ok: false, error };
+  const close = askIfClose ? findCloseStart(rows, draft.mStart) : undefined;
+  if (close) return { ok: false, error: `there's already a period starting on ${close.mStart}.`, closeStart: close.mStart };
   const [inserted] = await db.insert(cycles).values({ userId, mStart: draft.mStart, mEnd: draft.mEnd, notes }).returning({ id: cycles.id });
   return afterWrite(userId, inserted.id);
 }

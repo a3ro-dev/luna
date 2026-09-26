@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
-import { closeStartFor, createCycle, diffInDays } from "@/lib/cycle-tools";
+import { createCycle, diffInDays } from "@/lib/cycle-tools";
 import { logError } from "@/lib/utils";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -24,14 +24,14 @@ export async function POST(req: Request) {
   try {
     const { mStart, mEnd, confirmedSeparatePeriod } = parsed.data;
     // Same question chat asks: a second start this close is usually the same period (autoresearch R4-1).
-    const existingStart = confirmedSeparatePeriod ? null : await closeStartFor(userId, mStart);
-    if (existingStart) {
+    const result = await createCycle(userId, { mStart, mEnd: mEnd ?? null }, {}, { askIfClose: !confirmedSeparatePeriod });
+    if ("closeStart" in result && result.closeStart) {
+      const existingStart = result.closeStart;
       return NextResponse.json(
         { confirm: { kind: "close-to-existing", existingStart, days: Math.abs(diffInDays(existingStart, mStart)) } },
         { status: 409 },
       );
     }
-    const result = await createCycle(userId, { mStart, mEnd: mEnd ?? null });
     if ("error" in result) return NextResponse.json({ error: result.error }, { status: 400 });
     return NextResponse.json({ cycle: result.cycle, missedLog: result.missedLog }, { status: 201 });
   } catch (err) {
