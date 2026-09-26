@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.11.2",
+    date: "2026-09-26",
+    type: "chore",
+    title: "Remove unused UI components and packages",
+    description:
+      "Deleted 49 vendored interface components and eight packages that no part of Luna used, which shrinks installs and removes most lint errors.",
+  },
+  {
     version: "0.11.1",
     date: "2026-09-24",
     type: "docs",

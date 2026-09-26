@@ -51,7 +51,7 @@ impeccable ~\.agents\skills\impeccable
 ## Key Files
 - Chat API: `src/app/api/chat/route.ts`
 - Chat UI: `src/app/(app)/chat/page.tsx`
-- Conversation component: `src/components/ai-elements/conversation.tsx`
+- Message list / scroll container: `src/app/(app)/chat/components/MessageList.tsx`
 - Cycle tools: `src/lib/cycle-tools.ts`
 - System prompt: `src/lib/chat/prompt.ts`
 - OpenUI detector: `src/lib/chat/openui.ts`
@@ -62,7 +62,7 @@ impeccable ~\.agents\skills\impeccable
 
 ## Chat Scroll Anchoring
 - Custom scroll implementation (not `use-stick-to-bottom` library)
-- `Conversation` component is the scroll container (`overflow-y-auto`)
+- `MessageList` is the scroll container (`overflow-y-auto`)
 - Layout: root `h-dvh overflow-hidden` → main column `flex-col min-h-0` → Conversation `flex-1 min-h-0`
 - `ResizeObserver` on `ConversationContent` auto-scrolls when `stickToBottom` is true
 - Scroll event listener toggles `stickToBottom`: on when near bottom, off when user scrolls up
