@@ -221,8 +221,8 @@ export function normalizeDateInput(
 
 const DATE_QUESTIONS: Record<string, string> = {
   "ambiguous-date":
-    "just to be sure -- is that day/month or month/day? could you tell me the month by name?",
-  "future-date": "that date is in the future -- which past date did you mean?",
+    "just to be sure, is that day/month or month/day? could you tell me the month by name?",
+  "future-date": "that date is in the future. which past date did you mean?",
 };
 
 function clarify(question: string, extra: Record<string, unknown> = {}) {
@@ -444,7 +444,7 @@ export function validateCycleDraft(draft: CycleDraft, others: CycleDraft[], toda
     if (draft.mEnd > today) return "the end date is in the future.";
     if (draft.mEnd < draft.mStart) return "the end date is before the start date.";
     const len = diffInDays(draft.mStart, draft.mEnd) + 1;
-    if (len > MAX_PERIOD_DAYS) return `that would be a ${len}-day period -- longer than ${MAX_PERIOD_DAYS} days usually means a date is off.`;
+    if (len > MAX_PERIOD_DAYS) return `that would be a ${len}-day period, and longer than ${MAX_PERIOD_DAYS} days usually means a date is off.`;
   }
   for (const o of others) {
     if (o.mStart === draft.mStart) return `there's already a period starting on ${o.mStart}.`;
@@ -553,7 +553,7 @@ export async function logPeriodStartEntry(args: {
       ok: true as const,
       responseMode: "plain" as const,
       kind: "confirmation" as const,
-      message: noteText ? `your period start on ${iso} was already logged -- I added the note.` : `your period start on ${iso} was already logged.`,
+      message: noteText ? `your period start on ${iso} was already logged, so I added the note.` : `your period start on ${iso} was already logged.`,
       cycle: summarizeCycle(existing),
       forecast: forecastForModel(f),
     };
@@ -710,7 +710,7 @@ export async function editPeriodLogEntry(args: {
     if (e.error) return e.error;
     patch.mEnd = e.isoDate;
   }
-  if (Object.keys(patch).length === 0) return clarify("What should I change -- the start date or the end date?");
+  if (Object.keys(patch).length === 0) return clarify("What should I change: the start date or the end date?");
   return confirmation(`updated the period that started ${target.mStart}.`, await updateCycle(args.userId, target.id, patch));
 }
 
@@ -726,7 +726,7 @@ export async function deletePeriodLogEntry(args: {
   const target = rows.find((r) => r.mStart === key.isoDate);
   if (!target) return clarify(`I don't have a period starting on ${key.isoDate}. Which one should I remove?`);
   if (!args.userConfirmed) {
-    return clarify(`just checking -- remove the period that started ${target.mStart}, including its notes? this can't be undone.`, {
+    return clarify(`just checking: remove the period that started ${target.mStart}, including its notes? this can't be undone.`, {
       reason: "confirm-delete",
     });
   }

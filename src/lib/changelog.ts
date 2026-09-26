@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.15.1",
+    date: "2026-09-26",
+    type: "fix",
+    title: "Cleaner wording in forecasts and chat confirmations",
+    description:
+      "Forecast explanations and chat confirmations no longer show a literal double hyphen in the middle of sentences, for example 'Day 3 of your current cycle. Log the end when your period stops.'",
+  },
+  {
     version: "0.15.0",
     date: "2026-09-26",
     type: "feat",

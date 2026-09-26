@@ -109,7 +109,7 @@ const CONDITION_ADJUST: Partial<
   hormonal_bc: {
     betweenSd: 8, withinSd: 8, gateMax: 90,
     withhold: "hormonal birth control usually suppresses ovulation",
-    caveat: "On hormonal birth control, bleeds depend on the method -- pill breaks are regular, IUDs, implants and shots often aren't.",
+    caveat: "On hormonal birth control, bleeds depend on the method: pill breaks are regular, IUDs, implants and shots often aren't.",
   },
   // Apple WHS within-person SD 5.4 d at 45-49; variability rises before the mean.
   perimenopause_early: {
@@ -370,7 +370,7 @@ export function forecast(
     );
   }
   if (cycleLength.nUsed < 3) {
-    caveats.push("This is mostly based on typical cycles, not yet yours -- it will get more personal as you log more periods.");
+    caveats.push("This is mostly based on typical cycles, not yet yours. It will get more personal as you log more periods.");
   }
 
   const bleedDays = round(periodLength.mean);
@@ -463,21 +463,21 @@ export function describeForecast(f: Forecast): ForecastText {
   const used = f.basis.intervalsUsed;
   const basis =
     used === 0
-      ? `Based on typical cycle data -- none of your own cycle lengths yet${f.basis.intervalsSetAside ? " (one unusual gap was set aside)" : ""}.`
+      ? `Based on typical cycle data, since none of your own cycle lengths are logged yet${f.basis.intervalsSetAside ? " (one unusual gap was set aside)" : ""}.`
       : `Based on ${used} of your cycle${used === 1 ? "" : "s"}${f.basis.mostlyPopulation ? " blended with typical cycle data" : ""}${f.basis.intervalsSetAside ? `, with ${f.basis.intervalsSetAside} unusual gap${f.basis.intervalsSetAside === 1 ? "" : "s"} set aside` : ""}.`;
   const days = f.daysUntil ?? 0;
   const status: Record<ForecastStatus, string> = {
     "no-data": "",
-    "on-period": `Day ${dayOfCycle! + 1} of your current cycle -- log the end when your period stops.`,
+    "on-period": `Day ${dayOfCycle! + 1} of your current cycle. Log the end when your period stops.`,
     upcoming: days === 1 ? "Most likely tomorrow." : `About ${days} days away.`,
     "in-window": f.ifNotStartedYet
       ? `You're in the likely window. If it hasn't started yet, most likely ${formatRange(f.ifNotStartedYet.earliest, f.ifNotStartedYet.latest)}.`
       : "You're in the likely window.",
-    late: `It's past Luna's usual range for you (day ${dayOfCycle! + 1}). Cycles vary -- if it has started, log it so the forecast stays accurate.`,
+    late: `It's past Luna's usual range for you (day ${dayOfCycle! + 1}). Cycles vary. If it has started, log it so the forecast stays accurate.`,
     "long-gap": `No new period logged for ${dayOfCycle} days. If you had one, logging it will fix the forecast.`,
   };
   const ovulation = f.ovulation
-    ? `Rough calendar estimate ${formatRange(f.ovulation.earliest, f.ovulation.latest)} -- not confirmed ovulation.`
+    ? `Rough calendar estimate ${formatRange(f.ovulation.earliest, f.ovulation.latest)}, not confirmed ovulation.`
     : f.ovulationWithheld
       ? `Not estimated: ${f.ovulationWithheld}.`
       : null;
