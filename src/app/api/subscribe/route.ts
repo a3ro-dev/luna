@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendSubscriptionRequestEmail } from "@/lib/email";
 import { rateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
+
+const subscribeSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(255),
+  plan: z.enum(["Luna Premium", "Luna Premium+"]),
+  name: z.string().trim().max(60).optional(),
+});
 
 // Rate limit: 3 requests per hour per IP — prevents email spam abuse
 const SUBSCRIBE_RATE_LIMIT = 3;
@@ -19,35 +26,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = await req.json();
-    const { email, plan, name } = body as {
-      email?: string;
-      plan?: string;
-      name?: string;
-    };
-
-    // Validate email — use a proper RFC-5322 pattern, not just includes("@")
-    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || typeof email !== "string" || !EMAIL_REGEX.test(email.trim())) {
+    const parsed = subscribeSchema.safeParse(await req.json());
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "A valid email address is required." },
+        { error: "A valid email address and plan are required." },
         { status: 400 },
       );
     }
-
-    // Validate plan
-    const validPlans = ["Luna Premium", "Luna Premium+"];
-    if (!plan || !validPlans.includes(plan)) {
-      return NextResponse.json(
-        { error: "Please select a valid plan." },
-        { status: 400 },
-      );
-    }
+    const { email, plan, name } = parsed.data;
 
     const result = await sendSubscriptionRequestEmail({
-      subscriberEmail: email.trim().toLowerCase(),
+      subscriberEmail: email,
       planName: plan,
-      subscriberName: name?.trim() || undefined,
+      subscriberName: name || undefined,
     });
 
     if (!result.adminSent) {

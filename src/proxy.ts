@@ -34,12 +34,7 @@ function buildCspResponse(request: NextRequest): NextResponse {
   return response;
 }
 
-// NOTE: Rate limiting for auth endpoints is handled inside each route handler
-// (forgot-password, reset-password) using the async Redis-backed rateLimit().
-// Next.js middleware cannot use async rate limiting for the NextAuth callback
-// path without blocking the auth flow, so login brute-force protection is
-// enforced at the route level via Auth.js's built-in signIn error handling
-// and the per-IP limiter in /api/auth/reset-password.
+// Login brute-force is throttled per email inside authorize() in src/auth.ts.
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;

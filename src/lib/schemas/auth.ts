@@ -21,7 +21,7 @@ export const resetPasswordSchema = z.object({
 /** Profile update schema — all fields optional */
 export const profileUpdateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  email: z.string().email().max(255).optional(),
+  email: z.string().trim().toLowerCase().email().max(255).optional(),
   timezone: z.string().max(100).optional(),
   conditions: z.array(
     z.enum([

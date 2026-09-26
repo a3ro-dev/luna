@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.13.1",
+    date: "2026-09-26",
+    type: "fix",
+    title: "Security hardening for sign-in, sessions, and emails",
+    description:
+      "Sign-in now allows 10 attempts per email every 15 minutes and takes the same time whether or not an account exists. Changing or resetting a password signs out every other session. Names and emails are escaped in all outgoing emails. Email addresses are stored in lower case. Email changes are rate limited. Login alerts no longer send your IP address to a third-party lookup service. Passwords and emails are no longer written to server logs. Everyone will be asked to sign in once after this update.",
+  },
+  {
     version: "0.13.0",
     date: "2026-09-26",
     type: "feat",

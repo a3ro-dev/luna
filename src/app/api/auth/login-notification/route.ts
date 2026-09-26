@@ -3,11 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import {
-  sendLoginNotification,
-  geoLocateIp,
-  parseUserAgent,
-} from "@/lib/email";
+import { sendLoginNotification, parseUserAgent } from "@/lib/email";
 import { rateLimit } from "@/lib/rate-limit";
 
 // Rate limit: 1 notification per 5 minutes per user to prevent self-spam
@@ -38,7 +34,20 @@ export async function POST(req: Request) {
     const rawIp = forwarded?.split(",")[0]?.trim() || realIp || "127.0.0.1";
 
     const { browser, os, device } = parseUserAgent(userAgent);
-    const geo = await geoLocateIp(rawIp);
+    // Vercel edge geo headers: no extra network call, no third party. Absent in local dev.
+    const h = req.headers;
+    const dec = (v: string | null) => {
+      try {
+        return v ? decodeURIComponent(v) : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+    const geo = {
+      city: dec(h.get("x-vercel-ip-city")),
+      region: h.get("x-vercel-ip-country-region") || undefined,
+      country: h.get("x-vercel-ip-country") || undefined,
+    };
 
     const userRecord = await db.query.users.findFirst({
       where: eq(users.id, session.user.id),

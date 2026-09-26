@@ -7,6 +7,7 @@ import { compare, hash } from "bcryptjs";
 import { profileUpdateSchema } from "@/lib/schemas/auth";
 import { logError } from "@/lib/utils";
 import { refreshCycleAnalytics } from "@/lib/cycle-tools";
+import { rateLimit } from "@/lib/rate-limit";
 
 const MAX_DOB_EDITS = 2;
 
@@ -59,6 +60,10 @@ export async function PATCH(req: Request) {
 
   try {
     const rawBody = await req.json();
+    // Settings sends "" for an unset name / date of birth; treat blank as "not provided".
+    for (const key of ["name", "dateOfBirth"]) {
+      if (rawBody?.[key] === "") delete rawBody[key];
+    }
     const parsed = profileUpdateSchema.safeParse(rawBody);
 
     if (!parsed.success) {
@@ -106,9 +111,20 @@ export async function PATCH(req: Request) {
 
     // ── Email ─────────────────────────────────────────
     if (email !== undefined) {
-      if (email !== userRecord.email) {
+      // Login, register and forgot-password all look up the lowercased address.
+      const nextEmail = email.toLowerCase().trim();
+      if (nextEmail !== userRecord.email) {
+        // ponytail: slows the "already in use" enumeration oracle; a pendingEmail + confirm-link flow closes it
+        const rl = await rateLimit(`email-change:${userId}`, 3, 60 * 60 * 1000);
+        if (!rl.success) {
+          return NextResponse.json(
+            { error: "Too many email changes. Try again later." },
+            { status: 429 },
+          );
+        }
+
         const existingUser = await db.query.users.findFirst({
-          where: and(eq(users.email, email), ne(users.id, userId)),
+          where: and(eq(users.email, nextEmail), ne(users.id, userId)),
           columns: { id: true },
         });
 
@@ -119,7 +135,7 @@ export async function PATCH(req: Request) {
           );
         }
       }
-      updates.email = email;
+      updates.email = nextEmail;
     }
 
     // ── Timezone ──────────────────────────────────────

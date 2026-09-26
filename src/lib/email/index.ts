@@ -4,6 +4,9 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM_ADDRESS = "Luna <noreply@luna.a3ro.dev>";
 
+/** HTML-escape untrusted text before it goes into an email body. */
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
 /* ──────────────────────────────────────────────────────────────
    Shared layout — every email wraps its body in this shell
    ────────────────────────────────────────────────────────────── */
@@ -103,7 +106,7 @@ const softDivider = () =>
 const infoRow = (label: string, value: string) =>
   `<tr>
     <td style="font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:#FFB5C0; padding:6px 16px 6px 0; white-space:nowrap; vertical-align:top;">${label}</td>
-    <td style="font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:14px; color:#6D5A60; padding:6px 0; vertical-align:top;">${value}</td>
+    <td style="font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:14px; color:#6D5A60; padding:6px 0; vertical-align:top;">${esc(value)}</td>
   </tr>`;
 
 const smallMuted = (text: string) =>
@@ -122,7 +125,7 @@ export async function sendWelcomeEmail({
   to,
   userName,
 }: SendWelcomeEmailParams) {
-  const greeting = userName ? `hey ${userName}` : "hey there";
+  const greeting = userName ? `hey ${esc(userName)}` : "hey there";
 
   const body = `
     ${heading("Welcome to Luna ✨")}
@@ -204,7 +207,7 @@ export async function sendLoginNotification({
   userName,
   location,
 }: SendLoginNotificationParams) {
-  const greeting = userName ? `${userName}` : "there";
+  const greeting = userName ? esc(userName) : "there";
 
   const locationLabel = [location.city, location.region, location.country]
     .filter(Boolean)
@@ -267,7 +270,7 @@ export async function sendPasswordResetEmail({
   resetUrl,
   userName,
 }: SendPasswordResetEmailParams) {
-  const greeting = userName ? `hey ${userName}` : "hey there";
+  const greeting = userName ? `hey ${esc(userName)}` : "hey there";
 
   const body = `
     ${heading("Reset your password")}
@@ -307,7 +310,7 @@ interface SendOtpEmailParams {
 }
 
 export async function sendOtpEmail({ to, otp, userName }: SendOtpEmailParams) {
-  const greeting = userName ? `hey ${userName}` : "hey there";
+  const greeting = userName ? `hey ${esc(userName)}` : "hey there";
 
   const body = `
     ${heading("Verify your email")}
@@ -338,49 +341,6 @@ export async function sendOtpEmail({ to, otp, userName }: SendOtpEmailParams) {
   }
 
   return data;
-}
-
-/* ──────────────────────────────────────────────────────────────
-   IP → Location helper (uses free ip-api.com)
-   ────────────────────────────────────────────────────────────── */
-
-interface IpGeoResult {
-  city?: string;
-  region?: string;
-  country?: string;
-}
-
-export async function geoLocateIp(ip: string): Promise<IpGeoResult> {
-  try {
-    // Skip local/private IPs
-    if (
-      !ip ||
-      ip === "127.0.0.1" ||
-      ip === "::1" ||
-      ip.startsWith("192.168.") ||
-      ip.startsWith("10.")
-    ) {
-      return {};
-    }
-    // Use HTTPS to prevent IP data from being intercepted in transit
-    const res = await fetch(
-      `https://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,city,regionName,country`,
-      {
-        signal: AbortSignal.timeout(3000),
-      },
-    );
-    const data = await res.json();
-    if (data?.status === "success") {
-      return {
-        city: data.city || undefined,
-        region: data.regionName || undefined,
-        country: data.country || undefined,
-      };
-    }
-    return {};
-  } catch {
-    return {};
-  }
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -462,13 +422,13 @@ export async function sendSubscriptionRequestEmail({
     </table>
     ${softDivider()}
     ${paragraph("Reply directly to this person or add them to your subscription list manually.")}
-    ${ctaButton("Reply to subscriber", `mailto:${subscriberEmail}?subject=Welcome to Luna ${planName}!`)}
+    ${ctaButton("Reply to subscriber", `mailto:${encodeURIComponent(subscriberEmail)}?subject=Welcome to Luna ${planName}!`)}
   `;
 
   // Also send a confirmation to the subscriber
   const subscriberBody = `
     ${heading("We got your request! 💕")}
-    ${paragraph(`${subscriberName ? `hey ${subscriberName}` : "hey there"}, thanks for your interest in <strong style="color:#6D5A60;">${planName}</strong>!`)}
+    ${paragraph(`hey there, thanks for your interest in <strong style="color:#6D5A60;">${planName}</strong>!`)}
     ${paragraph("We're handling subscriptions personally right now to make sure every Luna experience feels right. You'll hear from us soon with next steps.")}
     ${softDivider()}
     <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%; margin:0 0 24px 0; background:rgba(214,203,227,0.12); border-radius:20px; overflow:hidden;">
