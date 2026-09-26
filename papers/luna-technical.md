@@ -80,6 +80,10 @@ The synthetic run below is reproducible with `node --no-warnings scripts/backtes
 
 Among 365 simulated users with at least one prior interval, the v2-minus-v1 user-macro error difference was -1.13 days, with a 95% user-cluster bootstrap interval of [-1.57, -0.75]. That interval describes variation in the simulator, not uncertainty about an effect in real users. Seeds 43--45 preserved the direction of the comparison. The simulator shares assumptions with forecast-v2, so favorable synthetic results are expected and cannot establish real-world superiority. [Runner](../scripts/backtest.mts) · [Detailed audit](./research-notes.md)
 
+## Pattern check against reference ranges
+
+Separately from the forecast, Luna compares the last six months of logs with FIGO AUB System 1 limits for typical bleeding: frequency of 24--38 days, duration of 8 days or less, and a shortest-to-longest cycle spread of at most 7 days at ages 26--41 or 9 days at ages 18--25 and 42--45. Cycle length is marked outside the range when more than half of recent intervals fall outside 24--38 days; regularity needs at least three recent intervals. A start more than 90 days ago is reported as a long gap. The check does not run on hormonal contraception, and ages outside 18--45 are flagged as outside the reference population. It uses logged dates only; it does not use the forecast, does not diagnose, and says nothing about flow volume. [Pattern check](../src/lib/prediction/cycle-check.ts) · [Tests](../src/lib/prediction/__tests__/cycle-check.test.ts)
+
 ## Limits and next measurement
 
 Luna is not clinically validated. Its priors mix selected cohorts, its variance calculation is approximate, self-entered logs can be late or incomplete, and the current profile fields are coarse. The inspected live data cannot establish point accuracy, interval calibration, subgroup performance, or ovulation accuracy.

@@ -18,6 +18,10 @@ The dashboard now labels logged dates separately from estimated dates. It also s
 
 A short gap could be spotting or a duplicate log; a long gap could be a genuinely long cycle or a missed entry. Luna cannot tell which from dates alone. It keeps the record but may set the gap aside when calculating the next window. Repeated long gaps can count as part of a pattern. If a new start has not been logged by the expected window, the original forecast remains visible. While today is inside that window, Luna can also show a remaining window conditioned on no start being recorded yet.
 
+## Pattern check
+
+The dashboard and chat can compare your last six months with widely used clinical reference ranges (FIGO): cycles of 24--38 days, bleeding of 8 days or less, and cycle lengths that stay within about a week of each other. Each item shows as typical, outside the range, or "needs more data". It is a summary to help you notice a pattern, not a diagnosis. One unusual cycle is common; a pattern that keeps showing up is worth mentioning to a clinician. It is switched off on hormonal contraception, where bleeds follow the method rather than a natural cycle.
+
 ## Ovulation and conditions
 
 An ovulation date that you logged is a record. An ovulation date calculated by Luna is only a calendar estimate. The inspected database contained **no logged ovulation dates**, so there is no evidence here about the accuracy of those estimates. Luna withholds them for profiles where calendar timing is especially unsuitable, including PCOS/PCOD, irregular cycles, thyroid conditions, hormonal contraception, and late perimenopause.

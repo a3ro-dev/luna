@@ -8,6 +8,7 @@ import {
   MAX_PERIOD_DAYS,
 } from "@/lib/cycle-tools";
 import { formatRange, resolveForecastPrior } from "@/lib/prediction/forecast";
+import { ageOn, cycleCheck } from "@/lib/prediction/cycle-check";
 import DashboardClient from "./DashboardClient";
 import { getUserPlan } from "@/lib/theme/server-plan";
 
@@ -161,6 +162,11 @@ export default async function DashboardPage() {
       cycles={cyclesForClient}
       today={today}
       openPeriod={openPeriod}
+      patternCheck={cycleCheck(rows, {
+        today,
+        conditions: profile.conditions,
+        age: ageOn(profile.dateOfBirth, today),
+      })}
     />
   );
 }

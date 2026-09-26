@@ -12,6 +12,7 @@ import {
   type Forecast,
 } from "@/lib/prediction/forecast";
 import { and, asc, eq } from "drizzle-orm";
+import { ageOn, cycleCheck } from "@/lib/prediction/cycle-check";
 
 const DAY_MS = 86_400_000;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -314,13 +315,14 @@ export interface CycleProfile {
   conditions: string[];
   perimenoStage: PerimenoStage | null;
   timeZone: string;
+  dateOfBirth: string | null;
 }
 
 /** Conditions and stage always come from the DB row, never from callers. */
 export async function loadCycleProfile(userId: string, fallbackTimeZone = "UTC"): Promise<CycleProfile> {
   const row = await db.query.users.findFirst({
     where: eq(users.id, userId),
-    columns: { conditions: true, perimenoStage: true, timezone: true },
+    columns: { conditions: true, perimenoStage: true, timezone: true, dateOfBirth: true },
   });
   const conditions = Array.isArray(row?.conditions) ? (row.conditions as string[]) : [];
   const hasPerimeno = conditions.some((condition) =>
@@ -330,6 +332,7 @@ export async function loadCycleProfile(userId: string, fallbackTimeZone = "UTC")
     conditions,
     perimenoStage: hasPerimeno ? ((row?.perimenoStage as PerimenoStage | null) ?? null) : null,
     timeZone: sanitizeTimeZone(row?.timezone, fallbackTimeZone),
+    dateOfBirth: row?.dateOfBirth ?? null,
   };
 }
 
@@ -765,8 +768,9 @@ export async function getCycleInsightsEntry(args: {
   timeZone: string;
   mode: "stats" | "prediction";
 }) {
-  const { forecast: f, rows } = await getUserForecast(args.userId, args.timeZone);
+  const { forecast: f, rows, profile, today } = await getUserForecast(args.userId, args.timeZone);
   const snapshot = forecastForModel(f);
+  const patternCheck = cycleCheck(rows, { today, conditions: profile.conditions, age: ageOn(profile.dateOfBirth, today) });
   const recentCycles = rows.slice(-3).reverse().map(summarizeCycle);
 
   if (rows.length === 0) {
@@ -786,5 +790,6 @@ export async function getCycleInsightsEntry(args: {
     cycleCount: rows.length,
     recentCycles,
     forecast: snapshot,
+    patternCheck,
   };
 }

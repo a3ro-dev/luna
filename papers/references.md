@@ -11,6 +11,7 @@ This index separates published observations from Luna's design choices. A popula
 | Forecast and priors | [forecast.ts](../src/lib/prediction/forecast.ts) | Working-scale model, fixed prior values, exclusion rules, outputs, and ovulation estimate. |
 | Previous engine | [engine.ts](../src/lib/prediction/engine.ts) | Retained comparator; it is not the current dashboard or chat forecast path. |
 | Shared service and writes | [cycle-tools.ts](../src/lib/cycle-tools.ts) | Cycle validation, analytics refresh, and authenticated forecast loading. |
+| Pattern check | [cycle-check.ts](../src/lib/prediction/cycle-check.ts), [cycle-check.test.ts](../src/lib/prediction/__tests__/cycle-check.test.ts) | FIGO System 1 reference-range comparison shown on the dashboard and returned by chat stats tools. |
 | Evaluation | [backtest.ts](../src/lib/prediction/backtest.ts), [backtest.mts](../scripts/backtest.mts) | Rolling-origin implementation, simulator, baselines, and metric reporting. |
 | Regression tests | [forecast.test.ts](../src/lib/prediction/__tests__/forecast.test.ts), [backtest.test.ts](../src/lib/prediction/__tests__/backtest.test.ts), [engine.test.ts](../src/lib/prediction/__tests__/engine.test.ts) | Date, forecast, leakage, calibration, and retained-engine checks. |
 | Database profile | [db-profile.mts](../scripts/db-profile.mts) | Bounded, read-only aggregate queries and small-cell suppression. |
@@ -19,6 +20,12 @@ This index separates published observations from Luna's design choices. A popula
 | Subscription and reset | [home-client.tsx](../src/app/home-client.tsx), [subscribe route](../src/app/api/subscribe/route.ts), [forgot-password route](../src/app/api/auth/forgot-password/route.ts) | Request forms and email scheduling. |
 
 ## Primary studies
+
+### Reference ranges for the pattern check
+
+**Munro et al. (2018).** [“The two FIGO systems for normal and abnormal uterine bleeding symptoms and classification of causes of abnormal uterine bleeding in the reproductive years: 2018 revisions.”](https://obgyn.onlinelibrary.wiley.com/doi/10.1002/ijgo.12666) *International Journal of Gynecology & Obstetrics* 143:393--408. DOI: [10.1002/ijgo.12666](https://doi.org/10.1002/ijgo.12666).
+
+FIGO System 1 sets frequency at 24--38 days (5th to 95th percentiles of population studies of ages 18--45), duration at 8 days or less, and regularity as a shortest-to-longest spread of 7 days or less at ages 26--41 and 9 days or less at 18--25 and 42--45, assessed over the previous six months. Flow volume is patient-reported. Luna uses these limits as fixed thresholds; they describe populations and are not a diagnostic test.
 
 ### General cycle and phase lengths
 

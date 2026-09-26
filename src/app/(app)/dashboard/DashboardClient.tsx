@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import SignOutButton from "@/components/SignOutButton";
 import type { UserPlan } from "@/lib/theme/accent";
 import QuickLog, { type OpenPeriod } from "./QuickLog";
+import type { CycleCheck } from "@/lib/prediction/cycle-check";
 
 /* ─── Types ─── */
 interface CycleRow {
@@ -50,6 +51,7 @@ interface DashboardClientProps {
   cycles: CycleRow[];
   today: string;
   openPeriod: OpenPeriod | null;
+  patternCheck: CycleCheck;
 }
 
 /* ─── Animation recipes ─── */
@@ -577,6 +579,54 @@ function RecentCycles({ cycles }: { cycles: CycleRow[] }) {
   );
 }
 
+const CHECK_DOT = {
+  typical: "bg-emerald-400",
+  outside: "bg-amber-400",
+  unknown: "bg-[var(--tier-line)]",
+} as const;
+
+function PatternCheck({ check }: { check: CycleCheck }) {
+  return (
+    <section
+      aria-labelledby="pattern-check-heading"
+      className="rounded-3xl border border-[var(--tier-line)] bg-[var(--tier-surface)] p-6 sm:p-8"
+    >
+      <h2 id="pattern-check-heading" className="font-serif text-2xl font-light text-[var(--tier-ink)]">
+        Pattern check
+      </h2>
+      <p className="mt-2 max-w-[60ch] text-xs font-light leading-relaxed text-[var(--tier-muted)]">
+        Your last 6 months compared with FIGO&apos;s reference ranges for typical menstrual bleeding. A pattern
+        summary, not a diagnosis.
+      </p>
+      {check.applicable ? (
+        <ul className="mt-5 space-y-4">
+          {check.items.map((item) => (
+            <li key={item.id} className="flex gap-3">
+              <span aria-hidden className={`mt-1.5 size-2.5 shrink-0 rounded-full ${CHECK_DOT[item.status]}`} />
+              <div>
+                <p className="text-sm font-medium text-[var(--tier-ink)]">
+                  {item.label}
+                  <span className="sr-only">
+                    {item.status === "outside" ? " (outside typical range)" : item.status === "typical" ? " (typical)" : " (not enough data)"}
+                  </span>
+                </p>
+                <p className="mt-0.5 text-sm font-light leading-relaxed text-[var(--tier-muted)]">{item.detail}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-5 text-sm font-light leading-relaxed text-[var(--tier-muted)]">{check.reason}</p>
+      )}
+      {check.worthMentioning ? (
+        <p className="mt-5 text-xs font-light leading-relaxed text-[var(--tier-muted)]">
+          One unusual cycle is common. If a pattern keeps showing up, it&apos;s worth mentioning to a clinician.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 /* ─── Main component ─── */
 
 export default function DashboardClient(props: DashboardClientProps) {
@@ -600,7 +650,10 @@ export default function DashboardClient(props: DashboardClientProps) {
     cycles,
     today,
     openPeriod,
+    patternCheck,
   } = props;
+
+  const pattern = <PatternCheck check={patternCheck} />;
 
   const quickLog = <QuickLog today={today} openPeriod={openPeriod} />;
 
@@ -657,7 +710,7 @@ export default function DashboardClient(props: DashboardClientProps) {
               {calendar}
               <div className="space-y-6">{quickLog}{nextPeriod}{ovulation}{history}{ask}</div>
             </div>
-            <div className="mt-8 space-y-6">{explanation}{rhythm}</div>
+            <div className="mt-8 space-y-6">{explanation}{rhythm}{pattern}</div>
           </main>
         </div>
       ) : plan === "premium" ? (
@@ -675,7 +728,7 @@ export default function DashboardClient(props: DashboardClientProps) {
               </div>
               {calendar}
             </div>
-            <div className="mt-8 space-y-6">{explanation}{rhythm}</div>
+            <div className="mt-8 space-y-6">{explanation}{rhythm}{pattern}</div>
           </main>
         </div>
       ) : (
@@ -687,7 +740,7 @@ export default function DashboardClient(props: DashboardClientProps) {
               {quickLog}{nextPeriod}{ovulation}{ask}{history}
             </div>
             <div className="space-y-7">
-              {calendar}{rhythm}
+              {calendar}{rhythm}{pattern}
               <section className="rounded-3xl border border-[var(--tier-line)] bg-[var(--tier-surface)] p-6 sm:p-8" aria-labelledby="timeline-heading">
                 <h2 id="timeline-heading" className="font-serif text-2xl text-[var(--tier-ink)]">Cycle timeline</h2>
                 <ol className="mt-5 space-y-4 border-l border-[var(--tier-line)] pl-5 text-sm text-[var(--tier-muted)]">

@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.13.0",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Pattern check against clinical reference ranges",
+    description:
+      "The dashboard now compares your last six months with FIGO's published ranges for typical periods: cycles of 24 to 38 days, bleeding of 8 days or less, and cycle lengths that stay close together (the range depends on age). Each item reads typical, outside the range, or needs more data, and chat can explain it. It is a pattern summary, not a diagnosis, and it is switched off on hormonal contraception.",
+  },
+  {
     version: "0.12.2",
     date: "2026-09-26",
     type: "fix",
