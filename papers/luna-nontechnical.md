@@ -16,7 +16,7 @@ Once you have logged a period start, Luna can show a central next-start date and
 
 The dashboard now labels logged dates separately from estimated dates. It also shows how many previous intervals informed the forecast and how many were set aside. No logged start means no personal next-start date. [How the calculation works](./luna-technical.md)
 
-A short gap could be spotting or a duplicate log; a long gap could be a genuinely long cycle or a missed entry. Luna cannot tell which from dates alone. It keeps the record but may set the gap aside when calculating the next window. Repeated long gaps can count as part of a pattern. If a new start has not been logged by the expected window, the original forecast remains visible. While today is inside that window, Luna can also show a remaining window conditioned on no start being recorded yet.
+A short gap could be spotting or a duplicate log; a long gap could be a genuinely long cycle or a missed entry. Luna cannot tell which from dates alone. It keeps the record but may set the gap aside when calculating the next window. Repeated long gaps can count as part of a pattern. If a new start has not been logged by the expected window, the original forecast remains visible. While today is inside that window, Luna can also show a remaining window conditioned on no start being recorded yet. Once a period is later than Luna's usual range for you, Luna now also shows where it is likely to start if it hasn't started yet. That later window deliberately allows for the chance that a period went unlogged, so it is wide. It was chosen because it gave honest ranges in testing on simulated data, not because it makes the date sharper.
 
 ## Pattern check
 

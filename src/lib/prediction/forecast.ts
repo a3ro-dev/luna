@@ -26,7 +26,7 @@
  */
 import type { ConditionId, PerimenoStage } from "./engine.ts";
 
-export const MODEL_VERSION = "forecast-v2.0.0";
+export const MODEL_VERSION = "forecast-v2.1.0";
 
 /** Central prediction interval shown to users. */
 export const INTERVAL_LEVEL = 0.8;
@@ -383,15 +383,20 @@ export function forecast(
   else if (dayOfCycle <= prior.gate.max) status = "late";
   else status = "long-gap";
 
-  // Conditional window given no start logged by today. Only inside the
-  // window: before it conditioning barely moves anything, and past it the
-  // Normal tail is not credible (the model, or the log, is probably wrong).
+  // Conditional window given no start logged by today. Inside the window it
+  // is v2's own truncated predictive. Once late, v2's single-cycle tail is not
+  // credible (it covered 48% of late cycles in the backtest), so a skip mixture
+  // allows for missed logs (autoresearch R2-3 A-c23, confirmed on unseen data in R3).
   let ifNotStartedYet: Forecast["ifNotStartedYet"] = null;
   if (status === "in-window") {
     const a = metricCdf(cycleLength, dayOfCycle);
     const q = (p: number) => metricQuantile(cycleLength, a + p * (1 - a));
     const lo = Math.max(dayOfCycle, round(q((1 - INTERVAL_LEVEL) / 2)));
     ifNotStartedYet = { earliest: addDays(last.mStart, lo), latest: addDays(last.mStart, Math.max(lo, round(q((1 + INTERVAL_LEVEL) / 2)))) };
+  } else if (status === "late") {
+    const w = lateSkipMixture(intervals, cycleLength, prior.gate, dayOfCycle);
+    const lo = Math.max(dayOfCycle, round(w.lower));
+    ifNotStartedYet = { earliest: addDays(last.mStart, lo), latest: addDays(last.mStart, Math.max(lo, round(w.upper))) };
   }
 
   let ovulation: Forecast["ovulation"] = null;
@@ -425,6 +430,53 @@ export function forecast(
     ovulation,
     observedRange,
   };
+}
+
+// ─── Late window ─────────────────────────────────────────────────
+/** Population skip (missed-log) rate per cycle, AWHS / SkipTrack (see autoresearch/literature). */
+export const SKIP_RATE = 0.045;
+const SKIP_PRIOR_WEIGHT = 10;
+
+/**
+ * Where a late start is likely to fall, given none is logged by day t0.
+ * Mixture over c = 1, 2, 3 cycles since the last logged start (c > 1 means a
+ * period went unlogged): log y ~ N(mu + log c, s^2) with v2's own mu and s,
+ * weights [1 - w, w (1 - w), w^2], where w starts at SKIP_RATE and moves toward
+ * the person's own share of set-aside long gaps. Conditioned on y > t0 - 0.5.
+ * Frozen from autoresearch R2-3 design A-c23; do not tune without a new protocol.
+ */
+export function lateSkipMixture(
+  intervals: number[],
+  cycleLength: MetricForecast,
+  gate: { min: number; max: number },
+  t0: number,
+  level = INTERVAL_LEVEL,
+): { median: number; lower: number; upper: number; skipWeight: number } {
+  const finite = intervals.filter((x) => Number.isFinite(x) && x > 0);
+  const mask = usableMask(finite, gate);
+  const n = finite.filter((x) => x >= gate.min).length;
+  const k = finite.filter((x, i) => x > gate.max && !mask[i]).length;
+  const w = (SKIP_RATE * SKIP_PRIOR_WEIGHT + k) / (SKIP_PRIOR_WEIGHT + n);
+  const comps = [1 - w, w * (1 - w), w * w].map((pi, i) => ({
+    pi,
+    mu: cycleLength.scale === "log" ? cycleLength.mu + Math.log(i + 1) : Math.log(Math.max(cycleLength.mean, 1) * (i + 1)),
+    s: cycleLength.scale === "log" ? cycleLength.s : cycleLength.sd / Math.max(cycleLength.mean, 1),
+  }));
+  const cdf = (y: number) => comps.reduce((a, q) => a + q.pi * normCdf((Math.log(Math.max(y, 1e-9)) - q.mu) / q.s), 0);
+  const f0 = cdf(t0 - 0.5);
+  if (f0 >= 1 - 1e-9) return { median: t0, lower: t0, upper: t0 + 1, skipWeight: w };
+  const top = Math.exp(Math.max(...comps.map((q) => q.mu + 8 * q.s)));
+  const quantile = (p: number) => {
+    let lo = t0 - 0.5;
+    let hi = Math.max(top, t0 + 1);
+    for (let it = 0; it < 60; it++) {
+      const mid = (lo + hi) / 2;
+      if ((cdf(mid) - f0) / (1 - f0) < p) lo = mid;
+      else hi = mid;
+    }
+    return (lo + hi) / 2;
+  };
+  return { median: quantile(0.5), lower: quantile((1 - level) / 2), upper: quantile((1 + level) / 2), skipWeight: w };
 }
 
 // ─── Shared wording ──────────────────────────────────────────────
@@ -473,7 +525,9 @@ export function describeForecast(f: Forecast): ForecastText {
     "in-window": f.ifNotStartedYet
       ? `You're in the likely window. If it hasn't started yet, most likely ${formatRange(f.ifNotStartedYet.earliest, f.ifNotStartedYet.latest)}.`
       : "You're in the likely window.",
-    late: `It's past Luna's usual range for you (day ${dayOfCycle! + 1}). Cycles vary. If it has started, log it so the forecast stays accurate.`,
+    late: f.ifNotStartedYet
+      ? `It's past Luna's usual range for you (day ${dayOfCycle! + 1}). If it hasn't started yet, most likely ${formatRange(f.ifNotStartedYet.earliest, f.ifNotStartedYet.latest)}, allowing for a period that may not have been logged. If it has started, log it so the forecast stays accurate.`
+      : `It's past Luna's usual range for you (day ${dayOfCycle! + 1}). Cycles vary. If it has started, log it so the forecast stays accurate.`,
     "long-gap": `No new period logged for ${dayOfCycle} days. If you had one, logging it will fix the forecast.`,
   };
   const ovulation = f.ovulation

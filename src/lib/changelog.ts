@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.16.0",
+    date: "2026-09-26",
+    type: "feat",
+    title: "An honest window when your period is late",
+    description:
+      "When your period is later than Luna's usual range for you, the dashboard and chat now say where it is likely to start if it hasn't started yet, instead of going quiet. The range allows for the chance that a period went unlogged, so it is wide on purpose. It was chosen through pre-registered testing on simulated data and confirmed on data the model had never seen. Forecast model forecast-v2.1.0.",
+  },
+  {
     version: "0.15.1",
     date: "2026-09-26",
     type: "fix",

@@ -111,7 +111,7 @@ impeccable ~\.agents\skills\impeccable
 - Apply: `pnpm drizzle-kit migrate`
 
 ## Prediction Engine
-- `forecast-v2.0.0` is the current dashboard and chat forecast path; the older smoother remains only as a comparator.
+- `forecast-v2.1.0` is the current dashboard and chat forecast path (v2.1 adds a skip-mixture window once a period is late); the older smoother remains only as a comparator.
 - It models start-to-start intervals on a log scale, uses a cautious population starting point, and returns a central 80% next-start window.
 - It considers at most 12 usable intervals. Very short intervals and isolated long gaps may be set aside; repeated long gaps can become part of the pattern.
 - Calendar ovulation is an estimate, not an observation, and is withheld for profiles where date-based timing is especially unsuitable.

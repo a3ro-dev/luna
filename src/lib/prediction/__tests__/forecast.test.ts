@@ -76,8 +76,9 @@ describe("forecast v2 invariants", () => {
       { conditions: [], today: "2026-04-10" },
     );
     expect(result.status).toBe("late");
+    // The original estimate stays put; a late window is shown alongside it, never instead.
     expect(result.nextStart!.date < "2026-04-10").toBe(true);
-    expect(result.ifNotStartedYet).toBeNull();
+    expect(result.ifNotStartedYet!.earliest >= "2026-04-10").toBe(true);
   });
 
   it("withholds calendar ovulation for profiles where it is unsuitable", () => {

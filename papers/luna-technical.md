@@ -1,6 +1,6 @@
 # Luna's cycle forecast: model and evaluation
 
-**Release:** 0.11.1 · **Model:** `forecast-v2.0.0` · **Reviewed:** 24 September 2026
+**Release:** 0.16.0 · **Model:** `forecast-v2.1.0` · **Reviewed:** 26 September 2026
 
 **Status:** Implemented; predictive accuracy in real users is unknown.
 
@@ -49,7 +49,9 @@ Intervals under 15 days are set aside as possible duplicate or spotting logs. An
 
 PCOS, PCOD, irregular cycles, thyroid conditions, hormonal contraception, and perimenopause change spread or gate settings. PCOS and PCOD share settings. Late perimenopause also raises the starting cycle median to 60 days. These settings are cautious design choices, not fitted condition-specific distributions. A single hormonal-contraception flag cannot distinguish different regimens. [Profile adjustments](../src/lib/prediction/forecast.ts)
 
-The original next-start forecast stays fixed if no new start is logged. While the current date lies *inside* its window, the UI can also show a conditional remaining window, given no recorded start yet. After the window, the implementation reports a late or long-gap status without extending that conditional calculation. A missing log and a genuinely long cycle remain indistinguishable. [Ongoing-cycle logic](../src/lib/prediction/forecast.ts)
+The original next-start forecast stays fixed if no new start is logged. While the current date lies *inside* its window, the UI can also show a conditional remaining window, given no recorded start yet. Once the date passes the window but stays within the plausible gap (status "late"), forecast-v2.1.0 adds a late window: a mixture over one, two or three cycles since the last logged start, where more than one means a period went unlogged. Each component is $log y sim N(mu + log c, s^2)$ with v2's own $mu$ and $s$, weighted $[1-w, w(1-w), w^2]$. The skip weight $w$ starts at a population rate of 4.5% (AWHS / SkipTrack) with the weight of 10 pseudo-intervals and moves toward the person's share of set-aside long gaps. The mixture is conditioned on no start by today, and the window is its central 80%. A missing log and a genuinely long cycle remain indistinguishable; the mixture represents both instead of choosing. The long-gap status is unchanged because no evaluation covered it. [Ongoing-cycle logic](../src/lib/prediction/forecast.ts) · [Late-window tests](../src/lib/prediction/__tests__/late-window.test.ts)
+
+The late window was selected by a pre-registered, two-stage synthetic study. In the development harness v2's truncated tail covered 48% of late outcomes; the mixture covered about 81% and cut the 80% interval score by 59%, while point error improved only 5--6%. A confirmatory run on 160 unseen simulator runs then checked coverage (in range in 90--100% of runs per scenario), interval score (below 70% of the baseline in every run) and day-40 coverage (0.78--0.87). A second candidate failed the confirmatory coverage criterion and was not shipped. These are simulator results; the simulator's missed-log process is ours, so real-world calibration is not established. [Autoresearch record](../autoresearch/findings.md)
 
 Calendar ovulation is estimated by subtracting a luteal-phase starting value from the predicted next start and combining the two spreads approximately. It is withheld for PCOS/PCOD, irregular cycles, thyroid conditions, hormonal contraception, and late perimenopause. No logged ovulation outcomes were available to evaluate it. A model-derived date is never treated as an observed ovulation. [Ovulation logic](../src/lib/prediction/forecast.ts)
 

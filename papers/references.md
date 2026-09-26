@@ -12,6 +12,7 @@ This index separates published observations from Luna's design choices. A popula
 | Previous engine | [engine.ts](../src/lib/prediction/engine.ts) | Retained comparator; it is not the current dashboard or chat forecast path. |
 | Shared service and writes | [cycle-tools.ts](../src/lib/cycle-tools.ts) | Cycle validation, analytics refresh, and authenticated forecast loading. |
 | Pattern check | [cycle-check.ts](../src/lib/prediction/cycle-check.ts), [cycle-check.test.ts](../src/lib/prediction/__tests__/cycle-check.test.ts) | FIGO System 1 reference-range comparison shown on the dashboard and returned by chat stats tools. |
+| Late window | [forecast.ts](../src/lib/prediction/forecast.ts) (`lateSkipMixture`), [late-window.test.ts](../src/lib/prediction/__tests__/late-window.test.ts), [autoresearch findings](../autoresearch/findings.md) | Skip-mixture window once a period is late; parity-tested against the frozen experiment code. |
 | Evaluation | [backtest.ts](../src/lib/prediction/backtest.ts), [backtest.mts](../scripts/backtest.mts) | Rolling-origin implementation, simulator, baselines, and metric reporting. |
 | Regression tests | [forecast.test.ts](../src/lib/prediction/__tests__/forecast.test.ts), [backtest.test.ts](../src/lib/prediction/__tests__/backtest.test.ts), [engine.test.ts](../src/lib/prediction/__tests__/engine.test.ts) | Date, forecast, leakage, calibration, and retained-engine checks. |
 | Database profile | [db-profile.mts](../scripts/db-profile.mts) | Bounded, read-only aggregate queries and small-cell suppression. |

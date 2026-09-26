@@ -39,6 +39,7 @@
   ],
   "exclude": [
     "node_modules",
+    "autoresearch/**",
     "src/components/ai-elements/**",
     "src/components/ui/**"
   ]
