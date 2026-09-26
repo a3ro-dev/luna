@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.13.2",
+    date: "2026-09-26",
+    type: "fix",
+    title: "Reliable data import and private error logs",
+    description:
+      "Re-importing a Luna export no longer drops cycles. One bad record now rejects the whole import with a clear message instead of being skipped silently. Imported ovulation dates must fall inside their cycle. Apple Health exports with nested metadata are read correctly and 'no flow' entries are ignored. Database errors in server logs no longer include the health data that was being saved.",
+  },
+  {
     version: "0.13.1",
     date: "2026-09-26",
     type: "fix",

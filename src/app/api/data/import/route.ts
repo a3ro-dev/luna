@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import {
   getCurrentIsoDate,
+  isValidIsoDate,
   loadCycleProfile,
   refreshCycleAnalytics,
   validateCycleDraft,
@@ -235,31 +236,14 @@ function parseFlo(text: string): ParsedCycle[] {
 // Apple Health exports XML with <Record type="HKCategoryTypeIdentifierMenstrualFlow" ...>
 function parseAppleHealth(text: string): ParsedCycle[] {
   const periodDates: string[] = [];
-  const regex =
-    /<Record[^>]*type="HKCategoryTypeIdentifierMenstrualFlow"[^>]*startDate="([^"]+)"[^>]*\/>/g;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(text)) !== null) {
-    const dateStr = match[1];
-    const iso = parseCalendarDate(dateStr.split(" ")[0]); // "2025-01-28 ..." → "2025-01-28"
-    if (iso) {
-      periodDates.push(iso);
-    }
+  // Real exports nest <MetadataEntry> children (HKMenstrualCycleStart is required), so match the opening tag only.
+  for (const [tag] of text.matchAll(/<Record\b[^>]*>/g)) {
+    if (!tag.includes('type="HKCategoryTypeIdentifierMenstrualFlow"')) continue;
+    if (tag.includes('value="HKCategoryValueMenstrualFlowNone"')) continue;
+    const d = tag.match(/\bstartDate="(\d{4}-\d{2}-\d{2})/);
+    if (d) periodDates.push(d[1]);
   }
-
-  // Also try the alternate attribute order
-  const regex2 =
-    /<Record[^>]*startDate="([^"]+)"[^>]*type="HKCategoryTypeIdentifierMenstrualFlow"[^>]*\/>/g;
-  while ((match = regex2.exec(text)) !== null) {
-    const dateStr = match[1];
-    const iso = parseCalendarDate(dateStr.split(" ")[0]);
-    if (iso) {
-      periodDates.push(iso);
-    }
-  }
-
-  const unique = [...new Set(periodDates)].sort();
-  return groupConsecutiveDates(unique);
+  return groupConsecutiveDates([...new Set(periodDates)].sort());
 }
 
 // ─── Parser: Luna's own JSON ─────────────────────────────────────────
@@ -268,12 +252,11 @@ const lunaCycleSchema = z.object({
   mStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   mEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   ovulationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-  cycleLength: z.number().int().min(1).max(365).nullable().optional(),
-  periodLength: z.number().int().min(1).max(60).nullable().optional(),
-  notes: z.record(z.string(), z.unknown()).optional(),
+  notes: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
-function parseLuna(text: string): ParsedCycle[] {
+// Returns null if any record is invalid, so imports stay all-or-nothing.
+function parseLuna(text: string): ParsedCycle[] | null {
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -286,15 +269,13 @@ function parseLuna(text: string): ParsedCycle[] {
   const results: ParsedCycle[] = [];
   for (const item of rawCycles) {
     const parsed = lunaCycleSchema.safeParse(item);
-    if (!parsed.success) continue; // Skip invalid entries silently
+    if (!parsed.success) return null;
     const c = parsed.data;
     results.push({
       mStart: c.mStart,
       mEnd: c.mEnd ?? null,
       ovulationDate: c.ovulationDate ?? null,
-      cycleLength: c.cycleLength ?? null,
-      periodLength: c.periodLength ?? null,
-      notes: c.notes as Record<string, unknown> | undefined,
+      notes: c.notes ?? undefined,
     });
   }
   return results;
@@ -457,9 +438,16 @@ export async function POST(req: Request) {
       case "apple_health":
         parsed = parseAppleHealth(data);
         break;
-      case "luna":
-        parsed = parseLuna(data);
+      case "luna": {
+        const luna = parseLuna(data);
+        if (!luna)
+          return NextResponse.json(
+            { error: "Import contains an invalid cycle record." },
+            { status: 400 },
+          );
+        parsed = luna;
         break;
+      }
       default:
         return NextResponse.json(
           { error: `Unknown format: ${format}` },
@@ -488,6 +476,15 @@ export async function POST(req: Request) {
       const error = validateCycleDraft(draft, accepted, today);
       if (error) errors.push(`${candidate.mStart}: ${error}`);
       else accepted.push(draft);
+    }
+    const starts = accepted.map((c) => c.mStart).sort();
+    for (const c of parsed) {
+      const ov = c.ovulationDate;
+      if (!ov) continue;
+      const next = starts.find((s) => s > c.mStart);
+      if (!isValidIsoDate(ov) || ov <= c.mStart || ov > today || (next && ov >= next)) {
+        errors.push(`${c.mStart}: the ovulation date doesn't fall inside that cycle.`);
+      }
     }
     if (errors.length > 0) {
       return NextResponse.json(
@@ -525,7 +522,8 @@ export async function POST(req: Request) {
       { status: 201 },
     );
   } catch (err) {
-    console.error("Import error:", err);
+    // Never log the raw error: DrizzleQueryError embeds every imported row's params.
+    console.error("Import error:", err instanceof Error ? err.name : "unknown");
     return NextResponse.json(
       { error: "Failed to parse or import data." },
       { status: 500 },
