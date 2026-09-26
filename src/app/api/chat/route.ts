@@ -16,7 +16,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { auth } from "@/auth";
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, or } from "drizzle-orm";
 import { z } from "zod";
 import { logError } from "@/lib/utils";
 import { baseOpenUiPrompt } from "@/lib/chat/prompt";
@@ -37,7 +37,7 @@ import {
   type CycleProfile,
 } from "@/lib/cycle-tools";
 import { getModelConfig } from "@/lib/chat/models";
-import { storeImage } from "@/lib/chat/images";
+import { externalizeImageParts, resolveImageParts } from "@/lib/chat/images";
 import { rateLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
@@ -547,27 +547,27 @@ const maybeSummarizeSession = async (
   userId: string,
   modelName: string,
 ) => {
-  const summaryRow = await getLatestSummary(sessionId);
-
-  const messageCountRows = await db
-    .select()
-    .from(chatMessages)
-    .where(eq(chatMessages.sessionId, sessionId))
-    .orderBy(desc(chatMessages.createdAt));
-
-  const messageCount = messageCountRows.length;
+  const [summaryRow, [{ value: messageCount }]] = await Promise.all([
+    getLatestSummary(sessionId),
+    db.select({ value: count() }).from(chatMessages).where(eq(chatMessages.sessionId, sessionId)),
+  ]);
   const lastSummaryCount = summaryRow?.messageCount ?? 0;
 
   if (messageCount < SUMMARY_TRIGGER_COUNT) return;
   if (messageCount - lastSummaryCount < SUMMARY_MIN_DELTA) return;
 
-  const recentForSummary = messageCountRows
-    .slice()
-    .reverse()
+  // Text only: images add cost and are not needed for a summary
+  const rows = await db
+    .select({ id: chatMessages.id, role: chatMessages.role, textContent: chatMessages.textContent })
+    .from(chatMessages)
+    .where(eq(chatMessages.sessionId, sessionId))
+    .orderBy(chatMessages.createdAt);
+  const recentForSummary: UIMessage[] = rows
+    .filter((row) => row.textContent?.trim())
     .map((row) => ({
       id: row.id,
       role: row.role as UIMessage["role"],
-      parts: Array.isArray(row.parts) ? (row.parts as UIMessage["parts"]) : [],
+      parts: [{ type: "text", text: row.textContent! }],
     }));
 
   const summaryPrompt =
@@ -611,11 +611,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const {
-    messages,
-    sessionId: requestSessionId,
-    timezone: clientTimeZone,
-  } = await req.json();
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return Response.json({ error: "Invalid request." }, { status: 400 });
+  }
+  const { messages, sessionId: requestSessionId, timezone: clientTimeZone } = body;
   const userMessages = (Array.isArray(messages) ? messages : []) as UIMessage[];
   const userTimeZone = await resolveUserTimeZone(
     userId,
@@ -630,97 +630,34 @@ export async function POST(req: Request) {
 
   const lastIncoming = userMessages[userMessages.length - 1];
   if (lastIncoming && lastIncoming.role === "user") {
-    await db.insert(chatMessages).values({
-      sessionId,
-      userId,
-      role: "user",
-      parts: lastIncoming.parts ?? [],
-      textContent: getTextFromParts(lastIncoming.parts ?? []),
-    });
-
-    await db
-      .update(chatSessions)
-      .set({ updatedAt: new Date() })
-      .where(eq(chatSessions.id, sessionId));
-  }
-
-  // --- Store any uploaded images in DB (7-day retention) ---
-  if (lastIncoming && Array.isArray(lastIncoming.parts)) {
-    for (const part of lastIncoming.parts) {
-      if (
-        part.type === "file" &&
-        (
-          part as {
-            type: string;
-            mediaType?: string;
-            url?: string;
-            filename?: string;
-          }
-        ).mediaType?.startsWith("image/") &&
-        (part as { type: string; url?: string }).url
-      ) {
-        const filePart = part as {
-          type: string;
-          mediaType: string;
-          url: string;
-          filename?: string;
-        };
-
-        // Validate image size and media type before storing
-        const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
-        const ALLOWED_MEDIA_TYPES = [
-          "image/jpeg",
-          "image/png",
-          "image/webp",
-          "image/gif",
-        ];
-
-        if (filePart.url.length > MAX_IMAGE_SIZE_BYTES * 1.37) {
-          // base64 is ~37% larger than raw bytes
-          logError(
-            "image-upload",
-            `Image too large, skipping: ${filePart.filename}`,
-          );
-          continue;
-        }
-
-        if (!ALLOWED_MEDIA_TYPES.includes(filePart.mediaType)) {
-          logError(
-            "image-upload",
-            `Unsupported image type, skipping: ${filePart.mediaType}`,
-          );
-          continue;
-        }
-
-        try {
-          await storeImage({
-            userId,
-            imageData: filePart.url,
-            mediaType: filePart.mediaType,
-            filename: filePart.filename,
-          });
-        } catch (imgErr) {
-          logError("image-upload", imgErr);
-        }
-      }
-    }
+    // Images move to uploaded_images (7-day retention); history keeps a reference
+    const parts = await externalizeImageParts(userId, Array.isArray(lastIncoming.parts) ? lastIncoming.parts : []);
+    await db.batch([
+      db.insert(chatMessages).values({
+        sessionId,
+        userId,
+        role: "user",
+        parts,
+        textContent: getTextFromParts(parts),
+      }),
+      db.update(chatSessions).set({ updatedAt: new Date() }).where(eq(chatSessions.id, sessionId)),
+    ]);
   }
 
   // --- Plan tier + one read-only forecast snapshot for grounding ---
-  const userRow = await db.query.users.findFirst({
-    where: eq(users.id, userId),
-    columns: { plan: true },
-  });
-  const modelConfig = getModelConfig(userRow?.plan);
-  const { forecast: currentForecast, profile, today } = await getUserForecast(userId, userTimeZone);
-
+  // Independent reads run together to keep time-to-first-token low
   const lastUserText = getTextFromParts(lastIncoming?.parts ?? []);
-  const [memoryContext, recentMessages, latestSummary, contextSnippets] = await Promise.all([
-    recallMemory(userId, lastUserText),
-    getRecentMessages(sessionId),
-    getLatestSummary(sessionId),
-    getContextSnippets(sessionId, lastUserText),
-  ]);
+  const [userRow, { forecast: currentForecast, profile, today }, memoryContext, storedMessages, latestSummary, contextSnippets] =
+    await Promise.all([
+      db.query.users.findFirst({ where: eq(users.id, userId), columns: { plan: true } }),
+      getUserForecast(userId, userTimeZone),
+      recallMemory(userId, lastUserText),
+      getRecentMessages(sessionId),
+      getLatestSummary(sessionId),
+      getContextSnippets(sessionId, lastUserText),
+    ]);
+  const modelConfig = getModelConfig(userRow?.plan);
+  const recentMessages = await resolveImageParts(userId, storedMessages);
 
   const systemPrompt =
     buildSystemPrompt({

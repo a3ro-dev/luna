@@ -2,6 +2,8 @@ import { auth } from "@/auth"
 import { db } from "@/lib/db"
 import { chatMessages, chatSessions } from "@/lib/db/schema"
 import { and, asc, eq } from "drizzle-orm"
+import type { UIMessage } from "ai"
+import { resolveImageParts } from "@/lib/chat/images"
 
 export async function GET(
   _req: Request,
@@ -34,8 +36,8 @@ export async function GET(
   const messages = rows.map((row) => ({
     id: row.id,
     role: row.role,
-    parts: Array.isArray(row.parts) ? row.parts : [],
+    parts: Array.isArray(row.parts) ? (row.parts as UIMessage["parts"]) : [],
   }))
 
-  return Response.json(messages)
+  return Response.json(await resolveImageParts(userId, messages))
 }

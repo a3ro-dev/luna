@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.12.2",
+    date: "2026-09-26",
+    type: "fix",
+    title: "Photos in chat now really expire after 7 days",
+    description:
+      "Uploaded photos were deleted from image storage after 7 days, but a copy also lived inside the saved chat message. Chat history now keeps only a reference, so the 7-day deletion covers it, and the daily cleanup removes copies saved by earlier versions. Chat replies also start faster because Luna now loads your forecast, memories, and recent messages in parallel.",
+  },
+  {
     version: "0.12.1",
     date: "2026-09-26",
     type: "fix",

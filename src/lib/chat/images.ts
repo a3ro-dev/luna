@@ -1,8 +1,21 @@
 import { db } from "@/lib/db";
-import { uploadedImages } from "@/lib/db/schema";
-import { lt } from "drizzle-orm";
+import { chatMessages, uploadedImages } from "@/lib/db/schema";
+import { and, eq, gt, inArray, lt, sql } from "drizzle-orm";
+import type { UIMessage } from "ai";
 
-const IMAGE_RETENTION_DAYS = 7;
+export const IMAGE_RETENTION_DAYS = 7;
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const ALLOWED_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+/** Chat history stores this reference instead of the image bytes. */
+const IMAGE_REF = "luna-image:";
+const EXPIRED_NOTE = `(photo removed after ${IMAGE_RETENTION_DAYS} days)`;
+
+type Parts = UIMessage["parts"];
+type FilePart = { type: "file"; mediaType?: string; url?: string; filename?: string };
+
+const isImagePart = (part: Parts[number]): part is Parts[number] & FilePart =>
+  part.type === "file" && Boolean((part as FilePart).mediaType?.startsWith("image/"));
 
 /**
  * Store an uploaded image in the database.
@@ -41,9 +54,54 @@ export async function storeImage({
 }
 
 /**
- * Delete all expired images from the database.
- * Called on a schedule (e.g. via API route or cron).
- * Returns the number of deleted rows.
+ * Move inline image data out of message parts into uploaded_images, leaving a
+ * reference behind, so the 7-day purge also covers chat history. Oversized or
+ * unsupported images are dropped rather than stored.
+ */
+export async function externalizeImageParts(userId: string, parts: Parts): Promise<Parts> {
+  const out: Parts = [];
+  for (const part of parts) {
+    if (!isImagePart(part) || !part.url?.startsWith("data:")) {
+      out.push(part);
+      continue;
+    }
+    // base64 is ~37% larger than raw bytes
+    if (part.url.length > MAX_IMAGE_SIZE_BYTES * 1.37 || !ALLOWED_MEDIA_TYPES.includes(part.mediaType!)) {
+      continue;
+    }
+    const id = await storeImage({ userId, imageData: part.url, mediaType: part.mediaType!, filename: part.filename });
+    out.push({ ...part, url: `${IMAGE_REF}${id}` } as Parts[number]);
+  }
+  return out;
+}
+
+/** Swap image references back for their data; expired images become a short note. */
+export async function resolveImageParts<M extends { parts: Parts }>(userId: string, messages: M[]): Promise<M[]> {
+  const ids = messages.flatMap((m) =>
+    m.parts.flatMap((p) => (isImagePart(p) && p.url?.startsWith(IMAGE_REF) ? [p.url.slice(IMAGE_REF.length)] : [])),
+  );
+  if (ids.length === 0) return messages;
+
+  const rows = await db
+    .select({ id: uploadedImages.id, imageData: uploadedImages.imageData })
+    .from(uploadedImages)
+    .where(and(inArray(uploadedImages.id, ids), eq(uploadedImages.userId, userId), gt(uploadedImages.expiresAt, new Date())));
+  const data = new Map(rows.map((r) => [r.id, r.imageData]));
+
+  return messages.map((m) => ({
+    ...m,
+    parts: m.parts.map((p) => {
+      if (!isImagePart(p) || !p.url?.startsWith(IMAGE_REF)) return p;
+      const url = data.get(p.url.slice(IMAGE_REF.length));
+      return url ? { ...p, url } : { type: "text" as const, text: EXPIRED_NOTE };
+    }),
+  }));
+}
+
+/**
+ * Delete all expired images from the database, and strip any image data that
+ * older chat messages stored inline. Called on a schedule (e.g. via cron).
+ * Returns the number of deleted image rows.
  */
 export async function cleanupExpiredImages(): Promise<number> {
   const now = new Date();
@@ -52,22 +110,24 @@ export async function cleanupExpiredImages(): Promise<number> {
     .where(lt(uploadedImages.expiresAt, now))
     .returning({ id: uploadedImages.id });
 
+  const cutoff = new Date(now.getTime() - IMAGE_RETENTION_DAYS * 86_400_000);
+  // ponytail: bounded batches per run; the daily cron finishes any backlog
+  for (let batch = 0; batch < 10; batch++) {
+    const rows = await db
+      .select({ id: chatMessages.id, parts: chatMessages.parts })
+      .from(chatMessages)
+      .where(and(lt(chatMessages.createdAt, cutoff), sql`${chatMessages.parts}::text like '%"url":"data:image%'`))
+      .limit(100);
+    if (rows.length === 0) break;
+    await Promise.all(
+      rows.map((row) => {
+        const parts = (Array.isArray(row.parts) ? (row.parts as Parts) : []).map((p) =>
+          isImagePart(p) && p.url?.startsWith("data:") ? { type: "text" as const, text: EXPIRED_NOTE } : p,
+        );
+        return db.update(chatMessages).set({ parts }).where(eq(chatMessages.id, row.id));
+      }),
+    );
+  }
+
   return deleted.length;
-}
-
-/**
- * Retrieve a stored image by ID (for forwarding to the model).
- * Only returns images that haven't expired.
- */
-export async function getImage(
-  imageId: string,
-): Promise<{ imageData: string; mediaType: string } | null> {
-  const now = new Date();
-  const row = await db.query.uploadedImages.findFirst({
-    where: (img, { and, eq, gt }) =>
-      and(eq(img.id, imageId), gt(img.expiresAt, now)),
-    columns: { imageData: true, mediaType: true },
-  });
-
-  return row ?? null;
 }
