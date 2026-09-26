@@ -7,6 +7,7 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useCookieConsentPending } from "@/components/CookieConsent";
 import {
@@ -201,6 +202,10 @@ export function PWAInstallPrompt() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [platform] = useState<InstallPlatform>(() => detectPlatform());
   const consentPending = useCookieConsentPending();
+  // Only offer install inside the app, once someone is using Luna; never over
+  // the landing page or the sign-in flow.
+  const pathname = usePathname();
+  const inApp = /^\/(dashboard|chat|settings)(\/|$)/.test(pathname ?? "");
 
   useEffect(() => {
     // Don't show if already installed
@@ -261,7 +266,7 @@ export function PWAInstallPrompt() {
   }, []);
 
   // One bottom card at a time: the cookie notice goes first.
-  if (consentPending) return null;
+  if (consentPending || !inApp) return null;
 
   // ── Install card (prompt if available; otherwise show instructions) ─────
   if (showPrompt) {

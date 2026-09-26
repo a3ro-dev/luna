@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.17.1",
+    date: "2026-09-26",
+    type: "feat",
+    title: "A new front page: a cycle, told by the moon",
+    description:
+      "The front page now tells Luna's story as you scroll. The moon glides from behind the wordmark to centre stage, a ring of 28 days appears around it, and a glowing marker walks an example cycle while the moon runs through its own phases. Four short chapters (log, look ahead, notice, talk) play beside it, each with a small real example. It uses Apple-style type and pacing, draws only while moving, and becomes a plain, fully readable page with reduced motion. The old background video and 428-frame animation are gone, so the page downloads about 17 MB less. The install suggestion now only appears inside the app, never over the front page.",
+  },
+  {
     version: "0.17.0",
     date: "2026-09-26",
     type: "feat",

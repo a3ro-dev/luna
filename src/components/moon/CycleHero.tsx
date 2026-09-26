@@ -1,0 +1,302 @@
+"use client";
+
+import { useRef, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
+import { motion } from "motion/react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
+import { useCan3d } from "./capability";
+
+gsap.registerPlugin(ScrollTrigger, useGSAP);
+
+// three.js only downloads when the 3D scene will actually run.
+const CycleScene = dynamic(() => import("./CycleScene"), { ssr: false });
+
+// Must match CycleScene: days and the example phase split.
+const DAYS = 28;
+const PHASE_LABEL = (day: number) =>
+  day <= 5 ? "Period" : day <= 12 ? "Follicular" : day <= 16 ? "Ovulation window" : "Luteal";
+
+// Chapter windows as fractions of the pin (CycleScene starts the walk at 0.16).
+const CHAPTERS = [0.16, 0.36, 0.56, 0.76] as const;
+const CYCLE_START = 0.16;
+const CYCLE_END = 0.96;
+
+interface Chapter {
+  label: string;
+  title: string;
+  body: string;
+  proof: ReactNode;
+}
+
+const proofCard =
+  "mt-5 rounded-2xl border border-[#F3DDE2] bg-white/80 p-4 text-sm text-[#6D5A60] shadow-[0_12px_32px_rgba(255,181,192,0.12)] backdrop-blur-md";
+
+const CHAPTER_CONTENT: Chapter[] = [
+  {
+    label: "Log",
+    title: "Say it the way you'd say it.",
+    body: "Tell Luna “my period started today” and it's logged. Or tap once on your dashboard.",
+    proof: (
+      <div className={proofCard}>
+        <p className="ml-auto w-fit rounded-2xl rounded-br-md bg-[#6D5A60] px-3.5 py-2 text-white">my period started today</p>
+        <p className="mt-2 w-fit rounded-2xl rounded-bl-md bg-[#FFF1F3] px-3.5 py-2">Logged for today. Your next window is updating.</p>
+      </div>
+    ),
+  },
+  {
+    label: "Look ahead",
+    title: "A likely window, honestly drawn.",
+    body: "Luna shows a range and what it's based on, so you can tell when to lean on it and when it's still learning.",
+    proof: (
+      <div className={proofCard}>
+        <p className="text-xs font-medium uppercase tracking-widest text-[#8A6F77]">Next period · example</p>
+        <p className="mt-1 font-serif text-2xl text-[#6D5A60]">Most likely Oct 21 to 26</p>
+        <p className="mt-1 text-xs text-[#75636A]">Based on 5 of your cycles</p>
+      </div>
+    ),
+  },
+  {
+    label: "Notice",
+    title: "Patterns, without the alarm.",
+    body: "A quiet check of your last six months against clinical reference ranges. A summary, never a diagnosis.",
+    proof: (
+      <ul className={`${proofCard} space-y-2`}>
+        {[
+          ["Cycle length", "typical", "bg-emerald-400"],
+          ["Period length", "typical", "bg-emerald-400"],
+          ["Regularity", "needs 1 more cycle", "bg-[#D9CFE3]"],
+        ].map(([k, v, dot]) => (
+          <li key={k} className="flex items-center gap-2.5">
+            <span aria-hidden className={`size-2.5 rounded-full ${dot}`} />
+            <span className="font-medium">{k}</span>
+            <span className="text-[#75636A]">{v}</span>
+          </li>
+        ))}
+      </ul>
+    ),
+  },
+  {
+    label: "Talk",
+    title: "Questions at 2am get a warm answer.",
+    body: "Ask about cramps, a late period or what your numbers mean. Luna answers from your own logs.",
+    proof: null,
+  },
+];
+
+function StaticMoon({ phase = "crescent" }: { phase?: "crescent" | "full" | "waning" }) {
+  const background =
+    phase === "full"
+      ? "radial-gradient(circle at 45% 40%, #FFF8F4 0%, #FFF1EC 60%, #F1E3E8 100%)"
+      : phase === "waning"
+        ? "radial-gradient(circle at 78% 46%, #E6DDEE 0%, #E6DDEE 58%, #F6ECEF 70%, #FFF4EF 82%)"
+        : "radial-gradient(circle at 22% 46%, #E6DDEE 0%, #E6DDEE 58%, #F6ECEF 70%, #FFF4EF 82%)";
+  return <div className="absolute inset-0 rounded-full" style={{ background, boxShadow: "inset 0.3rem -0.2rem 1rem rgba(255,181,192,0.22)" }} />;
+}
+
+function ChapterText({ c, i }: { c: Chapter; i: number }) {
+  return (
+    <>
+      <p className="text-[15px] font-semibold tracking-[-0.01em] text-[#A34E68]">
+        <span className="sr-only">Step {i + 1}: </span>
+        {c.label}
+      </p>
+      <h2 className="mt-2 font-display text-[clamp(1.9rem,4vw,2.9rem)] font-semibold leading-[1.06] tracking-[-0.03em] text-[#6D5A60]">
+        {c.title}
+      </h2>
+      <p className="mt-3 max-w-[34ch] text-[17px] leading-[1.47] tracking-[-0.01em] text-[#75636A]">{c.body}</p>
+    </>
+  );
+}
+
+/**
+ * The landing hero: the intro (wordmark and call to action) followed by four
+ * chapters. With 3D available the section pins and the chapters play over the
+ * moon scene as you scroll; otherwise it is an ordinary, fully readable page.
+ */
+export default function CycleHero({ intro, finale }: { intro: ReactNode; finale: ReactNode }) {
+  const can3d = useCan3d();
+  return can3d ? <PinnedHero intro={intro} finale={finale} /> : <StaticHero intro={intro} finale={finale} />;
+}
+
+function StaticHero({ intro, finale }: { intro: ReactNode; finale: ReactNode }) {
+  return (
+    <>
+      <section className="relative flex min-h-dvh items-center overflow-hidden px-5 pb-16 pt-[calc(6.5rem+env(safe-area-inset-top))] md:px-12 md:pb-24 md:pt-32">
+        <div
+          aria-hidden
+          className="absolute left-1/2 top-[calc(3.25rem+env(safe-area-inset-top))] aspect-square w-[min(112vw,30rem)] -translate-x-1/2 md:left-[max(-2rem,calc(50%-35rem))] md:top-[6%] md:w-[min(44vw,38rem)] md:translate-x-0"
+        >
+          <div className="absolute inset-[9%]">
+            <StaticMoon />
+          </div>
+        </div>
+        <div className="relative z-10 mx-auto w-full max-w-5xl">{intro}</div>
+      </section>
+      <section aria-label="How Luna works" className="relative bg-[#FFF9F9] px-5 py-16 md:px-12 md:py-28">
+        <ol className="mx-auto grid max-w-5xl gap-14 md:grid-cols-2 md:gap-x-16 md:gap-y-20">
+          {CHAPTER_CONTENT.map((c, i) => (
+            <li key={c.label} className="relative min-w-0">
+              <div aria-hidden className="relative mb-5 size-12">
+                <StaticMoon phase={i === 0 ? "crescent" : i === 3 ? "waning" : "full"} />
+              </div>
+              <ChapterText c={c} i={i} />
+              {c.proof ?? <div className="mt-6">{finale}</div>}
+            </li>
+          ))}
+        </ol>
+      </section>
+    </>
+  );
+}
+
+function PinnedHero({ intro, finale }: { intro: ReactNode; finale: ReactNode }) {
+  const section = useRef<HTMLElement>(null);
+  const introRef = useRef<HTMLDivElement>(null);
+  const halo = useRef<HTMLDivElement>(null);
+  const dayNum = useRef<HTMLSpanElement>(null);
+  const dayPhase = useRef<HTMLSpanElement>(null);
+  const dayReadout = useRef<HTMLParagraphElement>(null);
+  const chapters = useRef<Array<HTMLLIElement | null>>([]);
+  const progress = useRef(0);
+  const pointer = useRef({ x: 0, y: 0 });
+  const invalidate = useRef<() => void>(() => {});
+  const [ready, setReady] = useState(false);
+
+  useGSAP(
+    () => {
+      // Mobile browsers resize the viewport as the address bar hides; don't re-pin for that.
+      ScrollTrigger.config({ ignoreMobileResize: true });
+
+      const items = chapters.current.filter((el): el is HTMLLIElement => Boolean(el));
+      const tl = gsap.timeline({ defaults: { ease: "power1.inOut" } });
+      tl.to(introRef.current, { opacity: 0, y: -28, duration: 0.07 }, 0.04);
+      items.forEach((el, i) => {
+        const start = CHAPTERS[i];
+        tl.fromTo(el, { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.05 }, start);
+        if (i < items.length - 1) tl.to(el, { opacity: 0, y: -18, duration: 0.04 }, CHAPTERS[i + 1] - 0.04);
+      });
+      tl.fromTo(dayReadout.current, { opacity: 0 }, { opacity: 1, duration: 0.05 }, CYCLE_START);
+      tl.set({}, {}, 1); // timeline length = 1, so positions are fractions of the pin
+
+      let active = -1;
+      const st = ScrollTrigger.create({
+        trigger: section.current,
+        start: "top top",
+        end: "+=320%",
+        pin: true,
+        scrub: 0.4,
+        animation: tl,
+        onUpdate: (self) => {
+          const pr = self.progress;
+          progress.current = pr;
+          invalidate.current();
+          if (halo.current) halo.current.style.opacity = String(0.5 + 0.35 * Math.sin(Math.PI * Math.min(1, pr * 1.2)));
+
+          const q = Math.min(1, Math.max(0, (pr - CYCLE_START) / (CYCLE_END - CYCLE_START)));
+          const day = Math.min(DAYS, Math.max(1, Math.round(1 + (DAYS - 1) * q)));
+          if (dayNum.current) dayNum.current.textContent = String(day);
+          if (dayPhase.current) dayPhase.current.textContent = PHASE_LABEL(day);
+
+          // Only the visible chapter takes pointer input (its links stay clickable).
+          const idx = pr < CHAPTERS[0] ? -1 : CHAPTERS.findLastIndex((c) => pr >= c);
+          if (idx !== active) {
+            active = idx;
+            items.forEach((el, i) => el.toggleAttribute("data-active", i === idx));
+            introRef.current?.toggleAttribute("inert", idx !== -1);
+          }
+        },
+      });
+
+      // Keyboard users: focusing into a chapter scrolls the pin to it, so focus is never on invisible text.
+      const onFocus = items.map((el, i) => {
+        const handler = () => {
+          const target = st.start + (st.end - st.start) * (CHAPTERS[i] + 0.06);
+          if (Math.abs(window.scrollY - target) > 4) window.scrollTo({ top: target });
+        };
+        el.addEventListener("focusin", handler);
+        return () => el.removeEventListener("focusin", handler);
+      });
+
+      if (!window.matchMedia("(pointer: fine)").matches) return () => onFocus.forEach((off) => off());
+      const onMove = (e: PointerEvent) => {
+        if (!st.isActive) return;
+        pointer.current = { x: (e.clientX / window.innerWidth) * 2 - 1, y: (e.clientY / window.innerHeight) * 2 - 1 };
+        invalidate.current();
+      };
+      window.addEventListener("pointermove", onMove, { passive: true });
+      return () => {
+        window.removeEventListener("pointermove", onMove);
+        onFocus.forEach((off) => off());
+      };
+    },
+    { scope: section },
+  );
+
+  return (
+    <section ref={section} aria-label="Luna, and how it works" className="relative h-svh overflow-hidden">
+      {/* 3D layer */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 z-0">
+        <div
+          ref={halo}
+          className="absolute left-1/2 top-[38%] aspect-square w-[min(120vw,56rem)] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-50 md:left-[62%]"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(255,221,224,0.85) 0%, rgba(255,221,224,0.3) 40%, rgba(214,203,227,0.16) 58%, transparent 72%)",
+          }}
+        />
+        <motion.div
+          className="absolute inset-0"
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={ready ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.96 }}
+          transition={{ type: "spring", duration: 0.9, bounce: 0.12, delay: 0.1 }}
+        >
+          <CycleScene
+            progress={progress}
+            pointer={pointer}
+            onReady={(requestFrame) => {
+              invalidate.current = requestFrame;
+              setReady(true);
+            }}
+          />
+        </motion.div>
+      </div>
+
+      {/* Intro: same composition as the static hero */}
+      <div
+        ref={introRef}
+        className="absolute inset-0 z-10 flex items-center px-5 pb-16 pt-[calc(6.5rem+env(safe-area-inset-top))] md:px-12 md:pb-24 md:pt-32"
+      >
+        <div className="mx-auto w-full max-w-5xl">{intro}</div>
+      </div>
+
+      {/* Readability scrim for chapters on phones, where text sits over the scene */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-[55%] bg-gradient-to-t from-[#FFF9F9] via-[#FFF9F9]/85 to-transparent md:hidden" />
+
+      <p
+        ref={dayReadout}
+        aria-hidden
+        className="absolute left-1/2 top-[calc(4.75rem+env(safe-area-inset-top))] z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/70 bg-white/70 px-3.5 py-1.5 text-xs font-medium tabular-nums text-[#6D5A60] opacity-0 backdrop-blur-md md:left-auto md:right-[max(1.5rem,calc(50%-34rem))] md:top-auto md:bottom-10 md:translate-x-0"
+      >
+        Day <span ref={dayNum}>1</span> · <span ref={dayPhase}>Period</span>
+        <span className="text-[#8A6F77]"> · example cycle</span>
+      </p>
+
+      <ol className="absolute inset-x-0 bottom-0 z-10 px-5 pb-[calc(2.25rem+env(safe-area-inset-bottom))] md:bottom-auto md:left-[max(1.5rem,calc(50%-34rem))] md:right-auto md:top-1/2 md:w-[26rem] md:-translate-y-1/2 md:px-0 md:pb-0">
+        {CHAPTER_CONTENT.map((c, i) => (
+          <li
+            key={c.label}
+            ref={(el) => {
+              chapters.current[i] = el;
+            }}
+            className="pointer-events-none absolute inset-x-5 bottom-[calc(2.25rem+env(safe-area-inset-bottom))] opacity-0 data-[active]:pointer-events-auto md:inset-x-0 md:bottom-auto md:top-1/2 md:-translate-y-1/2"
+          >
+            <ChapterText c={c} i={i} />
+            {c.proof ?? <div className="mt-6">{finale}</div>}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
