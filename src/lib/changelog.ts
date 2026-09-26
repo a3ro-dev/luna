@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.17.2",
+    date: "2026-09-26",
+    type: "refactor",
+    title: "Groundwork for plan-specific dashboards",
+    description:
+      "Each plan's dashboard now lives in its own layout file built from shared pieces, and the data behind it comes from one pure function used by the page. New presentation helpers find notes you wrote around the same cycle day in earlier cycles, list this cycle's notes, chart recent cycle lengths, and name today's estimated phase only when there is a basis for it. A development-only preview renders any plan with example data, without signing in or touching real data. Nothing changes for users yet.",
+  },
+  {
     version: "0.17.1",
     date: "2026-09-26",
     type: "feat",

@@ -51,9 +51,15 @@ export default auth((req) => {
     "/terms",
     "/transparency",
   ];
-  const isPublic = publicRoutes.some(
-    (r) => pathname === r || pathname.startsWith("/api/auth/"),
-  );
+  // Fixture previews of signed-in screens (no user data). Development only;
+  // the route itself also 404s in production.
+  const isDevPreview =
+    process.env.NODE_ENV !== "production" && pathname.startsWith("/dev/");
+  const isPublic =
+    isDevPreview ||
+    publicRoutes.some(
+      (r) => pathname === r || pathname.startsWith("/api/auth/"),
+    );
 
   // Onboarding is always accessible when logged in (consent happens here)
   const isOnboarding = pathname === "/onboarding";
