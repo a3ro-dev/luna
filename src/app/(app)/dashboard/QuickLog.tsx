@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 export interface OpenPeriod {
@@ -10,27 +10,31 @@ export interface OpenPeriod {
 }
 
 const primary =
-  "inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--tier-ink)] px-7 text-[11px] font-semibold uppercase tracking-widest text-[var(--tier-surface)] transition-colors duration-150 hover:opacity-90 disabled:opacity-50 cursor-pointer";
+  "inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--tier-ink)] px-7 text-[11px] font-semibold uppercase tracking-widest text-[var(--tier-surface)] shadow-[0_12px_24px_rgba(109,90,96,0.18)] transition-[background-color,transform] duration-150 hover:bg-[var(--tier-muted)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:active:scale-100 cursor-pointer";
 const ghost =
-  "text-xs font-medium text-[var(--tier-muted)] underline-offset-4 hover:text-[var(--tier-ink)] hover:underline cursor-pointer";
+  "inline-flex min-h-11 items-center px-2 text-sm font-medium text-[var(--tier-muted)] underline-offset-4 transition-colors duration-150 hover:text-[var(--tier-ink)] hover:underline cursor-pointer";
 const dateInput =
-  "min-h-11 rounded-2xl border border-[var(--tier-line)] bg-[var(--tier-surface)] px-4 text-sm text-[var(--tier-ink)] focus:outline-none focus:ring-2 focus:ring-[var(--tier-accent)]";
+  "min-h-12 min-w-0 flex-1 basis-44 rounded-2xl border border-[var(--tier-line)] bg-[var(--tier-bg)] px-4 text-base text-[var(--tier-ink)] focus:border-[var(--tier-accent)] sm:flex-none sm:text-sm";
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** One-tap period logging, backed by /api/cycles (same validation as chat). */
 export default function QuickLog({ today, openPeriod }: { today: string; openPeriod: OpenPeriod | null }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [picking, setPicking] = useState(false);
   const [date, setDate] = useState(today);
 
   const ending = openPeriod !== null;
+  const busy = saving || refreshing;
 
   const submit = async (iso: string) => {
-    setBusy(true);
+    setSaving(true);
     setError("");
+    setNotice("");
     try {
       const res = ending
         ? await fetch(`/api/cycles/${openPeriod.id}`, {
@@ -49,23 +53,26 @@ export default function QuickLog({ today, openPeriod }: { today: string; openPer
         return;
       }
       setPicking(false);
-      router.refresh();
+      setNotice(ending ? "Saved. Your period end is logged." : "Saved. Your period start is logged.");
+      // Keep the button busy until the refreshed forecast has rendered.
+      startRefresh(() => router.refresh());
     } catch {
       setError("You seem to be offline. Please try again.");
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
   };
 
   return (
     <section
       aria-labelledby="quick-log-heading"
-      className="rounded-3xl border border-[var(--tier-line)] bg-[var(--tier-surface)] p-6 sm:p-8"
+      aria-busy={busy}
+      className="rounded-3xl border border-[var(--tier-line)] bg-[var(--tier-surface)] p-5 shadow-[0_20px_40px_rgba(255,181,192,0.06)] sm:p-7"
     >
-      <p id="quick-log-heading" className="text-[10px] font-semibold uppercase tracking-widest text-[var(--tier-muted)]">
+      <h2 id="quick-log-heading" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--tier-muted)]">
         {ending ? `Period · day ${openPeriod.day}` : "Log"}
-      </p>
-      <p className="mt-2 font-serif text-xl font-light text-[var(--tier-ink)]">
+      </h2>
+      <p className="mt-2 font-serif text-2xl leading-snug text-[var(--tier-ink)]">
         {ending ? "Has your period stopped?" : "Did your period start?"}
       </p>
 
@@ -98,8 +105,13 @@ export default function QuickLog({ today, openPeriod }: { today: string; openPer
           </button>
         </form>
       ) : (
-        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
-          <button type="button" disabled={busy} onClick={() => submit(today)} className={primary}>
+        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => submit(today)}
+            className={`${primary} w-full sm:w-auto`}
+          >
             {busy ? "Saving…" : ending ? "It ended today" : "It started today"}
           </button>
           <button
@@ -107,6 +119,7 @@ export default function QuickLog({ today, openPeriod }: { today: string; openPer
             className={ghost}
             onClick={() => {
               setDate(today);
+              setNotice("");
               setPicking(true);
             }}
           >
@@ -115,8 +128,12 @@ export default function QuickLog({ today, openPeriod }: { today: string; openPer
         </div>
       )}
 
-      <p role="status" aria-live="polite" className="mt-3 min-h-4 text-xs text-[#B4485F]">
-        {error}
+      <p role="status" aria-live="polite" className="mt-2 min-h-5 text-sm">
+        {error ? (
+          <span className="text-[#B4485F]">{error}</span>
+        ) : notice ? (
+          <span className="text-[var(--tier-muted)]">{notice}</span>
+        ) : null}
       </p>
     </section>
   );

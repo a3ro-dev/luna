@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.14.0",
+    date: "2026-09-26",
+    type: "feat",
+    title: "A dashboard built around today",
+    description:
+      "The dashboard now opens with a Today card: a cycle ring that shows where you are in your cycle, the logged period, the likely next-start window and the estimated ovulation, next to the next-period estimate. The calendar pages back three months and ahead two, and shows a period in progress from its start through today. On phones the order is Today, Quick log, then everything else, and a bottom tab bar replaces the top buttons. Contrast, reduced-motion handling and screen-reader labels are improved throughout.",
+  },
+  {
     version: "0.13.3",
     date: "2026-09-26",
     type: "fix",

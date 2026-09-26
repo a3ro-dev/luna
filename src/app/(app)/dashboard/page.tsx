@@ -40,9 +40,14 @@ export default async function DashboardPage() {
   const plan = await getUserPlan(session.user.id);
 
   const [year, month] = today.split("-").map(Number);
-  const firstOfMonth = `${today.slice(0, 8)}01`;
-  const firstDayOffset = new Date(`${firstOfMonth}T12:00:00Z`).getUTCDay();
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+  // A period with no logged end, recent enough that it may still be ongoing
+  const last = rows.at(-1);
+  const bleedDay = last ? diffInDays(last.mStart, today) + 1 : 0;
+  const openPeriod =
+    last && !last.mEnd && bleedDay <= MAX_PERIOD_DAYS
+      ? { id: last.id, mStart: last.mStart, day: bleedDay }
+      : null;
 
   const periodDays = new Set<string>();
   const observedOvulationDays = new Set<string>();
@@ -54,10 +59,13 @@ export default async function DashboardPage() {
   for (let index = 0; index < rows.length; index++) {
     const current = rows[index];
     const next = rows[index + 1];
+    // An open period counts as logged from its start through today.
     const observedEnd =
       current.mEnd && current.mEnd >= current.mStart
         ? current.mEnd
-        : current.mStart;
+        : openPeriod?.id === current.id && today > current.mStart
+          ? today
+          : current.mStart;
     eachDay(current.mStart, observedEnd).forEach((date) =>
       periodDays.add(date),
     );
@@ -85,22 +93,57 @@ export default async function DashboardPage() {
   }
   if (forecast.ovulation) predictedOvulationDays.add(forecast.ovulation.date);
 
-  const calendarDays = Array.from({ length: daysInMonth }, (_, index) => {
-    const iso = `${year}-${String(month).padStart(2, "0")}-${String(
-      index + 1,
-    ).padStart(2, "0")}`;
+  // Three months back through two ahead: enough to see recent logs and the
+  // whole likely window, which can spill into the following month.
+  const calendarMonths = [-3, -2, -1, 0, 1, 2].map((offset) => {
+    const first = new Date(Date.UTC(year, month - 1 + offset, 1))
+      .toISOString()
+      .slice(0, 10);
+    const nextFirst = new Date(Date.UTC(year, month + offset, 1))
+      .toISOString()
+      .slice(0, 10);
     return {
-      iso,
-      day: index + 1,
-      isToday: iso === today,
-      isPeriod: periodDays.has(iso),
-      isPredicted: predictedStartDays.has(iso),
-      isOvulation: observedOvulationDays.has(iso),
-      isPredictedOvulation: predictedOvulationDays.has(iso),
-      isFollicular: follicularDays.has(iso),
-      isLuteal: lutealDays.has(iso),
+      key: first.slice(0, 7),
+      name: formatDate(first).replace(" 1,", ""),
+      firstDayOffset: new Date(`${first}T12:00:00Z`).getUTCDay(),
+      days: eachDay(first, addDaysToIsoDate(nextFirst, -1)).map((iso) => ({
+        iso,
+        day: Number(iso.slice(8)),
+        isToday: iso === today,
+        isPeriod: periodDays.has(iso),
+        isPredicted: predictedStartDays.has(iso),
+        isOvulation: observedOvulationDays.has(iso),
+        isPredictedOvulation: predictedOvulationDays.has(iso),
+        isFollicular: follicularDays.has(iso),
+        isLuteal: lutealDays.has(iso),
+      })),
     };
   });
+
+  // Where today sits in the current cycle, as day offsets from the last start.
+  const { lastStart, nextStart, dayOfCycle } = forecast;
+  const lastRow = rows.find((row) => row.mStart === lastStart);
+  const at = (iso: string) => Math.max(0, diffInDays(lastStart ?? today, iso));
+  const ring =
+    lastStart && nextStart && dayOfCycle != null
+      ? {
+          day: dayOfCycle + 1,
+          length: Math.max(at(nextStart.latest), dayOfCycle) + 1,
+          periodDays:
+            lastRow?.mEnd && lastRow.mEnd >= lastRow.mStart
+              ? at(lastRow.mEnd) + 1
+              : openPeriod && openPeriod.id === lastRow?.id
+                ? dayOfCycle + 1
+                : 1,
+          window: { start: at(nextStart.earliest), end: at(nextStart.latest) },
+          ovulation: forecast.ovulation
+            ? {
+                start: at(forecast.ovulation.earliest),
+                end: at(forecast.ovulation.latest),
+              }
+            : null,
+        }
+      : null;
 
   const prior = resolveForecastPrior(profile.conditions, profile.perimenoStage);
   const consistency =
@@ -111,14 +154,6 @@ export default async function DashboardPage() {
         : forecast.cycleLength.withinSd <= prior.cycle.withinSd * 1.5
           ? "Moderate"
           : "Varied";
-
-  // A period with no logged end, recent enough that it may still be ongoing
-  const last = rows.at(-1);
-  const bleedDay = last ? diffInDays(last.mStart, today) + 1 : 0;
-  const openPeriod =
-    last && !last.mEnd && bleedDay <= MAX_PERIOD_DAYS
-      ? { id: last.id, mStart: last.mStart, day: bleedDay }
-      : null;
 
   const cyclesForClient = rows
     .slice(-6)
@@ -156,9 +191,8 @@ export default async function DashboardPage() {
       avgPeriodLength={Math.round(forecast.periodLength.mean)}
       cyclesTracked={rows.length}
       consistency={consistency}
-      monthName={formatDate(firstOfMonth).replace(" 1,", "")}
-      calendarDays={calendarDays}
-      firstDayOffset={firstDayOffset}
+      calendarMonths={calendarMonths}
+      ring={ring}
       cycles={cyclesForClient}
       today={today}
       openPeriod={openPeriod}
