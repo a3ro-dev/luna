@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.14.3",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Warmer sign-in and onboarding",
+    description:
+      "Sign-in, sign-up and password pages are one thumb-friendly column on phones with larger text, show/hide password buttons, correct autofill hints, and clear inline errors. Onboarding moves focus to each new step for screen-reader users and keeps focus in place while saving.",
+  },
+  {
     version: "0.14.2",
     date: "2026-09-26",
     type: "feat",
