@@ -1,164 +1,35 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ChevronDown } from "lucide-react";
-
-interface Section {
-  id: string;
-  title: string;
-  content: React.ReactNode;
-}
+import { LegalDocument, type LegalSection } from "../privacy/privacy-client";
 
 export default function TermsOfUseClient() {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(["not-medical"]));
-  const [activeSection, setActiveSection] = useState("not-medical");
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const headings = document.querySelectorAll("[data-section]");
-      let current = "not-medical";
-      headings.forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        if (rect.top <= 120) {
-          current = el.getAttribute("data-section") || current;
-        }
-      });
-      setActiveSection(current);
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const toggle = (id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   return (
-    <div className="min-h-screen bg-[#FCFBFB] font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
-      <div className="max-w-5xl mx-auto px-6 py-16 md:py-24">
-        {/* Top bar */}
-        <div className="flex items-center gap-4 mb-16">
-          <Link
-            href="/"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[#FFDDE0]/60 text-[#8E7D82] transition hover:bg-[#FFF5F7] hover:text-[#6D5A60] shrink-0"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <div>
-            <h1 className="font-serif text-[clamp(2rem,4vw,3rem)] font-light text-[#6D5A60] tracking-tight">
-              Terms of Use
-            </h1>
-            <p className="text-sm font-light text-[#8E7D82]">
-              Last updated September 24, 2026
-            </p>
-          </div>
-        </div>
-
-        <div className="flex gap-12">
-          {/* Sticky sidebar TOC */}
-          <nav className="hidden lg:block w-56 shrink-0">
-            <div className="sticky top-24 space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8E7D82] mb-3">
-                On this page
-              </p>
-              {SECTIONS.map((s) => (
-                <a
-                  key={s.id}
-                  href={`#${s.id}`}
-                  className={`block text-xs font-light py-1.5 px-2 rounded-lg transition-colors ${
-                    activeSection === s.id
-                      ? "text-[#6D5A60] bg-[#FFDDE0]/30"
-                      : "text-[#8E7D82] hover:text-[#6D5A60]"
-                  }`}
-                >
-                  {s.title}
-                </a>
-              ))}
-            </div>
-          </nav>
-
-          <div className="min-w-0 flex-1 space-y-8">
-            {/* Intro */}
-            <div
-              className="rounded-2xl border border-[#FFDDE0]/30 bg-white/40 p-6"
-              data-section="not-medical"
-            >
-              <p className="text-[#6D5A60] font-light leading-relaxed">
-                By using Luna, you agree to these terms. They&apos;re written to
-                be clear about what Luna can and can&apos;t do — particularly
-                that it is not a medical device, not clinically validated, and
-                not a substitute for a doctor. Using Luna means you accept these
-                limitations.
-              </p>
-            </div>
-
-            {SECTIONS.map((section) => (
-              <motion.div
-                key={section.id}
-                id={section.id}
-                data-section={section.id}
-                className="rounded-2xl border border-[#FFDDE0]/30 bg-white/40 overflow-hidden"
-                initial={{ opacity: 0, y: 8 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggle(section.id)}
-                  className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-[#FFF9F9]/50 transition-colors cursor-pointer"
-                >
-                  <h2 className="font-serif text-xl font-light text-[#6D5A60]">
-                    {section.title}
-                  </h2>
-                  <motion.span
-                    animate={{ rotate: expanded.has(section.id) ? 180 : 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="text-[#8E7D82]/60 ml-3 shrink-0"
-                  >
-                    <ChevronDown className="w-4 h-4" />
-                  </motion.span>
-                </button>
-
-                <AnimatePresence initial={false}>
-                  {expanded.has(section.id) && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                      className="overflow-hidden"
-                    >
-                      <div className="px-6 pb-6 text-[#6D5A60] font-light leading-relaxed text-sm space-y-3">
-                        {section.content}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-
-        <footer className="mt-24 pt-12 border-t border-[#FFDDE0]/30 text-center">
-          <p className="text-sm text-[#8E7D82] font-light">
-            These terms are part of Luna&apos;s open-source repository. &copy;{" "}
-            {new Date().getFullYear()} Luna.
-          </p>
-        </footer>
-      </div>
-    </div>
+    <LegalDocument
+      title="Terms of Use"
+      updated="September 24, 2026"
+      intro={
+        <p>
+          By using Luna, you agree to these terms. They&apos;re written to
+          be clear about what Luna can and can&apos;t do — particularly
+          that it is not a medical device, not clinically validated, and
+          not a substitute for a doctor. Using Luna means you accept these
+          limitations.
+        </p>
+      }
+      sections={SECTIONS}
+      footer={
+        <>
+          These terms are part of Luna&apos;s open-source repository. &copy;{" "}
+          {new Date().getFullYear()} Luna.
+        </>
+      }
+    />
   );
 }
 
-const SECTIONS: Section[] = [
+const SECTIONS: LegalSection[] = [
   {
     id: "not-medical",
     title: "Not medical advice",
@@ -189,8 +60,8 @@ const SECTIONS: Section[] = [
           healthcare provider for medical advice.
         </p>
         <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4 mt-2">
-          <p className="text-xs text-[#8E7D82] flex items-start gap-2">
-            <span className="text-[#FFB5C0] shrink-0">⚠</span>
+          <p className="text-xs text-[#75636A] flex items-start gap-2">
+            <span aria-hidden className="text-[#A34E68] shrink-0">⚠</span>
             Luna is unvalidated. No clinical studies, no accuracy benchmarks,
             no published user research. 80 unit tests and synthetic backtests
             verify the implementation — but the live dataset is too small to
@@ -232,14 +103,14 @@ const SECTIONS: Section[] = [
           or miss information. Always verify what Luna logs.
         </p>
         <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4 mt-2">
-          <p className="text-xs text-[#8E7D82]">
+          <p className="text-xs text-[#75636A]">
             The prediction engine is fully open source. You can read the exact
             algorithm in{" "}
             <Link
               href="https://github.com/a3ro-dev/luna/blob/main/src/lib/prediction/forecast.ts"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#FFB5C0] hover:underline"
+              className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
             >
               forecast.ts
             </Link>{" "}
@@ -248,7 +119,7 @@ const SECTIONS: Section[] = [
               href="https://github.com/a3ro-dev/luna/blob/main/src/lib/prediction/__tests__/engine.test.ts"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#FFB5C0] hover:underline"
+              className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
             >
               engine.test.ts
             </Link>
@@ -320,7 +191,7 @@ const SECTIONS: Section[] = [
           deletion is coming soon to settings. When your account is deleted,
           all associated data is permanently removed from Luna&apos;s database.
         </p>
-        <p className="text-[#8E7D82] text-xs">
+        <p className="text-[#75636A] text-xs">
           Note: Data logged by third-party services (HackClub AI proxy,
           Supermemory) may persist according to their own retention policies.
           Luna can only delete data in its own database.
@@ -395,7 +266,7 @@ const SECTIONS: Section[] = [
             <p className="text-sm font-medium text-[#6D5A60] mb-1">
               Neon (database)
             </p>
-            <p className="text-xs text-[#8E7D82]">
+            <p className="text-xs text-[#75636A]">
               SOC 2 Type II, ISO 27001 certified. AES-256 at rest, TLS 1.2+ in
               transit. Acquired by Databricks (May 2025). HIPAA only on Scale
               plan — Luna does not use this plan.
@@ -405,7 +276,7 @@ const SECTIONS: Section[] = [
             <p className="text-sm font-medium text-[#6D5A60] mb-1">
               HackClub (AI proxy + search)
             </p>
-            <p className="text-xs text-[#8E7D82]">
+            <p className="text-xs text-[#75636A]">
               US 501(c)(3) nonprofit. Logs all AI prompts and responses in full.
               No documented retention period. No service-specific privacy policy.
               Code is open source and verifiable.
@@ -415,17 +286,17 @@ const SECTIONS: Section[] = [
             <p className="text-sm font-medium text-[#6D5A60] mb-1">
               Supermemory (AI memory)
             </p>
-            <p className="text-xs text-[#8E7D82]">
+            <p className="text-xs text-[#75636A]">
               Early-stage company. Claims SOC 2, HIPAA, GDPR compliance — no
               public audits. Encryption at rest not documented. Core engine
               is open source (MIT).
             </p>
           </div>
         </div>
-        <p className="mt-3 text-[#8E7D82] text-xs">
+        <p className="mt-3 text-[#75636A] text-xs">
           Self-hosting with replacement infrastructure is the only path to full
           data control. See our{" "}
-          <Link href="/transparency" className="text-[#FFB5C0] hover:underline">
+          <Link href="/transparency" className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]">
             Transparency
           </Link>{" "}
           page for details.
@@ -473,7 +344,7 @@ const SECTIONS: Section[] = [
           changes constitutes acceptance. If you do not agree with the updated
           terms, stop using Luna and contact us to delete your account.
         </p>
-        <p className="text-[#8E7D82] text-xs">
+        <p className="text-[#75636A] text-xs">
           These terms are tracked in Luna&apos;s open-source Git repository.
           You can see the full history of changes on GitHub.
         </p>

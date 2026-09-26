@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.14.4",
+    date: "2026-09-26",
+    type: "feat",
+    title: "A clearer front page",
+    description:
+      "The landing page says what Luna is in one line with one clear action, lists one-tap logging and the pattern check honestly, and no longer downloads the scroll animation on phones. The cookie notice and install prompt never cover each other or the main button. Legal pages are easier to read on small screens.",
+  },
+  {
     version: "0.14.3",
     date: "2026-09-26",
     type: "feat",

@@ -1,163 +1,34 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ChevronDown } from "lucide-react";
-
-interface Section {
-  id: string;
-  title: string;
-  content: React.ReactNode;
-}
+import { LegalDocument, type LegalSection } from "../privacy/privacy-client";
 
 export default function TransparencyClient() {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(["what-luna-is"]));
-  const [activeSection, setActiveSection] = useState("what-luna-is");
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const headings = document.querySelectorAll("[data-section]");
-      let current = "what-luna-is";
-      headings.forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        if (rect.top <= 120) {
-          current = el.getAttribute("data-section") || current;
-        }
-      });
-      setActiveSection(current);
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const toggle = (id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   return (
-    <div className="min-h-screen bg-[#FCFBFB] font-sans selection:bg-[#FFDDE0] selection:text-[#6D5A60]">
-      <div className="max-w-5xl mx-auto px-6 py-16 md:py-24">
-        {/* Top bar */}
-        <div className="flex items-center gap-4 mb-16">
-          <Link
-            href="/"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[#FFDDE0]/60 text-[#8E7D82] transition hover:bg-[#FFF5F7] hover:text-[#6D5A60] shrink-0"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <div>
-            <h1 className="font-serif text-[clamp(2rem,4vw,3rem)] font-light text-[#6D5A60] tracking-tight">
-              Transparency
-            </h1>
-            <p className="text-sm font-light text-[#8E7D82]">
-              Last updated September 24, 2026
-            </p>
-          </div>
-        </div>
-
-        <div className="flex gap-12">
-          {/* Sticky sidebar TOC */}
-          <nav className="hidden lg:block w-56 shrink-0">
-            <div className="sticky top-24 space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8E7D82] mb-3">
-                On this page
-              </p>
-              {SECTIONS.map((s) => (
-                <a
-                  key={s.id}
-                  href={`#${s.id}`}
-                  className={`block text-xs font-light py-1.5 px-2 rounded-lg transition-colors ${
-                    activeSection === s.id
-                      ? "text-[#6D5A60] bg-[#FFDDE0]/30"
-                      : "text-[#8E7D82] hover:text-[#6D5A60]"
-                  }`}
-                >
-                  {s.title}
-                </a>
-              ))}
-            </div>
-          </nav>
-
-          <div className="min-w-0 flex-1 space-y-8">
-            {/* Intro */}
-            <div
-              className="rounded-2xl border border-[#FFDDE0]/30 bg-white/40 p-6"
-              data-section="what-luna-is"
-            >
-              <p className="text-[#6D5A60] font-light leading-relaxed">
-                This page exists to be honest about what Luna is, what it
-                isn&apos;t, and how it works under the hood. No fine print.
-                No weasel words. We wrote this because legal polish is easy,
-                but real transparency means telling you what we don&apos;t know.
-              </p>
-            </div>
-
-            {SECTIONS.map((section) => (
-              <motion.div
-                key={section.id}
-                id={section.id}
-                data-section={section.id}
-                className="rounded-2xl border border-[#FFDDE0]/30 bg-white/40 overflow-hidden"
-                initial={{ opacity: 0, y: 8 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggle(section.id)}
-                  className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-[#FFF9F9]/50 transition-colors cursor-pointer"
-                >
-                  <h2 className="font-serif text-xl font-light text-[#6D5A60]">
-                    {section.title}
-                  </h2>
-                  <motion.span
-                    animate={{ rotate: expanded.has(section.id) ? 180 : 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="text-[#8E7D82]/60 ml-3 shrink-0"
-                  >
-                    <ChevronDown className="w-4 h-4" />
-                  </motion.span>
-                </button>
-
-                <AnimatePresence initial={false}>
-                  {expanded.has(section.id) && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                      className="overflow-hidden"
-                    >
-                      <div className="px-6 pb-6 text-[#6D5A60] font-light leading-relaxed text-sm space-y-3">
-                        {section.content}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-
-        <footer className="mt-24 pt-12 border-t border-[#FFDDE0]/30 text-center">
-          <p className="text-sm text-[#8E7D82] font-light">
-            Everything on this page is verifiable from Luna&apos;s source code.{" "}
-            &copy; {new Date().getFullYear()} Luna.
-          </p>
-        </footer>
-      </div>
-    </div>
+    <LegalDocument
+      title="Transparency"
+      updated="September 24, 2026"
+      intro={
+        <p>
+          This page exists to be honest about what Luna is, what it
+          isn&apos;t, and how it works under the hood. No fine print.
+          No weasel words. We wrote this because legal polish is easy,
+          but real transparency means telling you what we don&apos;t know.
+        </p>
+      }
+      sections={SECTIONS}
+      footer={
+        <>
+          Everything on this page is verifiable from Luna&apos;s source code.{" "}
+          &copy; {new Date().getFullYear()} Luna.
+        </>
+      }
+    />
   );
 }
 
-const SECTIONS: Section[] = [
+const SECTIONS: LegalSection[] = [
   {
     id: "what-luna-is",
     title: "What Luna is",
@@ -241,10 +112,10 @@ const SECTIONS: Section[] = [
             href="https://github.com/a3ro-dev/luna/blob/main/src/lib/prediction/forecast.ts"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#FFB5C0] hover:underline"
+            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
           >
             forecast.ts
-          </Link>{" "}
+          </Link>
           . Here&apos;s exactly what it does:
         </p>
 
@@ -261,7 +132,7 @@ const SECTIONS: Section[] = [
               contraception do not receive invented means when the source only
               supports a directional association.
             </p>
-            <p className="mt-2 text-[11px] text-[#8E7D82]">
+            <p className="mt-2 text-xs text-[#75636A]">
               The numerical assumptions, source populations, and transfer
               limits are listed in papers/references.md. Several components are
               conservative engineering assumptions that still require
@@ -279,7 +150,7 @@ const SECTIONS: Section[] = [
               point, but a variance floor prevents one or two similar cycles
               from producing a falsely precise prediction.
             </p>
-            <p className="mt-1 text-[11px] text-[#8E7D82]">
+            <p className="mt-1 text-xs text-[#75636A]">
               Only the 12 most recent usable intervals inform a forecast. The
               exact shrinkage strength remains an assumption to validate.
             </p>
@@ -295,7 +166,7 @@ const SECTIONS: Section[] = [
               is counted in the forecast basis. Repeated long intervals are
               treated as a personal pattern instead of being discarded.
             </p>
-            <p className="mt-1 text-[11px] text-[#8E7D82]">
+            <p className="mt-1 text-xs text-[#75636A]">
               Luna does not know whether a long gap is a missed log or a genuine
               long cycle. This is an uncertainty rule, not a diagnosis.
             </p>
@@ -312,7 +183,7 @@ const SECTIONS: Section[] = [
               person&apos;s typical cycle. Ovulation is clearly labelled as a
               calendar estimate or withheld when unsuitable.
             </p>
-            <p className="mt-1 text-[11px] text-[#8E7D82]">
+            <p className="mt-1 text-xs text-[#75636A]">
               Synthetic tests check calibration under known assumptions. The
               live dataset is too small to establish real-world coverage.
             </p>
@@ -341,25 +212,25 @@ const SECTIONS: Section[] = [
               AI traces — lives here. Neon is a serverless PostgreSQL platform
               on AWS (8 regions, 4 continents).
             </p>
-            <div className="mt-2 grid grid-cols-2 gap-1 text-[11px]">
-              <span className="text-[#8E7D82]">Encryption at rest</span>
+            <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
+              <span className="text-[#75636A]">Encryption at rest</span>
               <span className="text-[#6D5A60] font-medium">AES-256</span>
-              <span className="text-[#8E7D82]">In transit</span>
+              <span className="text-[#75636A]">In transit</span>
               <span className="text-[#6D5A60] font-medium">TLS 1.2+</span>
-              <span className="text-[#8E7D82]">Certifications</span>
+              <span className="text-[#75636A]">Certifications</span>
               <span className="text-[#6D5A60] font-medium">SOC 2, ISO 27001</span>
-              <span className="text-[#8E7D82]">HIPAA</span>
-              <span className="text-[#8E7D82]">Scale plan only</span>
-              <span className="text-[#8E7D82]">Parent company</span>
+              <span className="text-[#75636A]">HIPAA</span>
+              <span className="text-[#75636A]">Scale plan only</span>
+              <span className="text-[#75636A]">Parent company</span>
               <span className="text-[#6D5A60] font-medium">Databricks (acquired 2025)</span>
             </div>
-            <p className="mt-2 text-[11px] text-[#8E7D82]">
+            <p className="mt-2 text-xs text-[#75636A]">
               Neon does not sell personal data. Core engine is Apache 2.0
               open source. Luna uses the HTTP serverless driver with cache:
               no-store.{" "}
-              <a href="https://trust.neon.com" target="_blank" rel="noopener noreferrer" className="text-[#FFB5C0] hover:underline">Trust Center</a>{" "}
+              <a href="https://trust.neon.com" target="_blank" rel="noopener noreferrer" className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]">Trust Center</a>{" "}
               ·{" "}
-              <a href="https://neon.com/security" target="_blank" rel="noopener noreferrer" className="text-[#FFB5C0] hover:underline">Security</a>
+              <a href="https://neon.com/security" target="_blank" rel="noopener noreferrer" className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]">Security</a>
             </p>
           </div>
 
@@ -374,8 +245,8 @@ const SECTIONS: Section[] = [
               HackClub&apos;s search API.
             </p>
             <div className="mt-2 flex items-start gap-2 p-2 rounded-lg bg-[#FFDDE0]/20">
-              <span className="text-[#FFB5C0] shrink-0 text-base">⚠</span>
-              <p className="text-[11px] text-[#6D5A60]">
+              <span aria-hidden className="text-[#A34E68] shrink-0 text-base">⚠</span>
+              <p className="text-xs text-[#6D5A60]">
                 <strong>Critical concern:</strong> HackClub logs every AI prompt
                 and response in full (jsonb), linked to user ID and IP. No
                 retention policy. No deletion schedule. No service-specific
@@ -383,11 +254,11 @@ const SECTIONS: Section[] = [
                 messages is stored indefinitely on their infrastructure.
               </p>
             </div>
-            <p className="mt-2 text-[11px] text-[#8E7D82]">
+            <p className="mt-2 text-xs text-[#75636A]">
               All code is open source — the logging is verifiable. But it is
               not optional. If you need strong privacy, self-host Luna with
               your own AI backend.{" "}
-              <a href="https://hackclub.com/privacy-and-terms" target="_blank" rel="noopener noreferrer" className="text-[#FFB5C0] hover:underline">HackClub Privacy & Terms</a>
+              <a href="https://hackclub.com/privacy-and-terms" target="_blank" rel="noopener noreferrer" className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]">HackClub Privacy & Terms</a>
             </p>
           </div>
 
@@ -400,21 +271,21 @@ const SECTIONS: Section[] = [
               Supermemory v4 API. Luna sends only personal facts — never cycle
               data or chat messages. Scoped per user via containerTag.
             </p>
-            <div className="mt-2 grid grid-cols-2 gap-1 text-[11px]">
-              <span className="text-[#8E7D82]">Infrastructure</span>
+            <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
+              <span className="text-[#75636A]">Infrastructure</span>
               <span className="text-[#6D5A60] font-medium">Timescale + Cloudflare</span>
-              <span className="text-[#8E7D82]">At-rest encryption</span>
-              <span className="text-[#8E7D82]">Not documented</span>
-              <span className="text-[#8E7D82]">Compliance</span>
-              <span className="text-[#8E7D82]">Claims only (no audits)</span>
-              <span className="text-[#8E7D82]">Third-party AI</span>
-              <span className="text-[#8E7D82]">May use OpenAI/Gemini</span>
+              <span className="text-[#75636A]">At-rest encryption</span>
+              <span className="text-[#75636A]">Not documented</span>
+              <span className="text-[#75636A]">Compliance</span>
+              <span className="text-[#75636A]">Claims only (no audits)</span>
+              <span className="text-[#75636A]">Third-party AI</span>
+              <span className="text-[#75636A]">May use OpenAI/Gemini</span>
             </div>
-            <p className="mt-2 text-[11px] text-[#8E7D82]">
+            <p className="mt-2 text-xs text-[#75636A]">
               Supermemory Inc. is early-stage (founded by Dhravya Shah). Core
               engine is MIT open source. Luna uses a 3-second AbortSignal
               timeout on all Supermemory calls.{" "}
-              <a href="https://supermemory.ai/privacy" target="_blank" rel="noopener noreferrer" className="text-[#FFB5C0] hover:underline">Supermemory Privacy</a>
+              <a href="https://supermemory.ai/privacy" target="_blank" rel="noopener noreferrer" className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]">Supermemory Privacy</a>
             </p>
           </div>
         </div>
@@ -425,14 +296,19 @@ const SECTIONS: Section[] = [
     id: "data-flow",
     title: "Data flow summary",
     content: (
-      <div className="overflow-x-auto">
-        <table className="w-full text-[11px]">
+      <div
+        role="region"
+        aria-label="Data flow summary table, scrolls sideways on small screens"
+        tabIndex={0}
+        className="-mx-5 overflow-x-auto px-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D5A60] sm:mx-0 sm:px-0"
+      >
+        <table className="w-full min-w-[34rem] text-xs leading-relaxed">
           <thead>
-            <tr className="border-b border-[#FFDDE0]/20 text-[#8E7D82]">
-              <th className="text-left py-1.5 pr-2 font-medium">Data type</th>
-              <th className="text-left py-1.5 px-2 font-medium">Stored in</th>
-              <th className="text-left py-1.5 px-2 font-medium">Also processed by</th>
-              <th className="text-left py-1.5 pl-2 font-medium">Logging</th>
+            <tr className="border-b border-[#FFDDE0] text-[#75636A]">
+              <th scope="col" className="text-left py-2 pr-2 font-medium">Data type</th>
+              <th scope="col" className="text-left py-2 px-2 font-medium">Stored in</th>
+              <th scope="col" className="text-left py-2 px-2 font-medium">Also processed by</th>
+              <th scope="col" className="text-left py-2 pl-2 font-medium">Logging</th>
             </tr>
           </thead>
           <tbody>
@@ -443,11 +319,11 @@ const SECTIONS: Section[] = [
               ["Web searches", "—", "HackClub search API", "Subject to HackClub's handling"],
               ["Auth credentials", "Neon (AWS)", "—", "bcryptjs hashed"],
             ].map(([type, stored, processed, logging]) => (
-              <tr key={type} className="border-b border-[#FFDDE0]/10">
-                <td className="py-1.5 pr-2 text-[#6D5A60] font-medium">{type}</td>
-                <td className="py-1.5 px-2">{stored}</td>
-                <td className="py-1.5 px-2">{processed}</td>
-                <td className="py-1.5 pl-2 text-[#8E7D82]">{logging}</td>
+              <tr key={type} className="border-b border-[#FFDDE0]/60 align-top">
+                <th scope="row" className="text-left py-2 pr-2 text-[#6D5A60] font-medium">{type}</th>
+                <td className="py-2 px-2">{stored}</td>
+                <td className="py-2 px-2">{processed}</td>
+                <td className="py-2 pl-2 text-[#75636A]">{logging}</td>
               </tr>
             ))}
           </tbody>
@@ -521,13 +397,13 @@ const SECTIONS: Section[] = [
           </li>
         </ul>
         <div className="rounded-xl border border-[#FFDDE0]/20 bg-[#FFF9F9] p-4 mt-4">
-          <p className="text-xs text-[#8E7D82]">
+          <p className="text-xs text-[#75636A]">
             These limitations are documented in detail in Luna&apos;s{" "}
             <Link
               href="https://github.com/a3ro-dev/luna/tree/main/papers"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#FFB5C0] hover:underline"
+              className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
             >
               papers directory
             </Link>
@@ -586,7 +462,7 @@ const SECTIONS: Section[] = [
             href="https://github.com/a3ro-dev/luna"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#FFB5C0] hover:underline"
+            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
           >
             github.com/a3ro-dev/luna
           </Link>
@@ -605,7 +481,7 @@ const SECTIONS: Section[] = [
               key={item}
               className="flex items-start gap-2 text-xs p-2 rounded-lg bg-[#FFF9F9]"
             >
-              <span className="text-[#D6CBE3] shrink-0">→</span>
+              <span aria-hidden className="text-[#A34E68] shrink-0">→</span>
               <span className="text-[#6D5A60]">{item}</span>
             </div>
           ))}
@@ -629,7 +505,7 @@ const SECTIONS: Section[] = [
           href="https://github.com/a3ro-dev/luna/blob/main/src/lib/chat/models.ts"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[#FFB5C0] hover:underline"
+          className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 hover:decoration-[#A34E68]"
         >
           models.ts
         </Link>
@@ -659,7 +535,7 @@ const SECTIONS: Section[] = [
         <p>
           <a
             href="mailto:akshatsingh14372@outlook.com"
-            className="text-[#FFB5C0] hover:underline transition-all"
+            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 transition-colors hover:decoration-[#A34E68]"
           >
             akshatsingh14372@outlook.com
           </a>
@@ -669,7 +545,7 @@ const SECTIONS: Section[] = [
             href="https://github.com/a3ro-dev/luna"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#FFB5C0] hover:underline transition-all"
+            className="text-[#A34E68] underline decoration-[#FFB5C0] underline-offset-2 transition-colors hover:decoration-[#A34E68]"
           >
             github.com/a3ro-dev/luna
           </Link>
