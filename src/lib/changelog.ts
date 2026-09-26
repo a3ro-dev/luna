@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "0.14.2",
+    date: "2026-09-26",
+    type: "feat",
+    title: "Calmer, clearer settings",
+    description:
+      "Settings are grouped into sections with their own save and error messages, inline validation, and focus moving to the first problem. Every timezone is available and India no longer appears twice. An empty date of birth no longer blocks saving. The bottom tab bar is available on phones.",
+  },
+  {
     version: "0.14.1",
     date: "2026-09-26",
     type: "feat",
