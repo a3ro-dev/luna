@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site-url";
 
-const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://luna-tracker.a3ro.dev").replace(/\/+$/, "");
 
 // Only the public routes from src/proxy.ts; everything else sits behind sign-in.
 export default function sitemap(): MetadataRoute.Sitemap {

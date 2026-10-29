@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site-url";
 
-const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://luna-tracker.a3ro.dev").replace(/\/+$/, "");
 
 export default function robots(): MetadataRoute.Robots {
   return {

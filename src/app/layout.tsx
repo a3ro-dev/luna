@@ -8,6 +8,7 @@ import CookieConsent from "@/components/CookieConsent";
 import { cn } from "@/lib/utils";
 import { themeScript } from "@/lib/theme/no-flash";
 import ThemeColorSync from "@/lib/theme/theme-color";
+import { SITE_URL } from "@/lib/site-url";
 
 // UI type is the platform's own (SF Pro on Apple devices), so nothing to download.
 // The serif is Apple's New York where available; Instrument Serif is the fallback.
@@ -29,7 +30,6 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://luna-tracker.a3ro.dev").replace(/\/+$/, "");
 const TITLE = "Luna: a private period tracker with AI chat";
 const DESCRIPTION =
   "Luna is a private period tracker. Log your cycle by chatting, see cautious next-period estimates with a range, and export your data. Not a medical device.";
