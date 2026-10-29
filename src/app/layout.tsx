@@ -29,10 +29,18 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://luna-tracker.a3ro.dev").replace(/\/+$/, "");
+const TITLE = "Luna: a private period tracker with AI chat";
+const DESCRIPTION =
+  "Luna is a private period tracker. Log your cycle by chatting, see cautious next-period estimates with a range, and export your data. Not a medical device.";
+
 export const metadata: Metadata = {
-  title: "Luna - Cycle Tracker",
-  description:
-    "Your caring health companion — log, predict, and chat about your cycle",
+  metadataBase: new URL(SITE_URL),
+  title: { default: TITLE, template: "%s | Luna" },
+  description: DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: { type: "website", siteName: "Luna", title: TITLE, description: DESCRIPTION, url: "/" },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION, creator: "@a3rodev" },
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
